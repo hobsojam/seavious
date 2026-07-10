@@ -65,6 +65,17 @@ played via `raudio`'s `Sound` API. A dedicated SFX synth is a better fit
 than the tracker for one-shot sounds, and WAV has no compatibility caveats
 the way XM/MOD does.
 
+**HUD/UI**: Reserved bottom bar (512x32), carved out of the 512x384 canvas
+— play area becomes 512x352. Left: lives, shown as small cyan
+ship-silhouette icons matching the player color. Center-left: score, in a
+pixel font, the largest text in the bar. Right: torpedo status icon —
+bright/amber when ready, dims or shows a small reload meter on cooldown
+(torpedo isn't unlimited-fire, unlike the gun). Far right: reserved but
+empty outside boss fights, becomes a boss health bar when one is active, so
+the layout doesn't need to change later just to add that. Chosen as a
+reserved bar rather than an overlay so the HUD never competes with the
+glow/bloom-heavy playfield for readability.
+
 **Structure**: Stage-based, with a boss fight at the end of each stage.
 Lives-based (die = lose a life, restart at checkpoint; game over on last
 life). No roguelike meta-progression between runs.

@@ -19,8 +19,9 @@ items.
 - [ ] Lives / game-over loop (post-MVP, needed for full stage structure)
 - [ ] Boss fight structure (post-MVP, end of each stage)
 - [ ] Stage/wave definition + sequencing (post-MVP)
-- [ ] HUD/UI layout (top or bottom bar now that the playfield is landscape
-      — score, lives, weapon/torpedo status)
+- [ ] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
+      lives icons left, score center-left, torpedo status right, boss
+      health bar far right (boss fights only) — see README for full layout
 
 ## Content
 
