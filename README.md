@@ -34,6 +34,48 @@ playfield would have on most monitors.
 glowing energy lines, geometric silhouettes. Applies to both the air drone
 swarms and the surface installations, for readability at small sprite sizes.
 
+**Enemy roster (Stage 1 sized)**:
+
+Silhouette rule, on top of the color coding: air units read as *aircraft*
+(swept/pointed shapes, implies motion), ground units read as *platforms*
+(flat-bottomed, sits at a visible waterline, implies stationary bulk) — so
+shape alone hints at which weapon to use, before color even registers.
+
+Air (magenta/purple, gun targets):
+- *Skimmer Drone* — weakest, most common filler. Sine-wave flight, dies in
+  1-2 hits. Tiny dart/diamond shape, one glowing core, minimal wing area —
+  deliberately plain so it parses instantly in swarms.
+- *Interceptor* — faster, flies straight at/past the player, fires a single
+  forward shot — the first enemy that shoots back. Elongated, forward-swept
+  wings (stealth-fighter-ish), glowing spine stripe showing its weapon.
+- *Wing Formation* — not a new sprite, just Skimmer Drones flying a fixed V
+  or line formation, testing aim/positioning across a spread.
+- *Gunship* (heavier, less frequent) — bigger, tougher, fires a 3-way
+  spread. Bulky twin-hull frame (like a small flying catamaran, echoing the
+  naval theme even airborne), three visible weapon-emitter nodes.
+
+Ground/surface (amber/orange, torpedo targets):
+- *Turret Platform* — stationary, breaches the surface, fires straight
+  shots up the player's lane. The baseline ground threat. Low hexagonal
+  platform, single rotating cannon on top, amber glow ring at the waterline.
+- *Relay Node* — stationary, doesn't attack directly but periodically
+  launches Skimmer Drones — high priority since destroying it cuts off
+  reinforcements. Spire/tower with a pulsing beacon top instead of a gun
+  barrel (reads as "broadcasting," not "shooting"), flashes brighter when
+  launching a drone.
+- *Mine* — stationary, no attack, but sits in the player's path and
+  detonates on contact if not destroyed first — a positioning check rather
+  than a threat that shoots. Small spiked-sphere/urchin shape at the
+  waterline, kept dim/low-key so it doesn't visually announce itself.
+- *Mobile Platform* (heavier, less frequent) — slowly drifts across the
+  water, higher HP, wider shot spread. Wider, flatter barge/raft shape,
+  several small weapon emitters along its edge, trailing wake.
+
+Stage 1 boss: *Leviathan-class dreadnought*, partially breaching the
+surface, with separate gun-weak pods and torpedo-weak hull sections as
+destructible parts — the dual-targeting mechanic made literal in one fight.
+Visual design deferred to a separate pass (see `TODO.md`).
+
 **Color palette**: No sky rendered — open water scrolls underneath the
 top-down camera. Environment is deep teal-to-navy ocean
 (`#0a2530` → `#134a5c`) with pale cyan-white foam/wave crests (`#cfeff0`).

@@ -25,9 +25,18 @@ items.
 
 ## Content
 
-- [ ] Enemy roster design (air + ground, beyond the first proof-of-concept
-      pair)
-- [ ] Stage list + per-stage boss concepts
+- [x] Enemy roster design (air + ground, beyond the first proof-of-concept
+      pair), including per-enemy silhouette/visual description — see
+      README for the full Stage 1 roster
+- [ ] Implement air roster: Skimmer Drone, Interceptor, Wing Formation,
+      Gunship
+- [ ] Implement ground roster: Turret Platform, Relay Node, Mine, Mobile
+      Platform
+- [ ] Design Stage 1 boss visuals (Leviathan-class dreadnought) — deferred
+      as its own task, separate from the roster above
+- [ ] Implement Stage 1 boss: Leviathan-class dreadnought (gun-weak pods +
+      torpedo-weak hull sections)
+- [ ] Stage list + per-stage boss concepts (beyond Stage 1)
 - [ ] Plan each level (enemy wave placement, pacing, terrain/visual variety
       per stage — e.g. open ocean vs. storm vs. near islands)
 - [ ] Player skimmer sprite + wake/spray effect
