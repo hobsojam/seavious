@@ -13,11 +13,13 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [ ] 2. Implement scrolling background: tile the ocean texture (once
       created, see Art below) across the canvas, offset horizontally each
       frame by scroll speed, wrap with modulo for seamless infinite scroll
-- [ ] 3. Implement player sprite rendering: `LoadTexture` the ship sprite
-      (once created, see Art below), replace the placeholder `DrawTriangle`
-      with a textured draw call
+- [x] 3. Implement player sprite rendering: `LoadTexture` the ship sprite,
+      replace the placeholder `DrawTriangle` with a textured draw call;
+      movement bounds now clamp to the sprite's actual 48x24 half-size
+      instead of the old triangle's 8px margin; CMake copies `assets/` next
+      to the built exe (POST_BUILD step) so the relative load path works
 - [ ] 4. Confirm 4-directional controls feel right against the new bounds
-      and spawn position
+      and spawn position (needs an actual play-test on Windows)
 
 - [ ] Forward (rightward) gun: auto-fire, hits air targets
 - [ ] Torpedo: forward-fired (rightward) on second input, travels along
@@ -56,9 +58,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       raylib's `LoadTexture`
 - [ ] Ocean background tile art (tileable water texture, locked palette,
       needed for milestone step 2 above)
-- [ ] Player skimmer sprite — twin-ski dart silhouette, see README for
-      full design (needed for milestone step 3 above); wake/spray effect
-      deferred to the VFX design pass
+- [x] Player skimmer sprite — twin-ski dart silhouette, first-pass
+      programmatic version at `assets/sprites/player_ship.png` (48x24),
+      wired into the game in milestone step 3 above; refining in
+      LibreSprite and wake/spray effect (deferred to the VFX pass) still
+      outstanding
 
 ## Audio
 

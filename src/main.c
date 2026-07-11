@@ -19,6 +19,9 @@ int main(void) {
     RenderTexture2D target = LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
 
+    Texture2D playerTex = LoadTexture("assets/sprites/player_ship.png");
+    SetTextureFilter(playerTex, TEXTURE_FILTER_POINT);
+
     Star stars[STAR_COUNT];
     for (int i = 0; i < STAR_COUNT; i++) {
         stars[i].x = (float)GetRandomValue(0, GAME_WIDTH);
@@ -37,10 +40,12 @@ int main(void) {
         if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    player.y -= playerSpeed * dt;
         if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  player.y += playerSpeed * dt;
 
-        if (player.x < 8) player.x = 8;
-        if (player.x > GAME_WIDTH - 8) player.x = GAME_WIDTH - 8;
-        if (player.y < 8) player.y = 8;
-        if (player.y > PLAY_HEIGHT - 8) player.y = PLAY_HEIGHT - 8;
+        float halfW = playerTex.width / 2.0f;
+        float halfH = playerTex.height / 2.0f;
+        if (player.x < halfW) player.x = halfW;
+        if (player.x > GAME_WIDTH - halfW) player.x = GAME_WIDTH - halfW;
+        if (player.y < halfH) player.y = halfH;
+        if (player.y > PLAY_HEIGHT - halfH) player.y = PLAY_HEIGHT - halfH;
 
         // World scrolls right-to-left under the player, like the ocean
         // background will once its tile art exists (see TODO.md).
@@ -60,11 +65,13 @@ int main(void) {
             }
 
             // Ship points right (direction of travel / forward fire).
-            DrawTriangle(
-                (Vector2){ player.x + 8, player.y },
-                (Vector2){ player.x - 8, player.y - 6 },
-                (Vector2){ player.x - 8, player.y + 6 },
-                GREEN
+            // Sprite is drawn nose-to-tail already facing right, so no
+            // rotation is needed — just center it on the player position.
+            DrawTexture(
+                playerTex,
+                (int)(player.x - playerTex.width / 2.0f),
+                (int)(player.y - playerTex.height / 2.0f),
+                WHITE
             );
 
             // HUD bar placeholder — real content (score/lives/torpedo
@@ -86,6 +93,7 @@ int main(void) {
         EndDrawing();
     }
 
+    UnloadTexture(playerTex);
     UnloadRenderTexture(target);
     CloseWindow();
     return 0;

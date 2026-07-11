@@ -12,6 +12,13 @@ add_executable(seavious
 
 target_link_libraries(seavious PRIVATE raylib)
 
+add_custom_command(TARGET seavious POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets
+        $<TARGET_FILE_DIR:seavious>/assets
+    COMMENT "Copying assets next to the built executable"
+)
+
 if(WIN32)
     target_link_libraries(seavious PRIVATE winmm)
 endif()
