@@ -1,9 +1,11 @@
 #include "raylib.h"
 
-#define GAME_WIDTH  240
-#define GAME_HEIGHT 320
-#define WINDOW_SCALE 3
-#define STAR_COUNT 60
+#define GAME_WIDTH   512
+#define GAME_HEIGHT  384
+#define HUD_HEIGHT   32
+#define PLAY_HEIGHT  (GAME_HEIGHT - HUD_HEIGHT)
+#define WINDOW_SCALE 2
+#define STAR_COUNT   60
 
 typedef struct {
     float x, y;
@@ -20,11 +22,11 @@ int main(void) {
     Star stars[STAR_COUNT];
     for (int i = 0; i < STAR_COUNT; i++) {
         stars[i].x = (float)GetRandomValue(0, GAME_WIDTH);
-        stars[i].y = (float)GetRandomValue(0, GAME_HEIGHT);
+        stars[i].y = (float)GetRandomValue(0, PLAY_HEIGHT);
         stars[i].speed = (float)GetRandomValue(40, 160) / 60.0f;
     }
 
-    Vector2 player = { GAME_WIDTH / 2.0f, GAME_HEIGHT - 32.0f };
+    Vector2 player = { 48.0f, PLAY_HEIGHT / 2.0f };
     const float playerSpeed = 120.0f;
 
     while (!WindowShouldClose()) {
@@ -38,13 +40,15 @@ int main(void) {
         if (player.x < 8) player.x = 8;
         if (player.x > GAME_WIDTH - 8) player.x = GAME_WIDTH - 8;
         if (player.y < 8) player.y = 8;
-        if (player.y > GAME_HEIGHT - 8) player.y = GAME_HEIGHT - 8;
+        if (player.y > PLAY_HEIGHT - 8) player.y = PLAY_HEIGHT - 8;
 
+        // World scrolls right-to-left under the player, like the ocean
+        // background will once its tile art exists (see TODO.md).
         for (int i = 0; i < STAR_COUNT; i++) {
-            stars[i].y += stars[i].speed;
-            if (stars[i].y > GAME_HEIGHT) {
-                stars[i].y = 0;
-                stars[i].x = (float)GetRandomValue(0, GAME_WIDTH);
+            stars[i].x -= stars[i].speed;
+            if (stars[i].x < 0) {
+                stars[i].x = GAME_WIDTH;
+                stars[i].y = (float)GetRandomValue(0, PLAY_HEIGHT);
             }
         }
 
@@ -55,12 +59,18 @@ int main(void) {
                 DrawPixel((int)stars[i].x, (int)stars[i].y, RAYWHITE);
             }
 
+            // Ship points right (direction of travel / forward fire).
             DrawTriangle(
-                (Vector2){ player.x, player.y - 8 },
-                (Vector2){ player.x - 6, player.y + 8 },
-                (Vector2){ player.x + 6, player.y + 8 },
+                (Vector2){ player.x + 8, player.y },
+                (Vector2){ player.x - 8, player.y - 6 },
+                (Vector2){ player.x - 8, player.y + 6 },
                 GREEN
             );
+
+            // HUD bar placeholder — real content (score/lives/torpedo
+            // status) is a separate TODO item.
+            DrawRectangle(0, PLAY_HEIGHT, GAME_WIDTH, HUD_HEIGHT, (Color){ 10, 14, 18, 255 });
+            DrawLine(0, PLAY_HEIGHT, GAME_WIDTH, PLAY_HEIGHT, (Color){ 76, 224, 232, 255 });
         EndTextureMode();
 
         BeginDrawing();

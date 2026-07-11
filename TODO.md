@@ -5,12 +5,20 @@ items.
 
 ## Mechanics (current focus: bare mechanical proof)
 
-- [ ] Rework skeleton from vertical to horizontal scroll (pivot decided —
-      top-down camera kept, scroll axis rotates to left-to-right, Uridium-
-      style not Scramble-style): switch internal resolution from the
-      240x320 portrait placeholder to 512x384 (2x upscale to a 1024x768
-      window), flip starfield/water scroll axis, move player toward the
-      right edge instead of the bottom
+Milestone — scrolling background + player sprite + 4-directional controls:
+- [x] 1. Rework skeleton orientation: internal canvas 240x320 → 512x384
+      (2x to 1024x768 window), move player default position from
+      bottom-center to left-middle, reclamp movement bounds to the
+      512x352 play area, HUD bar placeholder carved out at the bottom
+- [ ] 2. Implement scrolling background: tile the ocean texture (once
+      created, see Art below) across the canvas, offset horizontally each
+      frame by scroll speed, wrap with modulo for seamless infinite scroll
+- [ ] 3. Implement player sprite rendering: `LoadTexture` the ship sprite
+      (once created, see Art below), replace the placeholder `DrawTriangle`
+      with a textured draw call
+- [ ] 4. Confirm 4-directional controls feel right against the new bounds
+      and spawn position
+
 - [ ] Forward (rightward) gun: auto-fire, hits air targets
 - [ ] Torpedo: forward-fired (rightward) on second input, travels along
       the surface, lead-targeting logic for ground/surface targets
@@ -39,9 +47,18 @@ items.
 - [ ] Stage list + per-stage boss concepts (beyond Stage 1)
 - [ ] Plan each level (enemy wave placement, pacing, terrain/visual variety
       per stage — e.g. open ocean vs. storm vs. near islands)
-- [ ] Player skimmer sprite + wake/spray effect
 - [ ] Ground target sprites (alien platforms/installations)
 - [ ] Air enemy sprites (drone swarms)
+
+## Art
+
+- [x] Pick art pipeline — LibreSprite, exported as .png, loaded via
+      raylib's `LoadTexture`
+- [ ] Ocean background tile art (tileable water texture, locked palette,
+      needed for milestone step 2 above)
+- [ ] Player skimmer sprite — twin-ski dart silhouette, see README for
+      full design (needed for milestone step 3 above); wake/spray effect
+      deferred to the VFX design pass
 
 ## Audio
 

@@ -4,9 +4,7 @@ Retro top-down scrolling shooter, built in C with [raylib](https://www.raylib.co
 
 Renders internally at 512x384 to a `RenderTexture2D` with point
 (nearest-neighbor) filtering, then upscales 2x to a 1024x768 window — the
-standard trick for a crisp pixel-art look at native resolution. (The
-skeleton currently still has the old 240x320 portrait placeholder from
-before the scroll-direction pivot — see `TODO.md`.)
+standard trick for a crisp pixel-art look at native resolution.
 
 ## Design
 
@@ -29,6 +27,18 @@ crashing into silhouetted terrain). Chosen partly because a horizontal-scroll
 top-down playfield is naturally landscape-shaped, so it fits a normal
 desktop window without the letterboxing/side-panel problem a portrait
 playfield would have on most monitors.
+
+**Player ship ("Skimmer")**: Low, wide-stance dart silhouette — forward-
+pointed nose cone, twin ski-like pontoons at the rear that visibly sit on/
+kiss the water surface. This is the one design element no enemy shares:
+air units are fully airborne (aircraft silhouettes), ground units are
+stationary platforms, only the player visibly touches the water while
+moving. A raised centerline spine between the two skis carries the glowing
+accent line (same "glow stripe = active tech" visual grammar as the
+Interceptor, in the ally color). Color: `#e8f8f8` hull (near-white/silver),
+`#4ce0e8` cyan accents on the spine, engine glow, and ski trim. Wake/spray
+VFX (deferred to the VFX design pass) will emit from the two rear
+ski-points.
 
 **Enemy design language**: Sleek mechanical alien tech — clean hulls,
 glowing energy lines, geometric silhouettes. Applies to both the air drone
@@ -95,6 +105,11 @@ travels along the surface toward a leading target rather than dropped/arced
 from altitude (the skimmer flies too low for a falling bomb to make sense)
 — still just a second fire input, no extra control axis needed.
 
+**Art pipeline**: Sprites and tiles are authored in **LibreSprite** (free,
+open-source), exported as `.png`, loaded via raylib's `LoadTexture`. Chosen
+over Aseprite (paid) and Piskel (browser-only, less capable) for a
+no-cost, desktop-native pixel-art tool with animation/tilemap support.
+
 **Audio**: Music is tracker-composed (XM/MOD) in **OpenMPT** (free/open
 source), played back via raylib's built-in `raudio` module, which supports
 XM/MOD/IT natively with no extra dependencies. OpenMPT was chosen over
@@ -149,6 +164,7 @@ and `vcpkg.json` automatically (manifest mode) and configures itself.
 
 ## Controls
 
-Arrow keys / WASD to move. (No shooting yet — this is the render/input
-skeleton, and it still scrolls/moves on the old vertical axis — see
-`TODO.md` for the pending horizontal-scroll rework.)
+Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px
+is reserved HUD space). No shooting yet, and the scrolling background is
+still a placeholder star field until the ocean tile art exists — see
+`TODO.md`.
