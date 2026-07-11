@@ -1,16 +1,11 @@
 #include "raylib.h"
 
-#define GAME_WIDTH   512
-#define GAME_HEIGHT  384
-#define HUD_HEIGHT   32
-#define PLAY_HEIGHT  (GAME_HEIGHT - HUD_HEIGHT)
-#define WINDOW_SCALE 2
-#define STAR_COUNT   60
-
-typedef struct {
-    float x, y;
-    float speed;
-} Star;
+#define GAME_WIDTH    512
+#define GAME_HEIGHT   384
+#define HUD_HEIGHT    32
+#define PLAY_HEIGHT   (GAME_HEIGHT - HUD_HEIGHT)
+#define WINDOW_SCALE  2
+#define OCEAN_SCROLL_SPEED 40.0f
 
 int main(void) {
     InitWindow(GAME_WIDTH * WINDOW_SCALE, GAME_HEIGHT * WINDOW_SCALE, "Seavious");
@@ -22,15 +17,13 @@ int main(void) {
     Texture2D playerTex = LoadTexture("assets/sprites/player_ship.png");
     SetTextureFilter(playerTex, TEXTURE_FILTER_POINT);
 
-    Star stars[STAR_COUNT];
-    for (int i = 0; i < STAR_COUNT; i++) {
-        stars[i].x = (float)GetRandomValue(0, GAME_WIDTH);
-        stars[i].y = (float)GetRandomValue(0, PLAY_HEIGHT);
-        stars[i].speed = (float)GetRandomValue(40, 160) / 60.0f;
-    }
+    Texture2D oceanTex = LoadTexture("assets/tiles/ocean.png");
+    SetTextureFilter(oceanTex, TEXTURE_FILTER_POINT);
+    SetTextureWrap(oceanTex, TEXTURE_WRAP_REPEAT);
 
     Vector2 player = { 48.0f, PLAY_HEIGHT / 2.0f };
     const float playerSpeed = 120.0f;
+    float oceanScroll = 0.0f;
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
@@ -47,22 +40,26 @@ int main(void) {
         if (player.y < halfH) player.y = halfH;
         if (player.y > PLAY_HEIGHT - halfH) player.y = PLAY_HEIGHT - halfH;
 
-        // World scrolls right-to-left under the player, like the ocean
-        // background will once its tile art exists (see TODO.md).
-        for (int i = 0; i < STAR_COUNT; i++) {
-            stars[i].x -= stars[i].speed;
-            if (stars[i].x < 0) {
-                stars[i].x = GAME_WIDTH;
-                stars[i].y = (float)GetRandomValue(0, PLAY_HEIGHT);
-            }
-        }
+        // World scrolls right-to-left under the player. Kept bounded by
+        // the tile width (rather than growing unbounded) since REPEAT
+        // wrap only needs the offset modulo the tile size.
+        oceanScroll += OCEAN_SCROLL_SPEED * dt;
+        if (oceanScroll >= oceanTex.width) oceanScroll -= oceanTex.width;
 
         BeginTextureMode(target);
             ClearBackground(BLACK);
 
-            for (int i = 0; i < STAR_COUNT; i++) {
-                DrawPixel((int)stars[i].x, (int)stars[i].y, RAYWHITE);
-            }
+            // Single draw call tiles the whole play area: the source
+            // rect is larger than the 32x32 texture, so REPEAT wrap mode
+            // fills it by sampling the tile over and over.
+            DrawTexturePro(
+                oceanTex,
+                (Rectangle){ oceanScroll, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
+                (Rectangle){ 0, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
+                (Vector2){ 0, 0 },
+                0.0f,
+                WHITE
+            );
 
             // Ship points right (direction of travel / forward fire).
             // Sprite is drawn nose-to-tail already facing right, so no
@@ -93,6 +90,7 @@ int main(void) {
         EndDrawing();
     }
 
+    UnloadTexture(oceanTex);
     UnloadTexture(playerTex);
     UnloadRenderTexture(target);
     CloseWindow();

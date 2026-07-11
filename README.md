@@ -165,6 +165,4 @@ and `vcpkg.json` automatically (manifest mode) and configures itself.
 ## Controls
 
 Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px
-is reserved HUD space). No shooting yet, and the scrolling background is
-still a placeholder star field until the ocean tile art exists — see
-`TODO.md`.
+is reserved HUD space). No shooting yet — see `TODO.md` for what's next.

@@ -10,9 +10,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       (2x to 1024x768 window), move player default position from
       bottom-center to left-middle, reclamp movement bounds to the
       512x352 play area, HUD bar placeholder carved out at the bottom
-- [ ] 2. Implement scrolling background: tile the ocean texture (once
-      created, see Art below) across the canvas, offset horizontally each
-      frame by scroll speed, wrap with modulo for seamless infinite scroll
+- [x] 2. Implement scrolling background: `assets/tiles/ocean.png` loaded
+      with `TEXTURE_WRAP_REPEAT`, drawn in one `DrawTexturePro` call with
+      an oversized source rect (real-time tiling via GPU wrap, not manual
+      tile loop), offset scrolls right-to-left and wraps modulo tile width
 - [x] 3. Implement player sprite rendering: `LoadTexture` the ship sprite,
       replace the placeholder `DrawTriangle` with a textured draw call;
       movement bounds now clamp to the sprite's actual 48x24 half-size
@@ -56,8 +57,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 - [x] Pick art pipeline — LibreSprite, exported as .png, loaded via
       raylib's `LoadTexture`
-- [ ] Ocean background tile art (tileable water texture, locked palette,
-      needed for milestone step 2 above)
+- [x] Ocean background tile art — first-pass programmatic version at
+      `assets/tiles/ocean.png` (32x32, seamless both axes, Bayer-dithered
+      bands + dashed foam crests); wired into the game loop in milestone
+      step 2 above
 - [x] Player skimmer sprite — twin-ski dart silhouette, first-pass
       programmatic version at `assets/sprites/player_ship.png` (48x24),
       wired into the game in milestone step 3 above; refining in
