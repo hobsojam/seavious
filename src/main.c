@@ -206,9 +206,8 @@ int main(void) {
     Vector2 torpedoImpactPos = { 0.0f, 0.0f };
     float torpedoImpactTimer = 0.0f;
 
-    // Turret Platform: baseline ground/surface target (see README roster).
-    // Stationary on the water, so it drifts left at exactly the ocean scroll
-    // speed. Torpedo-only: gun bullets fly over it (Xevious rule).
+    // Casemates and tracking turrets are anchored to the water, so they drift
+    // left at ocean-scroll speed. Both are torpedo-only (Xevious rule).
     SurfaceTarget surfaceTargets[MAX_SURFACE_TARGETS] = { 0 };
     float surfaceTargetSpawnTimer = 0.0f;
     const Color surfaceTargetColor = (Color){ 232, 148, 44, 255 };
@@ -246,7 +245,11 @@ int main(void) {
             if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) inputX += 1.0f;
             if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
             if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
+            Vector2 playerBeforeMove = player;
             MovePlayer(&player, inputX, inputY, playerSpeed, dt, halfW, halfH);
+            Vector2 playerVelocity = dt > 0.0f
+                ? (Vector2){ (player.x - playerBeforeMove.x) / dt, (player.y - playerBeforeMove.y) / dt }
+                : (Vector2){ 0.0f, 0.0f };
             torpedoSpawn = (Vector2){ player.x + halfW, player.y };
             torpedoReticle = CalculateTorpedoReticle(torpedoSpawn);
 
@@ -307,18 +310,23 @@ int main(void) {
             }
             TorpedoImpact torpedoImpact = UpdateTorpedo(&torpedo, dt);
 
-            // Turret Platforms spawn off the right edge like air enemies, but
-            // being anchored to the water they drift left at the ocean scroll speed.
+            // Surface threats spawn off the right edge and drift left with the water.
             surfaceTargetSpawnTimer += dt;
-            while (surfaceTargetSpawnTimer >= TURRET_PLATFORM_SPAWN_INTERVAL) {
-                surfaceTargetSpawnTimer -= TURRET_PLATFORM_SPAWN_INTERVAL;
+            while (surfaceTargetSpawnTimer >= SURFACE_TARGET_SPAWN_INTERVAL) {
+                surfaceTargetSpawnTimer -= SURFACE_TARGET_SPAWN_INTERVAL;
                 float y = (float)GetRandomValue(
-                    (int)TURRET_PLATFORM_RADIUS, (int)(PLAY_HEIGHT - TURRET_PLATFORM_RADIUS)
+                    (int)TRACKING_TURRET_RADIUS, (int)(PLAY_HEIGHT - TRACKING_TURRET_RADIUS)
                 );
-                TrySpawnTurretPlatform(surfaceTargets, MAX_SURFACE_TARGETS, y);
+                if (GetRandomValue(0, 1) == 0) {
+                    TrySpawnCasemate(surfaceTargets, MAX_SURFACE_TARGETS, y);
+                } else {
+                    TrySpawnTrackingTurret(surfaceTargets, MAX_SURFACE_TARGETS, y);
+                }
             }
             UpdateSurfaceTargets(surfaceTargets, MAX_SURFACE_TARGETS, dt);
-            UpdateTurretPlatformFire(surfaceTargets, MAX_SURFACE_TARGETS, dt, enemyBullets, MAX_ENEMY_BULLETS);
+            UpdateSurfaceTargetFire(
+                surfaceTargets, MAX_SURFACE_TARGETS, dt, player, playerVelocity, enemyBullets, MAX_ENEMY_BULLETS
+            );
             UpdateEnemyBullets(enemyBullets, MAX_ENEMY_BULLETS, dt);
 
             // Torpedo-vs-surface collision — the gun deliberately has no case
@@ -417,18 +425,22 @@ int main(void) {
             }
 
             // Surface layer: ground targets draw under everything airborne.
-            // Placeholder for the Turret Platform per README.
             for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
                 if (!surfaceTargets[i].active) continue;
                 DrawCircleLines((int)surfaceTargets[i].pos.x, (int)surfaceTargets[i].pos.y,
                     surfaceTargets[i].radius + 2.0f, (Color){ 232, 148, 44, 110 });
-                DrawPoly(surfaceTargets[i].pos, 6, surfaceTargets[i].radius, 0.0f, surfaceTargetColor);
-                DrawRectangle(
-                    (int)(surfaceTargets[i].pos.x - surfaceTargets[i].radius - 3.0f),
-                    (int)(surfaceTargets[i].pos.y - 1.0f),
-                    (int)(surfaceTargets[i].radius + 3.0f), 2,
-                    (Color){ 168, 100, 24, 255 }
-                );
+                if (surfaceTargets[i].type == SURFACE_TARGET_CASEMATE) {
+                    DrawPoly(surfaceTargets[i].pos, 6, surfaceTargets[i].radius, 0.0f, surfaceTargetColor);
+                } else {
+                    DrawCircleV(surfaceTargets[i].pos, surfaceTargets[i].radius, (Color){ 126, 78, 34, 255 });
+                    DrawCircleLines((int)surfaceTargets[i].pos.x, (int)surfaceTargets[i].pos.y,
+                        surfaceTargets[i].radius - 3.0f, surfaceTargetColor);
+                }
+                Vector2 barrelEnd = {
+                    surfaceTargets[i].pos.x + surfaceTargets[i].aimDirection.x * (surfaceTargets[i].radius + 4.0f),
+                    surfaceTargets[i].pos.y + surfaceTargets[i].aimDirection.y * (surfaceTargets[i].radius + 4.0f)
+                };
+                DrawLineEx(surfaceTargets[i].pos, barrelEnd, 3.0f, (Color){ 168, 100, 24, 255 });
                 DrawCircleV(surfaceTargets[i].pos, 3.0f, (Color){ 255, 200, 120, 255 });
             }
 

@@ -30,20 +30,19 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] One air enemy type (Skimmer Drone): spawns off the right edge, flies
       left on a sine-wave path, dies in one hit to the gun; first-pass
       sprite replaced the placeholder magenta diamond (see Art below)
-- [x] One ground/surface target type: Turret Platform — spawns off the
-      right edge, anchored to the water (drifts left at ocean scroll
-      speed), dies to one torpedo, gun bullets pass over it (dual-targeting
-      rule); placeholder amber hexagon + glow ring + cannon stub. Fires
-      straight red shots at the player's lane now that the lives/damage
-      loop exists
+- [x] Two ground/surface target types: Casemate and Tracking Turret — both
+      spawn off the right edge, are anchored to the water (drift left at
+      ocean scroll speed), die to one torpedo, and ignore gun bullets
+      (dual-targeting rule). The Casemate fires straight left; the Tracking
+      Turret leads current player movement before firing.
 - [x] Torpedo range-reticle behavior: reticle marks max range, clamped
       before the right edge; baseline shot runs straight down the current
       surface lane, arms after a short distance, explodes on first armed
       surface hit or at max range, and only does direct impact damage before
       arming. Lead-targeting math is preserved in code for a possible future
       upgrade, but is no longer the baseline behavior
-- [x] First-pass scoring: award 100 points for a Skimmer Drone and 300 for
-      a Turret Platform on destruction, accumulate the run score, and show
+- [x] First-pass scoring: award 100 points for a Skimmer Drone, 300 for a
+      Casemate, and 400 for a Tracking Turret on destruction; accumulate the run score, and show
       it as minimal text in the reserved HUD bar; wider scoring table is
       documented in README
 - [x] Lives / game-over loop (post-MVP, needed for full stage structure):
@@ -67,7 +66,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       Gunship — Interceptor sprite + behavior numbers are designed (see
       README/Art); its implementation is blocked on the lives/damage
       system because it shoots back
-- [ ] Implement ground roster: Turret Platform, Relay Node, Mine, Mobile
+- [ ] Implement remaining ground roster: Relay Node, Mine, Mobile
       Platform — Relay Node and Mine sprites + behavior numbers are
       designed (see README/Art); Relay Node is implementable now (it never
       attacks directly, so it doesn't need the lives system) and is the
@@ -81,7 +80,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [ ] Plan each level (enemy wave placement, pacing, terrain/visual variety
       per stage — e.g. open ocean vs. storm vs. near islands)
 - [ ] Ground target sprites (alien platforms/installations) — Relay Node
-      and Mine first passes done (see Art below); Turret Platform (still a
+      and Mine first passes done (see Art below); Casemate and Tracking Turret (still a
       placeholder hexagon in-game) and Mobile Platform still to design
 - [ ] Air enemy sprites (drone swarms) — Skimmer Drone and Interceptor
       first passes done (see Art below); Gunship still to design
