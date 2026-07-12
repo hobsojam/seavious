@@ -107,7 +107,7 @@ water; texture only survives at near-invisible contrast. Distinct baked
 marks were also tried and rejected (sparse white flecks): any landmark
 feature makes the tile repeat trackable. Foam glints instead live on a
 separate parallax overlay (`assets/tiles/ocean_overlay.png`, 160x96,
-~14 dim `#cfeff0` marks on transparency) that scrolls slightly faster
+3 dim `#cfeff0` marks on transparency) that scrolls slightly faster
 than the base water (`OCEAN_OVERLAY_SPEED_SCALE`) — the glints drift
 relative to the water body like propagating wavelets, and since 160x96
 never aligns with the 128x64 base tile, the combined repeat period is
