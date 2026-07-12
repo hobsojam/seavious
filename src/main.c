@@ -33,6 +33,16 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 #define TORPEDO_WIDTH    12.0f
 #define TORPEDO_HEIGHT   4.0f
 
+#define MAX_TURRETS            8
+#define TURRET_RADIUS          9.0f
+#define TURRET_SPAWN_INTERVAL  3.5f
+#define TURRET_HP              1
+
+#define MAX_WAKE_PARTICLES   96
+#define WAKE_EMIT_INTERVAL   0.04f
+#define WAKE_LIFETIME        1.1f
+#define WAKE_SKI_OFFSET_Y    8.0f
+
 typedef struct {
     Vector2 pos;
     bool active;
@@ -52,11 +62,32 @@ typedef struct {
 // Second fire input, single-shot-at-a-time with a reload cooldown (unlike
 // the gun's unlimited auto-fire). Travels level along the player's y at
 // fire time rather than arcing — lead-targeting toward a ground target is
-// blocked on the first ground/surface enemy existing.
+// a separate TODO now that ground targets exist.
 typedef struct {
     Vector2 pos;
     bool active;
 } Torpedo;
+
+// Wake/spray puff left on the water by the player's rear ski-points (the
+// one design element only the player has — see README). Once emitted it
+// belongs to the water, not the ship: it drifts left at the ocean scroll
+// speed and fades out, marking the surface the ship just flew over.
+typedef struct {
+    Vector2 pos;
+    float age;
+    bool active;
+} WakeParticle;
+
+// Turret Platform: baseline ground/surface target (see README roster).
+// Stationary on the water, so it drifts left at exactly the ocean scroll
+// speed. Torpedo-only: gun bullets fly over it (Xevious rule — shape and
+// amber color signal "wrong weapon" before the player even tests it).
+// Doesn't fire back yet — that lands with the lives/damage system.
+typedef struct {
+    Vector2 pos;
+    int hp;
+    bool active;
+} Turret;
 
 int main(void) {
     SetConfigFlags(FLAG_VSYNC_HINT);
@@ -89,6 +120,13 @@ int main(void) {
     float torpedoCooldown = 0.0f;
     const Color torpedoColor = (Color){ 232, 248, 248, 255 };
 
+    Turret turrets[MAX_TURRETS] = { 0 };
+    float turretSpawnTimer = 0.0f;
+    const Color turretColor = (Color){ 232, 148, 44, 255 };
+
+    WakeParticle wake[MAX_WAKE_PARTICLES] = { 0 };
+    float wakeEmitTimer = 0.0f;
+
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
 
@@ -109,6 +147,33 @@ int main(void) {
         // wrap only needs the offset modulo the tile size.
         oceanScroll += OCEAN_SCROLL_SPEED * dt;
         if (oceanScroll >= oceanTex.width) oceanScroll -= oceanTex.width;
+
+        // Wake: drop a puff from each rear ski-point on a fixed cadence.
+        // The 1px jitter keeps the two trails from reading as ruled lines.
+        wakeEmitTimer += dt;
+        while (wakeEmitTimer >= WAKE_EMIT_INTERVAL) {
+            wakeEmitTimer -= WAKE_EMIT_INTERVAL;
+            for (int ski = -1; ski <= 1; ski += 2) {
+                for (int i = 0; i < MAX_WAKE_PARTICLES; i++) {
+                    if (!wake[i].active) {
+                        wake[i].active = true;
+                        wake[i].age = 0.0f;
+                        wake[i].pos = (Vector2){
+                            player.x - halfW + (float)GetRandomValue(-1, 1),
+                            player.y + ski * WAKE_SKI_OFFSET_Y + (float)GetRandomValue(-1, 1)
+                        };
+                        break;
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < MAX_WAKE_PARTICLES; i++) {
+            if (!wake[i].active) continue;
+            wake[i].age += dt;
+            wake[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
+            if (wake[i].age >= WAKE_LIFETIME || wake[i].pos.x < 0.0f) wake[i].active = false;
+        }
 
         // Auto-fire: accumulate dt and emit as many shots as the interval
         // allows, so a stalled frame can't silently eat a shot.
@@ -178,8 +243,8 @@ int main(void) {
 
         // Torpedo: manual second input, gated by both "one in flight at a
         // time" and a reload cooldown so it isn't unlimited-fire like the
-        // gun. No ground/surface targets exist yet, so it just runs
-        // straight along the fire-time y rather than leading a target.
+        // gun. Runs straight along the fire-time y — lead-targeting toward
+        // a turret is still its own TODO item.
         if (torpedoCooldown > 0.0f) torpedoCooldown -= dt;
         if (IsKeyPressed(KEY_SPACE) && !torpedo.active && torpedoCooldown <= 0.0f) {
             torpedo.active = true;
@@ -190,6 +255,48 @@ int main(void) {
         if (torpedo.active) {
             torpedo.pos.x += TORPEDO_SPEED * dt;
             if (torpedo.pos.x - TORPEDO_WIDTH / 2.0f > GAME_WIDTH) torpedo.active = false;
+        }
+
+        // Turret Platforms spawn off the right edge like air enemies, but
+        // being anchored to the water they drift left at the ocean scroll
+        // speed instead of flying under their own power.
+        turretSpawnTimer += dt;
+        while (turretSpawnTimer >= TURRET_SPAWN_INTERVAL) {
+            turretSpawnTimer -= TURRET_SPAWN_INTERVAL;
+            for (int i = 0; i < MAX_TURRETS; i++) {
+                if (!turrets[i].active) {
+                    turrets[i].active = true;
+                    turrets[i].hp = TURRET_HP;
+                    turrets[i].pos = (Vector2){
+                        GAME_WIDTH + TURRET_RADIUS,
+                        (float)GetRandomValue((int)TURRET_RADIUS, (int)(PLAY_HEIGHT - TURRET_RADIUS))
+                    };
+                    break;
+                }
+            }
+        }
+
+        for (int i = 0; i < MAX_TURRETS; i++) {
+            if (!turrets[i].active) continue;
+            turrets[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
+            if (turrets[i].pos.x < -TURRET_RADIUS) turrets[i].active = false;
+        }
+
+        // Torpedo-vs-surface collision — the gun deliberately has no case
+        // here: bullets pass over ground targets (dual-targeting rule).
+        if (torpedo.active) {
+            for (int i = 0; i < MAX_TURRETS; i++) {
+                if (!turrets[i].active) continue;
+                float dx = torpedo.pos.x - turrets[i].pos.x;
+                float dy = torpedo.pos.y - turrets[i].pos.y;
+                float hitDist = TURRET_RADIUS + TORPEDO_WIDTH / 2.0f;
+                if (dx * dx + dy * dy <= hitDist * hitDist) {
+                    torpedo.active = false;
+                    turrets[i].hp--;
+                    if (turrets[i].hp <= 0) turrets[i].active = false;
+                    break;
+                }
+            }
         }
 
         BeginTextureMode(target);
@@ -206,6 +313,36 @@ int main(void) {
                 0.0f,
                 WHITE
             );
+
+            // Wake sits directly on the water, under every other layer.
+            // Foam-colored puffs that fade and shrink with age.
+            for (int i = 0; i < MAX_WAKE_PARTICLES; i++) {
+                if (!wake[i].active) continue;
+                float life = 1.0f - wake[i].age / WAKE_LIFETIME;
+                DrawCircleV(
+                    wake[i].pos,
+                    life > 0.5f ? 2.0f : 1.0f,
+                    (Color){ 207, 239, 240, (unsigned char)(150.0f * life) }
+                );
+            }
+
+            // Surface layer: ground targets draw under everything airborne.
+            // Placeholder for the Turret Platform per README: low hexagon,
+            // amber waterline glow ring, stub cannon facing the player's
+            // approach — real sprite art is a separate TODO item.
+            for (int i = 0; i < MAX_TURRETS; i++) {
+                if (!turrets[i].active) continue;
+                DrawCircleLines((int)turrets[i].pos.x, (int)turrets[i].pos.y,
+                    TURRET_RADIUS + 2.0f, (Color){ 232, 148, 44, 110 });
+                DrawPoly(turrets[i].pos, 6, TURRET_RADIUS, 0.0f, turretColor);
+                DrawRectangle(
+                    (int)(turrets[i].pos.x - TURRET_RADIUS - 3.0f),
+                    (int)(turrets[i].pos.y - 1.0f),
+                    (int)(TURRET_RADIUS + 3.0f), 2,
+                    (Color){ 168, 100, 24, 255 }
+                );
+                DrawCircleV(turrets[i].pos, 3.0f, (Color){ 255, 200, 120, 255 });
+            }
 
             // Ship points right (direction of travel / forward fire).
             // Sprite is drawn nose-to-tail already facing right, so no

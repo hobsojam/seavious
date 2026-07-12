@@ -36,9 +36,9 @@ stationary platforms, only the player visibly touches the water while
 moving. A raised centerline spine between the two skis carries the glowing
 accent line (same "glow stripe = active tech" visual grammar as the
 Interceptor, in the ally color). Color: `#e8f8f8` hull (near-white/silver),
-`#4ce0e8` cyan accents on the spine, engine glow, and ski trim. Wake/spray
-VFX (deferred to the VFX design pass) will emit from the two rear
-ski-points.
+`#4ce0e8` cyan accents on the spine, engine glow, and ski trim. Wake VFX
+emit from the two rear ski-points (first-pass foam-puff trail is in;
+spray and glow polish deferred to the VFX design pass).
 
 **Enemy design language**: Sleek mechanical alien tech — clean hulls,
 glowing energy lines, geometric silhouettes. Applies to both the air drone
@@ -178,6 +178,8 @@ Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px
 is reserved HUD space). Gun auto-fires forward and downs the Skimmer
 Drones (magenta diamond placeholders) that fly in from the right on a
 sine-wave path. Space fires a torpedo (one in flight at a time, 1.5s
-reload) — it currently just travels straight, since there's no ground
-target yet for it to lead. No ground targets or lives/game-over loop yet
-— see `TODO.md` for what's next.
+reload) — the only weapon that can destroy the amber Turret Platforms
+drifting with the water; gun bullets pass right over them (the
+dual-targeting rule). The torpedo still fires straight (lead-targeting
+is a TODO), and there's no lives/game-over loop yet — see `TODO.md` for
+what's next.

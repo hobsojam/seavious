@@ -32,7 +32,13 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       left on a sine-wave path, dies in one hit to the gun, placeholder
       magenta diamond silhouette (real sprite art still a separate TODO
       item, see Content/Art below)
-- [ ] One ground/surface target type (alien platform/installation)
+- [x] One ground/surface target type: Turret Platform — spawns off the
+      right edge, anchored to the water (drifts left at ocean scroll
+      speed), dies to one torpedo, gun bullets pass over it (dual-targeting
+      rule); placeholder amber hexagon + glow ring + cannon stub. Doesn't
+      fire back yet — blocked on the lives/damage system existing
+- [ ] Torpedo lead-targeting toward ground/surface targets (unblocked now
+      that the Turret Platform exists; torpedo currently fires straight)
 - [ ] Lives / game-over loop (post-MVP, needed for full stage structure)
 - [ ] Boss fight structure (post-MVP, end of each stage)
 - [ ] Stage/wave definition + sequencing (post-MVP)
@@ -70,8 +76,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] Player skimmer sprite — twin-ski dart silhouette, first-pass
       programmatic version at `assets/sprites/player_ship.png` (48x24),
       wired into the game in milestone step 3 above; refining in
-      LibreSprite and wake/spray effect (deferred to the VFX pass) still
-      outstanding
+      LibreSprite still outstanding
+- [x] Wake effect — first-pass particle trail: foam-colored puffs emitted
+      from the two rear ski-points, anchored to the water (drift left at
+      scroll speed), fade/shrink out over ~1.1s; spray and any bloom/glow
+      polish stays with the VFX pass
 
 ## Audio
 
