@@ -28,6 +28,7 @@ int main(void) {
     Vector2 player = { 48.0f, PLAY_HEIGHT / 2.0f };
     const float playerSpeed = 120.0f;
     float oceanScroll = 0.0f;
+    int score = 0;
 
     Bullet bullets[MAX_BULLETS] = { 0 };
     float fireTimer = 0.0f;
@@ -41,12 +42,15 @@ int main(void) {
     const Color enemyColor = (Color){ 216, 72, 192, 255 };
 
     // Second fire input, single-shot-at-a-time with a reload cooldown (unlike
-    // the gun's unlimited auto-fire). Fire-and-forget with lead-targeting:
-    // the launch solves an intercept against turret drift and locks that
-    // heading — it does not home mid-flight, so the skill is in when you fire.
+    // the gun's unlimited auto-fire). The default torpedo runs straight along
+    // the surface lane to the reticle max range; lead targeting is reserved for
+    // a future upgrade path in the gameplay layer.
     Torpedo torpedo = { 0 };
     float torpedoCooldown = 0.0f;
     const Color torpedoColor = (Color){ 232, 248, 248, 255 };
+    TorpedoImpactType torpedoImpactType = TORPEDO_IMPACT_NONE;
+    Vector2 torpedoImpactPos = { 0.0f, 0.0f };
+    float torpedoImpactTimer = 0.0f;
 
     // Turret Platform: baseline ground/surface target (see README roster).
     // Stationary on the water, so it drifts left at exactly the ocean scroll
@@ -72,6 +76,8 @@ int main(void) {
         if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
         if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
         MovePlayer(&player, inputX, inputY, playerSpeed, dt, halfW, halfH);
+        Vector2 torpedoSpawn = { player.x + halfW, player.y };
+        Vector2 torpedoReticle = CalculateTorpedoReticle(torpedoSpawn);
 
         // World scrolls right-to-left under the player. Kept bounded by
         // the tile width since REPEAT wrap only needs a modulo tile offset.
@@ -90,6 +96,7 @@ int main(void) {
             }
         }
         UpdateWakeParticles(wake, MAX_WAKE_PARTICLES, dt);
+        if (torpedoImpactTimer > 0.0f) torpedoImpactTimer -= dt;
 
         // Auto-fire: accumulate dt and emit as many shots as the interval
         // allows, so a stalled frame can't silently eat a shot.
@@ -113,16 +120,16 @@ int main(void) {
 
         // Gun-vs-air collision: brute-force O(bullets*enemies) is fine at
         // these pool sizes (32*16 max).
-        ResolveBulletEnemyCollisions(bullets, MAX_BULLETS, enemies, MAX_ENEMIES);
+        score += ResolveBulletEnemyCollisions(bullets, MAX_BULLETS, enemies, MAX_ENEMIES);
 
         // Torpedo: manual second input, gated by both "one in flight at a
         // time" and a reload cooldown so it isn't unlimited-fire like the gun.
         if (torpedoCooldown > 0.0f) torpedoCooldown -= dt;
         if (IsKeyPressed(KEY_SPACE) && !torpedo.active && torpedoCooldown <= 0.0f) {
-            FireTorpedo(&torpedo, (Vector2){ player.x + halfW, player.y }, turrets, MAX_TURRETS);
+            FireFixedRangeTorpedo(&torpedo, torpedoSpawn);
             torpedoCooldown = TORPEDO_COOLDOWN;
         }
-        UpdateTorpedo(&torpedo, dt);
+        TorpedoImpact torpedoImpact = UpdateTorpedo(&torpedo, dt);
 
         // Turret Platforms spawn off the right edge like air enemies, but
         // being anchored to the water they drift left at the ocean scroll speed.
@@ -136,7 +143,17 @@ int main(void) {
 
         // Torpedo-vs-surface collision — the gun deliberately has no case
         // here: bullets pass over ground targets (dual-targeting rule).
-        ResolveTorpedoTurretCollision(&torpedo, turrets, MAX_TURRETS);
+        if (torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION) {
+            torpedoImpact.scoreAwarded = ResolveTorpedoExplosion(torpedoImpact.pos, turrets, MAX_TURRETS);
+        } else if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
+            torpedoImpact = ResolveTorpedoTurretCollision(&torpedo, turrets, MAX_TURRETS);
+        }
+        if (torpedoImpact.type != TORPEDO_IMPACT_NONE) {
+            score += torpedoImpact.scoreAwarded;
+            torpedoImpactType = torpedoImpact.type;
+            torpedoImpactPos = torpedoImpact.pos;
+            torpedoImpactTimer = torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f;
+        }
 
         BeginTextureMode(target);
             ClearBackground(BLACK);
@@ -161,6 +178,31 @@ int main(void) {
                     life > 0.5f ? 2.0f : 1.0f,
                     (Color){ 207, 239, 240, (unsigned char)(150.0f * life) }
                 );
+            }
+
+            // Reticle marks maximum torpedo range, not a target lock.
+            DrawLine((int)torpedoSpawn.x, (int)torpedoSpawn.y, (int)torpedoReticle.x, (int)torpedoReticle.y,
+                (Color){ 76, 224, 232, 55 });
+            DrawCircleLines((int)torpedoReticle.x, (int)torpedoReticle.y, 6.0f, (Color){ 232, 148, 44, 190 });
+            DrawLine((int)(torpedoReticle.x - 10.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x - 4.0f), (int)torpedoReticle.y,
+                (Color){ 232, 148, 44, 190 });
+            DrawLine((int)(torpedoReticle.x + 4.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x + 10.0f), (int)torpedoReticle.y,
+                (Color){ 232, 148, 44, 190 });
+            DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y - 10.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y - 4.0f),
+                (Color){ 232, 148, 44, 190 });
+            DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y + 4.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y + 10.0f),
+                (Color){ 232, 148, 44, 190 });
+
+            if (torpedoImpactTimer > 0.0f) {
+                float life = torpedoImpactTimer / (torpedoImpactType == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f);
+                if (torpedoImpactType == TORPEDO_IMPACT_EXPLOSION) {
+                    DrawCircleLines((int)torpedoImpactPos.x, (int)torpedoImpactPos.y,
+                        TORPEDO_SPLASH_RADIUS * (1.0f + 0.25f * (1.0f - life)),
+                        (Color){ 255, 220, 140, (unsigned char)(220.0f * life) });
+                    DrawCircleV(torpedoImpactPos, 5.0f, (Color){ 255, 246, 216, (unsigned char)(180.0f * life) });
+                } else {
+                    DrawCircleV(torpedoImpactPos, 3.0f, (Color){ 207, 239, 240, (unsigned char)(160.0f * life) });
+                }
             }
 
             // Surface layer: ground targets draw under everything airborne.
@@ -237,6 +279,7 @@ int main(void) {
             // HUD bar placeholder — real content is a separate TODO item.
             DrawRectangle(0, PLAY_HEIGHT, GAME_WIDTH, HUD_HEIGHT, (Color){ 10, 14, 18, 255 });
             DrawLine(0, PLAY_HEIGHT, GAME_WIDTH, PLAY_HEIGHT, (Color){ 76, 224, 232, 255 });
+            DrawText(TextFormat("%06d", score), 72, PLAY_HEIGHT + 8, 16, (Color){ 232, 248, 248, 255 });
         EndTextureMode();
 
         BeginDrawing();

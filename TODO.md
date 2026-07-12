@@ -26,7 +26,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       the nose, 0.15s interval, culled off the right edge)
 - [x] Torpedo: forward-fired (Space), single-in-flight + 1.5s reload
       cooldown so it isn't unlimited-fire like the gun, travels level
-      along the surface
+      along the surface to a saved max-range reticle
 - [x] One air enemy type (Skimmer Drone): spawns off the right edge, flies
       left on a sine-wave path, dies in one hit to the gun, placeholder
       magenta diamond silhouette (real sprite art still a separate TODO
@@ -36,12 +36,16 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       speed), dies to one torpedo, gun bullets pass over it (dual-targeting
       rule); placeholder amber hexagon + glow ring + cannon stub. Doesn't
       fire back yet — blocked on the lives/damage system existing
-- [x] Torpedo lead-targeting: launch solves a closed-form intercept
-      against turret drift (turrets move at exactly the ocean scroll
-      speed), aims at the earliest-intercept turret ahead of the launch
-      point, locks that heading (fire-and-forget, no mid-flight homing);
-      falls back to firing straight with nothing to lead; sprite rotates
-      to the travel heading
+- [x] Torpedo range-reticle behavior: reticle marks max range, clamped
+      before the right edge; baseline shot runs straight down the current
+      surface lane, arms after a short distance, explodes on first armed
+      surface hit or at max range, and only does direct impact damage before
+      arming. Lead-targeting math is preserved in code for a possible future
+      upgrade, but is no longer the baseline behavior
+- [x] First-pass scoring: award 100 points for a Skimmer Drone and 300 for
+      a Turret Platform on destruction, accumulate the run score, and show
+      it as minimal text in the reserved HUD bar; wider scoring table is
+      documented in README
 - [ ] Lives / game-over loop (post-MVP, needed for full stage structure)
 - [ ] Boss fight structure (post-MVP, end of each stage)
 - [ ] Stage/wave definition + sequencing (post-MVP)

@@ -22,16 +22,23 @@
 #define ENEMY_SINE_AMPLITUDE 24.0f
 #define ENEMY_SINE_FREQUENCY 2.0f
 #define ENEMY_HP             1
+#define SCORE_SKIMMER_DRONE  100
 
 #define TORPEDO_SPEED    200.0f
 #define TORPEDO_COOLDOWN 1.5f
 #define TORPEDO_WIDTH    12.0f
 #define TORPEDO_HEIGHT   4.0f
+#define TORPEDO_MAX_RANGE 170.0f
+#define TORPEDO_RETICLE_SCREEN_MARGIN 24.0f
+#define TORPEDO_ARMING_DISTANCE 48.0f
+#define TORPEDO_SPLASH_RADIUS 20.0f
+#define TORPEDO_DIRECT_HIT_RADIUS (TORPEDO_WIDTH / 2.0f)
 
 #define MAX_TURRETS            8
 #define TURRET_RADIUS          9.0f
 #define TURRET_SPAWN_INTERVAL  3.5f
 #define TURRET_HP              1
+#define SCORE_TURRET_PLATFORM  300
 
 #define MAX_WAKE_PARTICLES   96
 #define WAKE_EMIT_INTERVAL   0.04f
@@ -54,8 +61,23 @@ typedef struct {
 typedef struct {
     Vector2 pos;
     Vector2 vel;
+    Vector2 target;
+    float distanceTravelled;
+    bool armed;
     bool active;
 } Torpedo;
+
+typedef enum {
+    TORPEDO_IMPACT_NONE,
+    TORPEDO_IMPACT_DIRECT,
+    TORPEDO_IMPACT_EXPLOSION
+} TorpedoImpactType;
+
+typedef struct {
+    TorpedoImpactType type;
+    Vector2 pos;
+    int scoreAwarded;
+} TorpedoImpact;
 
 typedef struct {
     Vector2 pos;
@@ -80,14 +102,17 @@ void UpdateBullets(Bullet bullets[], int count, float dt);
 
 bool TrySpawnEnemy(Enemy enemies[], int count, float baseY);
 void UpdateEnemies(Enemy enemies[], int count, float dt);
-void ResolveBulletEnemyCollisions(Bullet bullets[], int bulletCount, Enemy enemies[], int enemyCount);
+int ResolveBulletEnemyCollisions(Bullet bullets[], int bulletCount, Enemy enemies[], int enemyCount);
 
-Vector2 CalculateTorpedoVelocity(Vector2 spawn, const Turret turrets[], int turretCount);
-void FireTorpedo(Torpedo *torpedo, Vector2 spawn, const Turret turrets[], int turretCount);
-void UpdateTorpedo(Torpedo *torpedo, float dt);
+Vector2 CalculateTorpedoReticle(Vector2 spawn);
+Vector2 CalculateLeadTorpedoVelocity(Vector2 spawn, const Turret turrets[], int turretCount);
+void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn);
+void FireLeadTorpedo(Torpedo *torpedo, Vector2 spawn, const Turret turrets[], int turretCount);
+TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt);
 
 bool TrySpawnTurret(Turret turrets[], int count, float y);
 void UpdateTurrets(Turret turrets[], int count, float dt);
-void ResolveTorpedoTurretCollision(Torpedo *torpedo, Turret turrets[], int turretCount);
+TorpedoImpact ResolveTorpedoTurretCollision(Torpedo *torpedo, Turret turrets[], int turretCount);
+int ResolveTorpedoExplosion(Vector2 pos, Turret turrets[], int turretCount);
 
 #endif

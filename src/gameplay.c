@@ -2,6 +2,20 @@
 
 #include <math.h>
 
+static TorpedoImpact NoTorpedoImpact(void) {
+    return (TorpedoImpact){ TORPEDO_IMPACT_NONE, (Vector2){ 0.0f, 0.0f }, 0 };
+}
+
+static TorpedoImpact TorpedoImpactAt(TorpedoImpactType type, Vector2 pos, int scoreAwarded) {
+    return (TorpedoImpact){ type, pos, scoreAwarded };
+}
+
+static float DistanceSquared(Vector2 a, Vector2 b) {
+    float dx = a.x - b.x;
+    float dy = a.y - b.y;
+    return dx * dx + dy * dy;
+}
+
 void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH) {
     player->x += inputX * speed * dt;
     player->y += inputY * speed * dt;
@@ -82,25 +96,38 @@ void UpdateEnemies(Enemy enemies[], int count, float dt) {
     }
 }
 
-void ResolveBulletEnemyCollisions(Bullet bullets[], int bulletCount, Enemy enemies[], int enemyCount) {
+int ResolveBulletEnemyCollisions(Bullet bullets[], int bulletCount, Enemy enemies[], int enemyCount) {
+    int scoreAwarded = 0;
+
     for (int b = 0; b < bulletCount; b++) {
         if (!bullets[b].active) continue;
         for (int e = 0; e < enemyCount; e++) {
             if (!enemies[e].active) continue;
-            float dx = bullets[b].pos.x - enemies[e].pos.x;
-            float dy = bullets[b].pos.y - enemies[e].pos.y;
             float hitDist = BULLET_RADIUS + ENEMY_RADIUS;
-            if (dx * dx + dy * dy <= hitDist * hitDist) {
+            if (DistanceSquared(bullets[b].pos, enemies[e].pos) <= hitDist * hitDist) {
                 bullets[b].active = false;
                 enemies[e].hp--;
-                if (enemies[e].hp <= 0) enemies[e].active = false;
+                if (enemies[e].hp <= 0) {
+                    enemies[e].active = false;
+                    scoreAwarded += SCORE_SKIMMER_DRONE;
+                }
                 break;
             }
         }
     }
+
+    return scoreAwarded;
 }
 
-Vector2 CalculateTorpedoVelocity(Vector2 spawn, const Turret turrets[], int turretCount) {
+Vector2 CalculateTorpedoReticle(Vector2 spawn) {
+    float clampedX = spawn.x + TORPEDO_MAX_RANGE;
+    float screenMaxX = GAME_WIDTH - TORPEDO_RETICLE_SCREEN_MARGIN;
+    if (clampedX > screenMaxX) clampedX = screenMaxX;
+    if (clampedX < spawn.x) clampedX = spawn.x;
+    return (Vector2){ clampedX, spawn.y };
+}
+
+Vector2 CalculateLeadTorpedoVelocity(Vector2 spawn, const Turret turrets[], int turretCount) {
     Vector2 aim = { TORPEDO_SPEED, 0.0f };
     float bestT = -1.0f;
 
@@ -129,22 +156,50 @@ Vector2 CalculateTorpedoVelocity(Vector2 spawn, const Turret turrets[], int turr
     return aim;
 }
 
-void FireTorpedo(Torpedo *torpedo, Vector2 spawn, const Turret turrets[], int turretCount) {
+void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn) {
     torpedo->active = true;
     torpedo->pos = spawn;
-    torpedo->vel = CalculateTorpedoVelocity(spawn, turrets, turretCount);
+    torpedo->target = CalculateTorpedoReticle(spawn);
+    torpedo->vel = (Vector2){ TORPEDO_SPEED, 0.0f };
+    torpedo->distanceTravelled = 0.0f;
+    torpedo->armed = false;
 }
 
-void UpdateTorpedo(Torpedo *torpedo, float dt) {
-    if (!torpedo->active) return;
+void FireLeadTorpedo(Torpedo *torpedo, Vector2 spawn, const Turret turrets[], int turretCount) {
+    torpedo->active = true;
+    torpedo->pos = spawn;
+    torpedo->vel = CalculateLeadTorpedoVelocity(spawn, turrets, turretCount);
+    torpedo->target = (Vector2){
+        spawn.x + torpedo->vel.x / TORPEDO_SPEED * TORPEDO_MAX_RANGE,
+        spawn.y + torpedo->vel.y / TORPEDO_SPEED * TORPEDO_MAX_RANGE
+    };
+    torpedo->distanceTravelled = 0.0f;
+    torpedo->armed = false;
+}
+
+TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt) {
+    if (!torpedo->active) return NoTorpedoImpact();
+
+    torpedo->target.x -= OCEAN_SCROLL_SPEED * dt;
+
+    Vector2 toTarget = { torpedo->target.x - torpedo->pos.x, torpedo->target.y - torpedo->pos.y };
+    float remaining = sqrtf(toTarget.x * toTarget.x + toTarget.y * toTarget.y);
+    float step = TORPEDO_SPEED * dt;
+
+    if (remaining <= step || remaining <= 0.0f) {
+        torpedo->pos = torpedo->target;
+        torpedo->distanceTravelled += remaining;
+        torpedo->armed = torpedo->distanceTravelled >= TORPEDO_ARMING_DISTANCE;
+        torpedo->active = false;
+        return TorpedoImpactAt(torpedo->armed ? TORPEDO_IMPACT_EXPLOSION : TORPEDO_IMPACT_DIRECT, torpedo->pos, 0);
+    }
 
     torpedo->pos.x += torpedo->vel.x * dt;
     torpedo->pos.y += torpedo->vel.y * dt;
-    float cull = TORPEDO_WIDTH;
-    if (torpedo->pos.x - cull > GAME_WIDTH || torpedo->pos.x + cull < 0.0f ||
-        torpedo->pos.y - cull > PLAY_HEIGHT || torpedo->pos.y + cull < 0.0f) {
-        torpedo->active = false;
-    }
+    torpedo->distanceTravelled += step;
+    if (torpedo->distanceTravelled >= TORPEDO_ARMING_DISTANCE) torpedo->armed = true;
+
+    return NoTorpedoImpact();
 }
 
 bool TrySpawnTurret(Turret turrets[], int count, float y) {
@@ -167,19 +222,46 @@ void UpdateTurrets(Turret turrets[], int count, float dt) {
     }
 }
 
-void ResolveTorpedoTurretCollision(Torpedo *torpedo, Turret turrets[], int turretCount) {
-    if (!torpedo->active) return;
-
+int ResolveTorpedoExplosion(Vector2 pos, Turret turrets[], int turretCount) {
+    int scoreAwarded = 0;
+    float hitDist = TURRET_RADIUS + TORPEDO_SPLASH_RADIUS;
     for (int i = 0; i < turretCount; i++) {
         if (!turrets[i].active) continue;
-        float dx = torpedo->pos.x - turrets[i].pos.x;
-        float dy = torpedo->pos.y - turrets[i].pos.y;
-        float hitDist = TURRET_RADIUS + TORPEDO_WIDTH / 2.0f;
-        if (dx * dx + dy * dy <= hitDist * hitDist) {
-            torpedo->active = false;
+        if (DistanceSquared(pos, turrets[i].pos) <= hitDist * hitDist) {
             turrets[i].hp--;
-            if (turrets[i].hp <= 0) turrets[i].active = false;
-            break;
+            if (turrets[i].hp <= 0) {
+                turrets[i].active = false;
+                scoreAwarded += SCORE_TURRET_PLATFORM;
+            }
         }
     }
+
+    return scoreAwarded;
+}
+
+TorpedoImpact ResolveTorpedoTurretCollision(Torpedo *torpedo, Turret turrets[], int turretCount) {
+    if (!torpedo->active) return NoTorpedoImpact();
+
+    float hitDist = TURRET_RADIUS + TORPEDO_DIRECT_HIT_RADIUS;
+    for (int i = 0; i < turretCount; i++) {
+        if (!turrets[i].active) continue;
+        if (DistanceSquared(torpedo->pos, turrets[i].pos) <= hitDist * hitDist) {
+            Vector2 impactPos = torpedo->pos;
+            torpedo->active = false;
+            if (torpedo->armed) {
+                int scoreAwarded = ResolveTorpedoExplosion(impactPos, turrets, turretCount);
+                return TorpedoImpactAt(TORPEDO_IMPACT_EXPLOSION, impactPos, scoreAwarded);
+            }
+
+            turrets[i].hp--;
+            int scoreAwarded = 0;
+            if (turrets[i].hp <= 0) {
+                turrets[i].active = false;
+                scoreAwarded = SCORE_TURRET_PLATFORM;
+            }
+            return TorpedoImpactAt(TORPEDO_IMPACT_DIRECT, impactPos, scoreAwarded);
+        }
+    }
+
+    return NoTorpedoImpact();
 }
