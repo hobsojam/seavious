@@ -177,5 +177,7 @@ and `vcpkg.json` automatically (manifest mode) and configures itself.
 Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px
 is reserved HUD space). Gun auto-fires forward and downs the Skimmer
 Drones (magenta diamond placeholders) that fly in from the right on a
-sine-wave path. No torpedo, ground targets, or lives/game-over loop yet —
-see `TODO.md` for what's next.
+sine-wave path. Space fires a torpedo (one in flight at a time, 1.5s
+reload) — it currently just travels straight, since there's no ground
+target yet for it to lead. No ground targets or lives/game-over loop yet
+— see `TODO.md` for what's next.

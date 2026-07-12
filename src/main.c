@@ -28,6 +28,11 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 #define ENEMY_SINE_FREQUENCY 2.0f
 #define ENEMY_HP             1
 
+#define TORPEDO_SPEED    200.0f
+#define TORPEDO_COOLDOWN 1.5f
+#define TORPEDO_WIDTH    12.0f
+#define TORPEDO_HEIGHT   4.0f
+
 typedef struct {
     Vector2 pos;
     bool active;
@@ -43,6 +48,15 @@ typedef struct {
     int hp;
     bool active;
 } Enemy;
+
+// Second fire input, single-shot-at-a-time with a reload cooldown (unlike
+// the gun's unlimited auto-fire). Travels level along the player's y at
+// fire time rather than arcing — lead-targeting toward a ground target is
+// blocked on the first ground/surface enemy existing.
+typedef struct {
+    Vector2 pos;
+    bool active;
+} Torpedo;
 
 int main(void) {
     SetConfigFlags(FLAG_VSYNC_HINT);
@@ -70,6 +84,10 @@ int main(void) {
     Enemy enemies[MAX_ENEMIES] = { 0 };
     float enemySpawnTimer = 0.0f;
     const Color enemyColor = (Color){ 216, 72, 192, 255 };
+
+    Torpedo torpedo = { 0 };
+    float torpedoCooldown = 0.0f;
+    const Color torpedoColor = (Color){ 232, 248, 248, 255 };
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
@@ -158,6 +176,22 @@ int main(void) {
             }
         }
 
+        // Torpedo: manual second input, gated by both "one in flight at a
+        // time" and a reload cooldown so it isn't unlimited-fire like the
+        // gun. No ground/surface targets exist yet, so it just runs
+        // straight along the fire-time y rather than leading a target.
+        if (torpedoCooldown > 0.0f) torpedoCooldown -= dt;
+        if (IsKeyPressed(KEY_SPACE) && !torpedo.active && torpedoCooldown <= 0.0f) {
+            torpedo.active = true;
+            torpedo.pos = (Vector2){ player.x + halfW, player.y };
+            torpedoCooldown = TORPEDO_COOLDOWN;
+        }
+
+        if (torpedo.active) {
+            torpedo.pos.x += TORPEDO_SPEED * dt;
+            if (torpedo.pos.x - TORPEDO_WIDTH / 2.0f > GAME_WIDTH) torpedo.active = false;
+        }
+
         BeginTextureMode(target);
             ClearBackground(BLACK);
 
@@ -193,6 +227,51 @@ int main(void) {
             for (int i = 0; i < MAX_ENEMIES; i++) {
                 if (!enemies[i].active) continue;
                 DrawPoly(enemies[i].pos, 4, ENEMY_RADIUS, 45.0f, enemyColor);
+            }
+
+            // Torpedo reads as player tech: hull-white body with pointed
+            // nose, cyan spine stripe + engine glow (same "glow = active
+            // tech" grammar as the ship), and a fading surface wake behind
+            // it. TORPEDO_WIDTH/HEIGHT stay the logical body size; the
+            // nose/wake are visual-only overhang.
+            if (torpedo.active) {
+                float tx = torpedo.pos.x;
+                float ty = torpedo.pos.y;
+                float hw = TORPEDO_WIDTH / 2.0f;
+                float hh = TORPEDO_HEIGHT / 2.0f;
+                const Color cyan = (Color){ 76, 224, 232, 255 };
+
+                // fading wake segments trailing off to the left
+                for (int i = 0; i < 3; i++) {
+                    DrawRectangle(
+                        (int)(tx - hw - 5.0f - 7.0f * i),
+                        (int)(ty - 1.0f),
+                        (int)(6.0f - 1.5f * i),
+                        2,
+                        (Color){ 207, 239, 240, (unsigned char)(110 - 32 * i) }
+                    );
+                }
+
+                // engine glow at the tail, pulsing slightly
+                unsigned char pulse = (unsigned char)(190 + 60.0f * sinf((float)GetTime() * 20.0f));
+                DrawCircle((int)(tx - hw - 1.0f), (int)ty, 2.0f, (Color){ 76, 224, 232, pulse });
+
+                // tail fin
+                DrawRectangle((int)(tx - hw), (int)(ty - hh - 1.0f), 2, (int)TORPEDO_HEIGHT + 2, torpedoColor);
+
+                // body
+                DrawRectangle((int)(tx - hw), (int)(ty - hh), (int)TORPEDO_WIDTH, (int)TORPEDO_HEIGHT, torpedoColor);
+
+                // nose cone (points right, same order as raylib's CCW convention)
+                DrawTriangle(
+                    (Vector2){ tx + hw + 4.0f, ty },
+                    (Vector2){ tx + hw, ty - hh },
+                    (Vector2){ tx + hw, ty + hh },
+                    torpedoColor
+                );
+
+                // cyan spine stripe along the body centerline
+                DrawRectangle((int)(tx - hw + 1.0f), (int)(ty - 0.5f), (int)(TORPEDO_WIDTH - 1.0f), 1, cyan);
             }
 
             // HUD bar placeholder — real content (score/lives/torpedo
