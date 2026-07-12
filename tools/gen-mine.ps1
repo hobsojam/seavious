@@ -7,7 +7,7 @@
 # Run from anywhere:  powershell -File tools/gen-mine.ps1
 
 $ErrorActionPreference = "Stop"
-Add-Type -AssemblyName System.Drawing
+. (Join-Path $PSScriptRoot "gen-grid-image.ps1")
 
 $palette = @{
     '.' = [System.Drawing.Color]::FromArgb(0, 0, 0, 0)          # transparent
@@ -33,21 +33,4 @@ $grid = @(
     ".....oko",
     "......o"
 )
-
-$width = 14
-$height = 14
-$bmp = New-Object System.Drawing.Bitmap $width, $height
-for ($y = 0; $y -lt $height; $y++) {
-    $row = $grid[$y]
-    if ($row.Length -gt $width) { throw "row $y is $($row.Length) chars, max $width" }
-    $row = $row.PadRight($width, '.')
-    for ($x = 0; $x -lt $width; $x++) {
-        $bmp.SetPixel($x, $y, $palette[$row[$x].ToString()])
-    }
-}
-
-$out = Join-Path $PSScriptRoot "..\assets\sprites\mine.png"
-$out = [System.IO.Path]::GetFullPath($out)
-$bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
-$bmp.Dispose()
-Write-Host "written: $out"
+Write-GridImagePng -Width 14 -Height 14 -Palette $palette -Grid $grid -RelativeOutput "..\assets\sprites\mine.png"
