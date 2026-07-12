@@ -95,14 +95,16 @@ destructible parts — the dual-targeting mechanic made literal in one fight.
 Visual design deferred to a separate pass (see `TODO.md`).
 
 **Color palette**: No sky rendered — open water scrolls underneath the
-top-down camera. Environment is dappled teal water: organic blobby patches
-of lighter water (`#1e6076` base rising to `#2a7a8f`) over deep pools
-(`#133e4d`), with rare pale cyan-white foam flecks (`#cfeff0`) — reads as
-light playing on a gently moving surface rather than directional waves.
-The water stays low-contrast and sparse in detail so the glow-heavy
-sprites own the scene, and dense high-frequency texture is avoided
-because it reads as fabric rather than water at this scale (the failure
-mode of the first-pass dithered-chevron tile).
+top-down camera. Environment is classic flat arcade water in the
+Xevious/1942 tradition: solid navy (`#144874`) that reads as flat color at
+a glance, with a whisper-subtle darker mottle (`#113e66`, barely one value
+step down) and a few sparse white flecks (`#cfeff0`). The deliberate
+plainness lets the glow-heavy sprites own the scene, and the navy hue
+separates cleanly from the player's cyan. Texture-heavy water was tried
+and rejected three times (dithered chevrons, swell bands, dappled
+patches) — at this scale any pattern with visible contrast reads as
+fabric or stripes rather than water; texture only survives at
+near-invisible contrast.
 Faction colors double as gameplay readability cues for dual-targeting:
 player (skimmer + gun bullets) bright cyan/white/silver (`#e8f8f8` hull,
 `#4ce0e8` accents); air enemies (gun targets) glowing magenta/purple
