@@ -318,8 +318,7 @@ void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt) {
     }
 }
 
-void UpdateTurretPlatformFire(SurfaceTarget targets[], int count, float dt, Vector2 playerPos, EnemyBullet bullets[],
-    int bulletCount) {
+void UpdateTurretPlatformFire(SurfaceTarget targets[], int count, float dt, EnemyBullet bullets[], int bulletCount) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active || targets[i].type != SURFACE_TARGET_TURRET_PLATFORM) continue;
         targets[i].fireTimer += dt;
@@ -328,7 +327,7 @@ void UpdateTurretPlatformFire(SurfaceTarget targets[], int count, float dt, Vect
             TrySpawnEnemyBullet(
                 bullets,
                 bulletCount,
-                (Vector2){ targets[i].pos.x - targets[i].radius - 3.0f, playerPos.y },
+                (Vector2){ targets[i].pos.x - targets[i].radius - 3.0f, targets[i].pos.y },
                 (Vector2){ -ENEMY_BULLET_SPEED, 0.0f }
             );
         }

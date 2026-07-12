@@ -172,8 +172,7 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt);
 
 bool TrySpawnTurretPlatform(SurfaceTarget targets[], int count, float y);
 void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt);
-void UpdateTurretPlatformFire(SurfaceTarget targets[], int count, float dt, Vector2 playerPos, EnemyBullet bullets[],
-    int bulletCount);
+void UpdateTurretPlatformFire(SurfaceTarget targets[], int count, float dt, EnemyBullet bullets[], int bulletCount);
 TorpedoImpact ResolveTorpedoSurfaceTargetCollision(Torpedo *torpedo, SurfaceTarget targets[], int targetCount,
     GameEventQueue *events);
 void ResolveTorpedoExplosion(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events);

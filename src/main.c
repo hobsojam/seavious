@@ -318,8 +318,7 @@ int main(void) {
                 TrySpawnTurretPlatform(surfaceTargets, MAX_SURFACE_TARGETS, y);
             }
             UpdateSurfaceTargets(surfaceTargets, MAX_SURFACE_TARGETS, dt);
-            UpdateTurretPlatformFire(surfaceTargets, MAX_SURFACE_TARGETS, dt, player, enemyBullets,
-                MAX_ENEMY_BULLETS);
+            UpdateTurretPlatformFire(surfaceTargets, MAX_SURFACE_TARGETS, dt, enemyBullets, MAX_ENEMY_BULLETS);
             UpdateEnemyBullets(enemyBullets, MAX_ENEMY_BULLETS, dt);
 
             // Torpedo-vs-surface collision — the gun deliberately has no case
