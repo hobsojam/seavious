@@ -180,6 +180,68 @@ Drones (magenta diamond placeholders) that fly in from the right on a
 sine-wave path. Space fires a torpedo (one in flight at a time, 1.5s
 reload) — the only weapon that can destroy the amber Turret Platforms
 drifting with the water; gun bullets pass right over them (the
-dual-targeting rule). The torpedo still fires straight (lead-targeting
-is a TODO), and there's no lives/game-over loop yet — see `TODO.md` for
-what's next.
+dual-targeting rule). The torpedo leads its target: at launch it aims at
+the earliest intercept point for an active turret ahead, then locks that
+heading (no mid-flight homing); with no target it fires straight. There's
+no lives/game-over loop yet — see `TODO.md` for what's next.
+
+## Technical Follow-ups
+
+Items found in the current prototype review:
+
+- Guard the Windows-only discrete-GPU exports in `src/main.c` with
+  `#if defined(_WIN32)` so the otherwise portable C/raylib app can still
+  build cleanly on non-Windows targets later.
+- Make asset lookup independent of the process working directory. CMake
+  copies `assets/` next to the executable, but `LoadTexture("assets/...")`
+  still resolves relative to the current working directory when the app is
+  launched.
+- Add explicit failure checks after `LoadRenderTexture` and `LoadTexture`
+  calls so missing assets or graphics-resource failures fail clearly instead
+  of producing confusing blank/placeholder behavior.
+- Cap or sanitize unusually large `dt` values after stalls/debug pauses, and
+  wrap ocean scrolling with true modulo behavior rather than subtracting one
+  tile width once.
+- Normalize player movement input so diagonal movement is not faster than
+  horizontal or vertical movement.
+- Split `src/main.c` before adding the next feature wave. The current
+  single-loop prototype is still readable, but lives, enemy projectiles,
+  wave sequencing, HUD state, and boss parts will be easier to add if setup,
+  update, collision, and draw code are separated first.
+
+## Testing Notes
+
+For now, keep rendering/feel checks manual and put automated coverage around
+small gameplay-rule functions once they are split out of `src/main.c`.
+
+Recommended first test framework: [Unity](https://github.com/ThrowTheSwitch/Unity).
+It is a small C test framework with simple assertions, easy CMake integration,
+and little ceremony. Plain `assert()` is fine for the very first extracted
+function, but Unity will give clearer failures once there are multiple rule
+tests.
+
+Manual smoke checklist:
+
+- Window opens at 1024x768 and presents frames normally.
+- Pixel art remains crisp with nearest-neighbor scaling.
+- Ocean scrolls continuously without seams or jumps.
+- Player movement stays within the 512x352 play area and never enters the HUD.
+- Diagonal movement does not become faster once movement normalization is added.
+- Gun bullets destroy Skimmer Drones and do not affect Turret Platforms.
+- Torpedoes destroy Turret Platforms and do not affect air enemies.
+- Torpedo cooldown and one-in-flight behavior are obvious while playing.
+- Torpedo lead-targeting aims at a plausible intercept point for targets ahead.
+- Missing assets or failed texture/render-target loads fail clearly once load
+  checks are added.
+- The raylib/vcpkg overlay still prevents the blank-window regression after
+  dependency or build-system changes.
+
+Good first automated tests after extracting pure gameplay logic:
+
+- Player input normalization produces equal cardinal and diagonal speed.
+- Player clamping respects sprite half-size and the reserved HUD bar.
+- Ocean scroll wrapping handles large `dt` values.
+- Torpedo target selection ignores turrets behind the player.
+- Torpedo target selection picks the earliest valid intercept ahead.
+- Collision rules preserve the dual-targeting split: gun-vs-air only,
+  torpedo-vs-surface only.

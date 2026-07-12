@@ -26,8 +26,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       the nose, 0.15s interval, culled off the right edge)
 - [x] Torpedo: forward-fired (Space), single-in-flight + 1.5s reload
       cooldown so it isn't unlimited-fire like the gun, travels level
-      along the surface — lead-targeting logic is blocked on the first
-      ground/surface target existing (currently just fires straight)
+      along the surface
 - [x] One air enemy type (Skimmer Drone): spawns off the right edge, flies
       left on a sine-wave path, dies in one hit to the gun, placeholder
       magenta diamond silhouette (real sprite art still a separate TODO
@@ -37,8 +36,12 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       speed), dies to one torpedo, gun bullets pass over it (dual-targeting
       rule); placeholder amber hexagon + glow ring + cannon stub. Doesn't
       fire back yet — blocked on the lives/damage system existing
-- [ ] Torpedo lead-targeting toward ground/surface targets (unblocked now
-      that the Turret Platform exists; torpedo currently fires straight)
+- [x] Torpedo lead-targeting: launch solves a closed-form intercept
+      against turret drift (turrets move at exactly the ocean scroll
+      speed), aims at the earliest-intercept turret ahead of the launch
+      point, locks that heading (fire-and-forget, no mid-flight homing);
+      falls back to firing straight with nothing to lead; sprite rotates
+      to the travel heading
 - [ ] Lives / game-over loop (post-MVP, needed for full stage structure)
 - [ ] Boss fight structure (post-MVP, end of each stage)
 - [ ] Stage/wave definition + sequencing (post-MVP)

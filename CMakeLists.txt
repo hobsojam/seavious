@@ -7,6 +7,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 find_package(raylib CONFIG REQUIRED)
 
 add_executable(seavious
+    src/gameplay.c
     src/main.c
 )
 
