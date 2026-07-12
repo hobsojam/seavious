@@ -9,6 +9,7 @@
 #define PLAY_HEIGHT   (GAME_HEIGHT - HUD_HEIGHT)
 #define WINDOW_SCALE  2
 #define OCEAN_SCROLL_SPEED 40.0f
+#define OCEAN_OVERLAY_SPEED_SCALE 1.15f
 
 #define MAX_BULLETS         32
 #define BULLET_SPEED        280.0f

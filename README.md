@@ -95,14 +95,26 @@ destructible parts — the dual-targeting mechanic made literal in one fight.
 Visual design deferred to a separate pass (see `TODO.md`).
 
 **Color palette**: No sky rendered — open water scrolls underneath the
-top-down camera. Environment is calm, dark, mostly-flat deep navy water
-(`#0a2530` base, with broad organic swell bands stepping up through
-`#0e3140` to crest tops at `#194e60`) and rare pale cyan-white foam dashes
-(`#cfeff0`). The water is deliberately low-contrast and sparse in detail:
-the glow-heavy sprites are meant to own the scene, wave structure runs in
-long noise-warped horizontal bands (suiting the scroll direction), and
-dense high-frequency texture is avoided because it reads as fabric rather
-than water at this scale.
+top-down camera. Environment is classic flat arcade water in the
+Xevious/1942 tradition: solid navy (`#144874`) that reads as flat color at
+a glance, with a whisper-subtle darker mottle (`#113e66`, barely one value
+step down) and nothing else. The deliberate plainness lets the glow-heavy
+sprites own the scene, and the navy hue separates cleanly from the
+player's cyan. Texture-heavy water was tried and rejected three times
+(dithered chevrons, swell bands, dappled patches) — at this scale any
+pattern with visible contrast reads as fabric or stripes rather than
+water; texture only survives at near-invisible contrast. Distinct baked
+marks were also tried and rejected (sparse white flecks): any landmark
+feature makes the tile repeat trackable. Foam glints instead live on a
+separate parallax overlay (`assets/tiles/ocean_overlay.png`, 160x96,
+3 dim `#cfeff0` marks on transparency) that scrolls slightly faster
+than the base water (`OCEAN_OVERLAY_SPEED_SCALE`) — the glints drift
+relative to the water body like propagating wavelets, and since 160x96
+never aligns with the 128x64 base tile, the combined repeat period is
+far longer than either texture alone. The overlay is part of the water
+surface in draw order: immediately above the base ocean, below
+everything that sits on the water (wake, surface targets, future land),
+so glints never draw over solid objects.
 Faction colors double as gameplay readability cues for dual-targeting:
 player (skimmer + gun bullets) bright cyan/white/silver (`#e8f8f8` hull,
 `#4ce0e8` accents); air enemies (gun targets) glowing magenta/purple
