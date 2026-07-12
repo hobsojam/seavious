@@ -183,6 +183,9 @@ more, and heavier or progression-gating threats carry the highest awards.
 open-source), exported as `.png`, loaded via raylib's `LoadTexture`. Chosen
 over Aseprite (paid) and Piskel (browser-only, less capable) for a
 no-cost, desktop-native pixel-art tool with animation/tilemap support.
+The ASCII-grid generator scripts in `tools/` stay intentionally explicit and
+asset-specific; only the low-level bitmap write step is shared so the sprite
+shape, palette, and output path stay easy to read in each file.
 
 **Audio**: Music is tracker-composed (XM/MOD) in **OpenMPT** (free/open
 source), played back via raylib's built-in `raudio` module, which supports

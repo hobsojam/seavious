@@ -12,6 +12,7 @@
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "gen-grid-image.ps1")
 
+# Keep the asset description inline here; only the mechanical bitmap write is shared.
 $palette = @{
     '.' = [System.Drawing.Color]::FromArgb(0, 0, 0, 0)          # transparent
     'O' = [System.Drawing.Color]::FromArgb(255, 20, 16, 32)     # outline dark violet-navy
