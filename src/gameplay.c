@@ -69,6 +69,26 @@ int ScoreGameEvents(const GameEventQueue *events) {
     return score;
 }
 
+static bool CirclesOverlap(Vector2 a, float ar, Vector2 b, float br) {
+    float hitDist = ar + br;
+    return DistanceSquared(a, b) <= hitDist * hitDist;
+}
+
+bool ResolvePlayerContactDamage(Vector2 playerPos, float playerRadius, const AirTarget airTargets[], int airCount,
+    const SurfaceTarget surfaceTargets[], int surfaceCount) {
+    for (int i = 0; i < airCount; i++) {
+        if (!airTargets[i].active) continue;
+        if (CirclesOverlap(playerPos, playerRadius, airTargets[i].pos, airTargets[i].radius)) return true;
+    }
+
+    for (int i = 0; i < surfaceCount; i++) {
+        if (!surfaceTargets[i].active) continue;
+        if (CirclesOverlap(playerPos, playerRadius, surfaceTargets[i].pos, surfaceTargets[i].radius)) return true;
+    }
+
+    return false;
+}
+
 void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH) {
     player->x += inputX * speed * dt;
     player->y += inputY * speed * dt;

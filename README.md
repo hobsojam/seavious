@@ -210,13 +210,15 @@ reserved bar rather than an overlay so the HUD never competes with the
 glow/bloom-heavy playfield for readability.
 
 **Structure**: Stage-based, with a boss fight at the end of each stage.
-Lives-based (die = lose a life, restart at checkpoint; game over on last
-life). No roguelike meta-progression between runs.
+Lives-based: enemy contact costs one life, the ship respawns with brief
+invulnerability if any lives remain, and game over triggers on the last
+life. Checkpoints still come later with the stage system. No roguelike
+meta-progression between runs.
 
 **Current scope (bare mechanical proof)**: Player movement, gun, bomb, one
-air enemy type, one ground target type. No full stage, no boss, no
-lives/game-over yet — the goal is just validating that the dual-targeting
-feel works before building content on top of it.
+air enemy type, one ground target type. No full stage or boss yet; the
+remaining work is the checkpoint/failure flow around the implemented
+contact-damage loop, then stage content on top of it.
 
 ## Building on Windows (MSVC + vcpkg)
 
@@ -261,8 +263,9 @@ surface lane and marks maximum range, clamped before the right edge of the
 screen. Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.
-Hits before arming do only small direct impact damage, with no splash. There's no lives/game-over loop
-yet — see `TODO.md` for what's next.
+Hits before arming do only small direct impact damage, with no splash.
+Enemy contact costs one life, respawns the ship briefly invulnerable if any
+remain, and game over ends the run on the last life.
 
 ## Technical Follow-ups
 

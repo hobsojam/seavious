@@ -45,7 +45,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       a Turret Platform on destruction, accumulate the run score, and show
       it as minimal text in the reserved HUD bar; wider scoring table is
       documented in README
-- [ ] Lives / game-over loop (post-MVP, needed for full stage structure)
+- [x] Lives / game-over loop (post-MVP, needed for full stage structure):
+      enemy contact now costs one life, respawns the player with brief
+      invulnerability, and ends the run on the last life; full checkpoint
+      structure still belongs with the later stage system
 - [ ] Boss fight structure (post-MVP, end of each stage)
 - [ ] Stage/wave definition + sequencing (post-MVP)
 - [x] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
