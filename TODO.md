@@ -22,10 +22,14 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [ ] 4. Confirm 4-directional controls feel right against the new bounds
       and spawn position (needs an actual play-test on Windows)
 
-- [ ] Forward (rightward) gun: auto-fire, hits air targets
+- [x] Forward (rightward) gun: auto-fire bullets (fixed pool, spawns from
+      the nose, 0.15s interval, culled off the right edge)
 - [ ] Torpedo: forward-fired (rightward) on second input, travels along
       the surface, lead-targeting logic for ground/surface targets
-- [ ] One air enemy type (sleek mechanical alien drone)
+- [x] One air enemy type (Skimmer Drone): spawns off the right edge, flies
+      left on a sine-wave path, dies in one hit to the gun, placeholder
+      magenta diamond silhouette (real sprite art still a separate TODO
+      item, see Content/Art below)
 - [ ] One ground/surface target type (alien platform/installation)
 - [ ] Lives / game-over loop (post-MVP, needed for full stage structure)
 - [ ] Boss fight structure (post-MVP, end of each stage)

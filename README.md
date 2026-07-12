@@ -165,4 +165,7 @@ and `vcpkg.json` automatically (manifest mode) and configures itself.
 ## Controls
 
 Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px
-is reserved HUD space). No shooting yet — see `TODO.md` for what's next.
+is reserved HUD space). Gun auto-fires forward and downs the Skimmer
+Drones (magenta diamond placeholders) that fly in from the right on a
+sine-wave path. No torpedo, ground targets, or lives/game-over loop yet —
+see `TODO.md` for what's next.
