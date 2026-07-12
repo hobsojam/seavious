@@ -137,11 +137,34 @@ bool TrySpawnBullet(Bullet bullets[], int count, Vector2 pos) {
     return false;
 }
 
+bool TrySpawnEnemyBullet(EnemyBullet bullets[], int count, Vector2 pos, Vector2 vel) {
+    for (int i = 0; i < count; i++) {
+        if (!bullets[i].active) {
+            bullets[i].active = true;
+            bullets[i].pos = pos;
+            bullets[i].vel = vel;
+            return true;
+        }
+    }
+    return false;
+}
+
 void UpdateBullets(Bullet bullets[], int count, float dt) {
     for (int i = 0; i < count; i++) {
         if (!bullets[i].active) continue;
         bullets[i].pos.x += BULLET_SPEED * dt;
         if (bullets[i].pos.x - BULLET_RADIUS > GAME_WIDTH) bullets[i].active = false;
+    }
+}
+
+void UpdateEnemyBullets(EnemyBullet bullets[], int count, float dt) {
+    for (int i = 0; i < count; i++) {
+        if (!bullets[i].active) continue;
+        bullets[i].pos.x += bullets[i].vel.x * dt;
+        bullets[i].pos.y += bullets[i].vel.y * dt;
+        if (bullets[i].pos.x < -ENEMY_BULLET_RADIUS || bullets[i].pos.x > GAME_WIDTH + ENEMY_BULLET_RADIUS) {
+            bullets[i].active = false;
+        }
     }
 }
 
@@ -279,6 +302,7 @@ bool TrySpawnTurretPlatform(SurfaceTarget targets[], int count, float y) {
             targets[i].active = true;
             targets[i].hp = TURRET_PLATFORM_HP;
             targets[i].radius = TURRET_PLATFORM_RADIUS;
+            targets[i].fireTimer = 0.0f;
             targets[i].pos = (Vector2){ GAME_WIDTH + TURRET_PLATFORM_RADIUS, y };
             return true;
         }
@@ -292,6 +316,35 @@ void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt) {
         targets[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
         if (targets[i].pos.x < -targets[i].radius) targets[i].active = false;
     }
+}
+
+void UpdateTurretPlatformFire(SurfaceTarget targets[], int count, float dt, Vector2 playerPos, EnemyBullet bullets[],
+    int bulletCount) {
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active || targets[i].type != SURFACE_TARGET_TURRET_PLATFORM) continue;
+        targets[i].fireTimer += dt;
+        while (targets[i].fireTimer >= TURRET_PLATFORM_FIRE_INTERVAL) {
+            targets[i].fireTimer -= TURRET_PLATFORM_FIRE_INTERVAL;
+            TrySpawnEnemyBullet(
+                bullets,
+                bulletCount,
+                (Vector2){ targets[i].pos.x - targets[i].radius - 3.0f, playerPos.y },
+                (Vector2){ -ENEMY_BULLET_SPEED, 0.0f }
+            );
+        }
+    }
+}
+
+bool ResolveEnemyBulletPlayerCollision(EnemyBullet bullets[], int bulletCount, Vector2 playerPos, float playerRadius) {
+    for (int i = 0; i < bulletCount; i++) {
+        if (!bullets[i].active) continue;
+        float hitDist = playerRadius + ENEMY_BULLET_RADIUS;
+        if (DistanceSquared(playerPos, bullets[i].pos) <= hitDist * hitDist) {
+            bullets[i].active = false;
+            return true;
+        }
+    }
+    return false;
 }
 
 void ResolveTorpedoExplosion(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events) {

@@ -16,6 +16,10 @@
 #define BULLET_FIRE_INTERVAL 0.15f
 #define BULLET_RADIUS       3.0f
 
+#define MAX_ENEMY_BULLETS           24
+#define ENEMY_BULLET_SPEED         160.0f
+#define ENEMY_BULLET_RADIUS          3.0f
+
 #define MAX_AIR_TARGETS          16
 #define SKIMMER_DRONE_RADIUS         6.0f
 #define SKIMMER_DRONE_SPEED          60.0f
@@ -38,6 +42,7 @@
 #define MAX_SURFACE_TARGETS            8
 #define TURRET_PLATFORM_RADIUS          9.0f
 #define TURRET_PLATFORM_SPAWN_INTERVAL  3.5f
+#define TURRET_PLATFORM_FIRE_INTERVAL   1.5f
 #define TURRET_PLATFORM_HP              1
 #define SCORE_TURRET_PLATFORM  300
 
@@ -57,6 +62,12 @@ typedef struct {
     Vector2 pos;
     bool active;
 } Bullet;
+
+typedef struct {
+    Vector2 pos;
+    Vector2 vel;
+    bool active;
+} EnemyBullet;
 
 typedef enum {
     AIR_TARGET_SKIMMER_DRONE
@@ -107,6 +118,7 @@ typedef struct {
     Vector2 pos;
     float radius;
     int hp;
+    float fireTimer;
     bool active;
 } SurfaceTarget;
 
@@ -137,6 +149,9 @@ void UpdateWakeParticles(WakeParticle wake[], int count, float dt);
 
 bool TrySpawnBullet(Bullet bullets[], int count, Vector2 pos);
 void UpdateBullets(Bullet bullets[], int count, float dt);
+bool TrySpawnEnemyBullet(EnemyBullet bullets[], int count, Vector2 pos, Vector2 vel);
+void UpdateEnemyBullets(EnemyBullet bullets[], int count, float dt);
+bool ResolveEnemyBulletPlayerCollision(EnemyBullet bullets[], int bulletCount, Vector2 playerPos, float playerRadius);
 
 bool DamageAirTarget(AirTarget *target, int damage, GameEventQueue *events);
 bool DamageSurfaceTarget(SurfaceTarget *target, int damage, GameEventQueue *events);
@@ -157,6 +172,8 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt);
 
 bool TrySpawnTurretPlatform(SurfaceTarget targets[], int count, float y);
 void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt);
+void UpdateTurretPlatformFire(SurfaceTarget targets[], int count, float dt, Vector2 playerPos, EnemyBullet bullets[],
+    int bulletCount);
 TorpedoImpact ResolveTorpedoSurfaceTargetCollision(Torpedo *torpedo, SurfaceTarget targets[], int targetCount,
     GameEventQueue *events);
 void ResolveTorpedoExplosion(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events);

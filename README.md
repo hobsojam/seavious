@@ -267,6 +267,7 @@ screen. Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.
 Hits before arming do only small direct impact damage, with no splash.
+Turret Platforms now shoot straight red lane shots back at the player.
 Enemy contact costs one life, respawns the ship briefly invulnerable if any
 remain, and game over ends the run on the last life.
 

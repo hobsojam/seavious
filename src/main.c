@@ -46,12 +46,30 @@ static void ResetTransientState(float *fireTimer, float *airTargetSpawnTimer, fl
 }
 
 static void ResetEntityPools(Bullet bullets[], AirTarget airTargets[], SurfaceTarget surfaceTargets[],
-    WakeParticle wake[], GameEventQueue *gameEvents) {
+    EnemyBullet enemyBullets[], WakeParticle wake[], GameEventQueue *gameEvents) {
     memset(bullets, 0, sizeof(Bullet) * MAX_BULLETS);
     memset(airTargets, 0, sizeof(AirTarget) * MAX_AIR_TARGETS);
     memset(surfaceTargets, 0, sizeof(SurfaceTarget) * MAX_SURFACE_TARGETS);
+    memset(enemyBullets, 0, sizeof(EnemyBullet) * MAX_ENEMY_BULLETS);
     memset(wake, 0, sizeof(WakeParticle) * MAX_WAKE_PARTICLES);
     gameEvents->count = 0;
+}
+
+static void ApplyPlayerHit(Vector2 *player, int *lives, bool *gameOver, float *respawnInvulnerability,
+    Torpedo *torpedo, float *torpedoCooldown, TorpedoImpactType *torpedoImpactType,
+    float *torpedoImpactTimer) {
+    (*lives)--;
+    if (*lives > 0) {
+        *player = (Vector2){ PLAYER_START_X, PLAYER_START_Y };
+        *respawnInvulnerability = PLAYER_RESPAWN_INVULNERABILITY;
+        torpedo->active = false;
+        *torpedoCooldown = 0.0f;
+        *torpedoImpactType = TORPEDO_IMPACT_NONE;
+        *torpedoImpactTimer = 0.0f;
+    } else {
+        *lives = 0;
+        *gameOver = true;
+    }
 }
 
 static void ResetRunState(Vector2 *player, int *score, int *lives, bool *gameOver,
@@ -59,7 +77,7 @@ static void ResetRunState(Vector2 *player, int *score, int *lives, bool *gameOve
     float *torpedoCooldown, Torpedo *torpedo, TorpedoImpactType *torpedoImpactType,
     Vector2 *torpedoImpactPos, float *torpedoImpactTimer, float *oceanScroll, float *oceanOverlayScroll,
     float *respawnInvulnerability, Bullet bullets[], AirTarget airTargets[], SurfaceTarget surfaceTargets[],
-    WakeParticle wake[], GameEventQueue *gameEvents) {
+    EnemyBullet enemyBullets[], WakeParticle wake[], GameEventQueue *gameEvents) {
     ResetPlayerProgress(player, score, lives);
     *gameOver = false;
     ResetTransientState(
@@ -67,7 +85,7 @@ static void ResetRunState(Vector2 *player, int *score, int *lives, bool *gameOve
         torpedoImpactType, torpedoImpactPos, torpedoImpactTimer, oceanScroll, oceanOverlayScroll,
         respawnInvulnerability
     );
-    ResetEntityPools(bullets, airTargets, surfaceTargets, wake, gameEvents);
+    ResetEntityPools(bullets, airTargets, surfaceTargets, enemyBullets, wake, gameEvents);
 }
 
 static void DrawHud(int score, int lives, float torpedoCooldown, bool torpedoActive) {
@@ -167,6 +185,9 @@ int main(void) {
     float fireTimer = 0.0f;
     const Color bulletColor = (Color){ 76, 224, 232, 255 };
 
+    EnemyBullet enemyBullets[MAX_ENEMY_BULLETS] = { 0 };
+    const Color enemyBulletColor = (Color){ 232, 72, 72, 255 };
+
     // Skimmer Drone: weakest, most common air filler (see README roster).
     // Sine-wave flight around a fixed baseline, dies in one hit for now —
     // the "1-2 hits" in the design doc is a tuning pass for later.
@@ -211,7 +232,7 @@ int main(void) {
                 &player, &score, &lives, &gameOver, &fireTimer, &airTargetSpawnTimer,
                 &surfaceTargetSpawnTimer, &wakeEmitTimer, &torpedoCooldown, &torpedo,
                 &torpedoImpactType, &torpedoImpactPos, &torpedoImpactTimer, &oceanScroll,
-                &oceanOverlayScroll, &respawnInvulnerability, bullets, airTargets, surfaceTargets,
+                &oceanOverlayScroll, &respawnInvulnerability, bullets, airTargets, surfaceTargets, enemyBullets,
                 wake, &gameEvents
             );
         }
@@ -297,6 +318,9 @@ int main(void) {
                 TrySpawnTurretPlatform(surfaceTargets, MAX_SURFACE_TARGETS, y);
             }
             UpdateSurfaceTargets(surfaceTargets, MAX_SURFACE_TARGETS, dt);
+            UpdateTurretPlatformFire(surfaceTargets, MAX_SURFACE_TARGETS, dt, player, enemyBullets,
+                MAX_ENEMY_BULLETS);
+            UpdateEnemyBullets(enemyBullets, MAX_ENEMY_BULLETS, dt);
 
             // Torpedo-vs-surface collision — the gun deliberately has no case
             // here: bullets pass over ground targets (dual-targeting rule).
@@ -316,21 +340,17 @@ int main(void) {
             }
             score += ScoreGameEvents(&gameEvents);
 
-            if (respawnInvulnerability <= 0.0f
-                && ResolvePlayerContactDamage(player, playerRadius, airTargets, MAX_AIR_TARGETS,
-                    surfaceTargets, MAX_SURFACE_TARGETS)) {
-                lives--;
-                if (lives > 0) {
-                    player = (Vector2){ PLAYER_START_X, PLAYER_START_Y };
-                    respawnInvulnerability = PLAYER_RESPAWN_INVULNERABILITY;
-                    torpedo.active = false;
-                    torpedoCooldown = 0.0f;
-                    torpedoImpactType = TORPEDO_IMPACT_NONE;
-                    torpedoImpactTimer = 0.0f;
-                } else {
-                    lives = 0;
-                    gameOver = true;
-                }
+            bool enemyBulletHit = ResolveEnemyBulletPlayerCollision(
+                enemyBullets, MAX_ENEMY_BULLETS, player, playerRadius
+            );
+            bool contactHit = ResolvePlayerContactDamage(
+                player, playerRadius, airTargets, MAX_AIR_TARGETS, surfaceTargets, MAX_SURFACE_TARGETS
+            );
+            if (respawnInvulnerability <= 0.0f && (enemyBulletHit || contactHit)) {
+                ApplyPlayerHit(
+                    &player, &lives, &gameOver, &respawnInvulnerability, &torpedo, &torpedoCooldown,
+                    &torpedoImpactType, &torpedoImpactTimer
+                );
             }
         }
 
@@ -424,6 +444,11 @@ int main(void) {
             for (int i = 0; i < MAX_BULLETS; i++) {
                 if (!bullets[i].active) continue;
                 DrawCircleV(bullets[i].pos, BULLET_RADIUS, bulletColor);
+            }
+
+            for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+                if (!enemyBullets[i].active) continue;
+                DrawCircleV(enemyBullets[i].pos, ENEMY_BULLET_RADIUS, enemyBulletColor);
             }
 
             // Skimmer Drone: dark hull so the magenta glow carries the color

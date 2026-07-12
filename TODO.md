@@ -33,8 +33,9 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] One ground/surface target type: Turret Platform — spawns off the
       right edge, anchored to the water (drifts left at ocean scroll
       speed), dies to one torpedo, gun bullets pass over it (dual-targeting
-      rule); placeholder amber hexagon + glow ring + cannon stub. Doesn't
-      fire back yet — blocked on the lives/damage system existing
+      rule); placeholder amber hexagon + glow ring + cannon stub. Fires
+      straight red shots at the player's lane now that the lives/damage
+      loop exists
 - [x] Torpedo range-reticle behavior: reticle marks max range, clamped
       before the right edge; baseline shot runs straight down the current
       surface lane, arms after a short distance, explodes on first armed
