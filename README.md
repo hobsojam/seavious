@@ -245,3 +245,7 @@ Good first automated tests after extracting pure gameplay logic:
 - Torpedo target selection picks the earliest valid intercept ahead.
 - Collision rules preserve the dual-targeting split: gun-vs-air only,
   torpedo-vs-surface only.
+
+## License
+
+MIT. See `LICENSE`.
