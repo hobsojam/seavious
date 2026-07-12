@@ -11,6 +11,32 @@
 __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 
+#define MAX_EXPLOSION_EFFECTS 32
+#define MAX_SURFACE_WRECKS 16
+#define PLAYER_DEATH_DURATION 0.60f
+
+typedef enum {
+    EXPLOSION_AIR_TARGET,
+    EXPLOSION_SURFACE_TARGET,
+    EXPLOSION_PLAYER
+} ExplosionType;
+
+typedef struct {
+    Vector2 pos;
+    float age;
+    float lifetime;
+    float radius;
+    ExplosionType type;
+    bool active;
+} ExplosionEffect;
+
+typedef struct {
+    Vector2 pos;
+    float radius;
+    SurfaceTargetType type;
+    bool active;
+} SurfaceWreck;
+
 static void DrawHudShipSlot(Vector2 center, Color color) {
     DrawTriangleLines(
         (Vector2){ center.x + 6.0f, center.y },
@@ -30,7 +56,7 @@ static void ResetPlayerProgress(Vector2 *player, int *score, int *lives) {
 static void ResetTransientState(float *fireTimer, float *airTargetSpawnTimer, float *surfaceTargetSpawnTimer,
     float *wakeEmitTimer, float *torpedoCooldown, Torpedo *torpedo, TorpedoImpactType *torpedoImpactType,
     Vector2 *torpedoImpactPos, float *torpedoImpactTimer, float *oceanScroll, float *oceanOverlayScroll,
-    float *respawnInvulnerability) {
+    float *respawnInvulnerability, bool *playerDestroyed, float *playerDeathTimer) {
     *fireTimer = 0.0f;
     *airTargetSpawnTimer = 0.0f;
     *surfaceTargetSpawnTimer = 0.0f;
@@ -43,33 +69,33 @@ static void ResetTransientState(float *fireTimer, float *airTargetSpawnTimer, fl
     *oceanScroll = 0.0f;
     *oceanOverlayScroll = 0.0f;
     *respawnInvulnerability = 0.0f;
+    *playerDestroyed = false;
+    *playerDeathTimer = 0.0f;
 }
 
 static void ResetEntityPools(Bullet bullets[], AirTarget airTargets[], SurfaceTarget surfaceTargets[],
-    EnemyBullet enemyBullets[], WakeParticle wake[], GameEventQueue *gameEvents) {
+    EnemyBullet enemyBullets[], WakeParticle wake[], ExplosionEffect explosions[], SurfaceWreck wrecks[],
+    GameEventQueue *gameEvents) {
     memset(bullets, 0, sizeof(Bullet) * MAX_BULLETS);
     memset(airTargets, 0, sizeof(AirTarget) * MAX_AIR_TARGETS);
     memset(surfaceTargets, 0, sizeof(SurfaceTarget) * MAX_SURFACE_TARGETS);
     memset(enemyBullets, 0, sizeof(EnemyBullet) * MAX_ENEMY_BULLETS);
     memset(wake, 0, sizeof(WakeParticle) * MAX_WAKE_PARTICLES);
+    memset(explosions, 0, sizeof(ExplosionEffect) * MAX_EXPLOSION_EFFECTS);
+    memset(wrecks, 0, sizeof(SurfaceWreck) * MAX_SURFACE_WRECKS);
     gameEvents->count = 0;
 }
 
-static void ApplyPlayerHit(Vector2 *player, int *lives, bool *gameOver, float *respawnInvulnerability,
-    Torpedo *torpedo, float *torpedoCooldown, TorpedoImpactType *torpedoImpactType,
-    float *torpedoImpactTimer) {
+static void BeginPlayerDeath(int *lives, bool *playerDestroyed, float *playerDeathTimer, Torpedo *torpedo,
+    float *torpedoCooldown, TorpedoImpactType *torpedoImpactType, float *torpedoImpactTimer) {
     (*lives)--;
-    if (*lives > 0) {
-        *player = (Vector2){ PLAYER_START_X, PLAYER_START_Y };
-        *respawnInvulnerability = PLAYER_RESPAWN_INVULNERABILITY;
-        torpedo->active = false;
-        *torpedoCooldown = 0.0f;
-        *torpedoImpactType = TORPEDO_IMPACT_NONE;
-        *torpedoImpactTimer = 0.0f;
-    } else {
-        *lives = 0;
-        *gameOver = true;
-    }
+    if (*lives < 0) *lives = 0;
+    *playerDestroyed = true;
+    *playerDeathTimer = PLAYER_DEATH_DURATION;
+    torpedo->active = false;
+    *torpedoCooldown = 0.0f;
+    *torpedoImpactType = TORPEDO_IMPACT_NONE;
+    *torpedoImpactTimer = 0.0f;
 }
 
 static void ResetRunState(Vector2 *player, int *score, int *lives, bool *gameOver,
@@ -77,15 +103,64 @@ static void ResetRunState(Vector2 *player, int *score, int *lives, bool *gameOve
     float *torpedoCooldown, Torpedo *torpedo, TorpedoImpactType *torpedoImpactType,
     Vector2 *torpedoImpactPos, float *torpedoImpactTimer, float *oceanScroll, float *oceanOverlayScroll,
     float *respawnInvulnerability, Bullet bullets[], AirTarget airTargets[], SurfaceTarget surfaceTargets[],
-    EnemyBullet enemyBullets[], WakeParticle wake[], GameEventQueue *gameEvents) {
+    EnemyBullet enemyBullets[], WakeParticle wake[], ExplosionEffect explosions[], SurfaceWreck wrecks[],
+    bool *playerDestroyed, float *playerDeathTimer, GameEventQueue *gameEvents) {
     ResetPlayerProgress(player, score, lives);
     *gameOver = false;
     ResetTransientState(
         fireTimer, airTargetSpawnTimer, surfaceTargetSpawnTimer, wakeEmitTimer, torpedoCooldown, torpedo,
         torpedoImpactType, torpedoImpactPos, torpedoImpactTimer, oceanScroll, oceanOverlayScroll,
-        respawnInvulnerability
+        respawnInvulnerability, playerDestroyed, playerDeathTimer
     );
-    ResetEntityPools(bullets, airTargets, surfaceTargets, enemyBullets, wake, gameEvents);
+    ResetEntityPools(bullets, airTargets, surfaceTargets, enemyBullets, wake, explosions, wrecks, gameEvents);
+}
+
+static bool TrySpawnExplosion(ExplosionEffect effects[], Vector2 pos, ExplosionType type, float radius, float lifetime) {
+    for (int i = 0; i < MAX_EXPLOSION_EFFECTS; i++) {
+        if (effects[i].active) continue;
+        effects[i] = (ExplosionEffect){ pos, 0.0f, lifetime, radius, type, true };
+        return true;
+    }
+    return false;
+}
+
+static bool TrySpawnSurfaceWreck(SurfaceWreck wrecks[], Vector2 pos, SurfaceTargetType type, float radius) {
+    for (int i = 0; i < MAX_SURFACE_WRECKS; i++) {
+        if (wrecks[i].active) continue;
+        wrecks[i] = (SurfaceWreck){ pos, radius, type, true };
+        return true;
+    }
+    return false;
+}
+
+static void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect explosions[], SurfaceWreck wrecks[]) {
+    for (int i = 0; i < events->count; i++) {
+        const GameEvent *event = &events->items[i];
+        if (event->type == GAME_EVENT_AIR_TARGET_DESTROYED) {
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_AIR_TARGET, 10.0f, 0.28f);
+        } else if (event->type == GAME_EVENT_SURFACE_TARGET_DESTROYED) {
+            float radius = event->target.surfaceTarget == SURFACE_TARGET_CASEMATE
+                ? CASEMATE_RADIUS : TRACKING_TURRET_RADIUS;
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, radius + 5.0f, 0.38f);
+            TrySpawnSurfaceWreck(wrecks, event->pos, event->target.surfaceTarget, radius);
+        }
+    }
+}
+
+static void UpdateExplosionEffects(ExplosionEffect effects[], float dt) {
+    for (int i = 0; i < MAX_EXPLOSION_EFFECTS; i++) {
+        if (!effects[i].active) continue;
+        effects[i].age += dt;
+        if (effects[i].age >= effects[i].lifetime) effects[i].active = false;
+    }
+}
+
+static void UpdateSurfaceWrecks(SurfaceWreck wrecks[], float dt) {
+    for (int i = 0; i < MAX_SURFACE_WRECKS; i++) {
+        if (!wrecks[i].active) continue;
+        wrecks[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
+        if (wrecks[i].pos.x < -wrecks[i].radius) wrecks[i].active = false;
+    }
 }
 
 static void DrawHud(int score, int lives, float torpedoCooldown, bool torpedoActive) {
@@ -179,6 +254,8 @@ int main(void) {
     int lives = 3;
     bool gameOver = false;
     float respawnInvulnerability = 0.0f;
+    bool playerDestroyed = false;
+    float playerDeathTimer = 0.0f;
     GameEventQueue gameEvents = { 0 };
 
     Bullet bullets[MAX_BULLETS] = { 0 };
@@ -187,6 +264,8 @@ int main(void) {
 
     EnemyBullet enemyBullets[MAX_ENEMY_BULLETS] = { 0 };
     const Color enemyBulletColor = (Color){ 232, 72, 72, 255 };
+    ExplosionEffect explosions[MAX_EXPLOSION_EFFECTS] = { 0 };
+    SurfaceWreck wrecks[MAX_SURFACE_WRECKS] = { 0 };
 
     // Skimmer Drone: weakest, most common air filler (see README roster).
     // Sine-wave flight around a fixed baseline, dies in one hit for now —
@@ -232,24 +311,61 @@ int main(void) {
                 &surfaceTargetSpawnTimer, &wakeEmitTimer, &torpedoCooldown, &torpedo,
                 &torpedoImpactType, &torpedoImpactPos, &torpedoImpactTimer, &oceanScroll,
                 &oceanOverlayScroll, &respawnInvulnerability, bullets, airTargets, surfaceTargets, enemyBullets,
-                wake, &gameEvents
+                wake, explosions, wrecks, &playerDestroyed, &playerDeathTimer, &gameEvents
             );
         }
 
         if (!gameOver) {
-            if (respawnInvulnerability > 0.0f) respawnInvulnerability -= dt;
+            Vector2 playerVelocity = { 0.0f, 0.0f };
+            if (playerDestroyed) {
+                playerDeathTimer -= dt;
+                if (playerDeathTimer <= 0.0f) {
+                    playerDestroyed = false;
+                    if (lives > 0) {
+                        player = (Vector2){ PLAYER_START_X, PLAYER_START_Y };
+                        respawnInvulnerability = PLAYER_RESPAWN_INVULNERABILITY;
+                    } else {
+                        gameOver = true;
+                    }
+                }
+            } else {
+                if (respawnInvulnerability > 0.0f) respawnInvulnerability -= dt;
 
-            float inputX = 0.0f;
-            float inputY = 0.0f;
-            if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))  inputX -= 1.0f;
-            if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) inputX += 1.0f;
-            if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
-            if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
-            Vector2 playerBeforeMove = player;
-            MovePlayer(&player, inputX, inputY, playerSpeed, dt, halfW, halfH);
-            Vector2 playerVelocity = dt > 0.0f
-                ? (Vector2){ (player.x - playerBeforeMove.x) / dt, (player.y - playerBeforeMove.y) / dt }
-                : (Vector2){ 0.0f, 0.0f };
+                float inputX = 0.0f;
+                float inputY = 0.0f;
+                if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))  inputX -= 1.0f;
+                if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) inputX += 1.0f;
+                if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
+                if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
+                Vector2 playerBeforeMove = player;
+                MovePlayer(&player, inputX, inputY, playerSpeed, dt, halfW, halfH);
+                if (dt > 0.0f) {
+                    playerVelocity = (Vector2){
+                        (player.x - playerBeforeMove.x) / dt, (player.y - playerBeforeMove.y) / dt
+                    };
+                }
+
+                // Wake: drop a puff from each rear ski-point on a fixed cadence.
+                // The 1px jitter keeps the two trails from reading as ruled lines.
+                wakeEmitTimer += dt;
+                while (wakeEmitTimer >= WAKE_EMIT_INTERVAL) {
+                    wakeEmitTimer -= WAKE_EMIT_INTERVAL;
+                    for (int ski = -1; ski <= 1; ski += 2) {
+                        TryEmitWakeParticle(wake, MAX_WAKE_PARTICLES, (Vector2){
+                            player.x - halfW + (float)GetRandomValue(-1, 1),
+                            player.y + ski * WAKE_SKI_OFFSET_Y + (float)GetRandomValue(-1, 1)
+                        });
+                    }
+                }
+
+                // Auto-fire: accumulate dt and emit as many shots as the interval
+                // allows, so a stalled frame can't silently eat a shot.
+                fireTimer += dt;
+                while (fireTimer >= BULLET_FIRE_INTERVAL) {
+                    fireTimer -= BULLET_FIRE_INTERVAL;
+                    TrySpawnBullet(bullets, MAX_BULLETS, (Vector2){ player.x + halfW, player.y });
+                }
+            }
             torpedoSpawn = (Vector2){ player.x + halfW, player.y };
             torpedoReticle = CalculateTorpedoReticle(torpedoSpawn);
 
@@ -260,28 +376,8 @@ int main(void) {
                 oceanOverlayScroll, dt * OCEAN_OVERLAY_SPEED_SCALE, (float)oceanOverlayTex.width
             );
 
-            // Wake: drop a puff from each rear ski-point on a fixed cadence.
-            // The 1px jitter keeps the two trails from reading as ruled lines.
-            wakeEmitTimer += dt;
-            while (wakeEmitTimer >= WAKE_EMIT_INTERVAL) {
-                wakeEmitTimer -= WAKE_EMIT_INTERVAL;
-                for (int ski = -1; ski <= 1; ski += 2) {
-                    TryEmitWakeParticle(wake, MAX_WAKE_PARTICLES, (Vector2){
-                        player.x - halfW + (float)GetRandomValue(-1, 1),
-                        player.y + ski * WAKE_SKI_OFFSET_Y + (float)GetRandomValue(-1, 1)
-                    });
-                }
-            }
             UpdateWakeParticles(wake, MAX_WAKE_PARTICLES, dt);
             if (torpedoImpactTimer > 0.0f) torpedoImpactTimer -= dt;
-
-            // Auto-fire: accumulate dt and emit as many shots as the interval
-            // allows, so a stalled frame can't silently eat a shot.
-            fireTimer += dt;
-            while (fireTimer >= BULLET_FIRE_INTERVAL) {
-                fireTimer -= BULLET_FIRE_INTERVAL;
-                TrySpawnBullet(bullets, MAX_BULLETS, (Vector2){ player.x + halfW, player.y });
-            }
             UpdateBullets(bullets, MAX_BULLETS, dt);
 
             // Enemies spawn off the right edge and fly left to meet the player,
@@ -304,7 +400,7 @@ int main(void) {
             // Torpedo: manual second input, gated by both "one in flight at a
             // time" and a reload cooldown so it isn't unlimited-fire like the gun.
             if (torpedoCooldown > 0.0f) torpedoCooldown -= dt;
-            if (IsKeyPressed(KEY_SPACE) && !torpedo.active && torpedoCooldown <= 0.0f) {
+            if (!playerDestroyed && IsKeyPressed(KEY_SPACE) && !torpedo.active && torpedoCooldown <= 0.0f) {
                 FireFixedRangeTorpedo(&torpedo, torpedoSpawn);
                 torpedoCooldown = TORPEDO_COOLDOWN;
             }
@@ -345,7 +441,11 @@ int main(void) {
                 torpedoImpactPos = torpedoImpact.pos;
                 torpedoImpactTimer = torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f;
             }
+            SpawnTargetDestructionEffects(&gameEvents, explosions, wrecks);
             score += ScoreGameEvents(&gameEvents);
+
+            UpdateExplosionEffects(explosions, dt);
+            UpdateSurfaceWrecks(wrecks, dt);
 
             bool enemyBulletHit = ResolveEnemyBulletPlayerCollision(
                 enemyBullets, MAX_ENEMY_BULLETS, player, playerRadius
@@ -353,10 +453,11 @@ int main(void) {
             bool contactHit = ResolvePlayerContactDamage(
                 player, playerRadius, airTargets, MAX_AIR_TARGETS, surfaceTargets, MAX_SURFACE_TARGETS
             );
-            if (respawnInvulnerability <= 0.0f && (enemyBulletHit || contactHit)) {
-                ApplyPlayerHit(
-                    &player, &lives, &gameOver, &respawnInvulnerability, &torpedo, &torpedoCooldown,
-                    &torpedoImpactType, &torpedoImpactTimer
+            if (!playerDestroyed && respawnInvulnerability <= 0.0f && (enemyBulletHit || contactHit)) {
+                TrySpawnExplosion(explosions, player, EXPLOSION_PLAYER, 20.0f, PLAYER_DEATH_DURATION);
+                BeginPlayerDeath(
+                    &lives, &playerDestroyed, &playerDeathTimer, &torpedo, &torpedoCooldown, &torpedoImpactType,
+                    &torpedoImpactTimer
                 );
             }
         }
@@ -396,6 +497,22 @@ int main(void) {
                     wake[i].pos,
                     life > 0.5f ? 2.0f : 1.0f,
                     (Color){ 207, 239, 240, (unsigned char)(150.0f * life) }
+                );
+            }
+
+            // Wrecks belong to the water layer and are inert: they only mark
+            // that a surface installation was destroyed while the world scrolls on.
+            for (int i = 0; i < MAX_SURFACE_WRECKS; i++) {
+                if (!wrecks[i].active) continue;
+                Color scorch = wrecks[i].type == SURFACE_TARGET_CASEMATE
+                    ? (Color){ 28, 36, 34, 230 } : (Color){ 34, 29, 25, 230 };
+                DrawCircleV(wrecks[i].pos, wrecks[i].radius + 2.0f, scorch);
+                DrawCircleLines((int)wrecks[i].pos.x, (int)wrecks[i].pos.y,
+                    wrecks[i].radius + 2.0f, (Color){ 12, 18, 20, 220 });
+                DrawCircleV(
+                    (Vector2){ wrecks[i].pos.x - 2.0f, wrecks[i].pos.y + 1.0f },
+                    wrecks[i].radius * 0.45f,
+                    (Color){ 10, 15, 17, 210 }
                 );
             }
 
@@ -444,13 +561,16 @@ int main(void) {
                 DrawCircleV(surfaceTargets[i].pos, 3.0f, (Color){ 255, 200, 120, 255 });
             }
 
-            // Ship points right (direction of travel / forward fire).
-            DrawTexture(
-                playerTex,
-                (int)(player.x - playerTex.width / 2.0f),
-                (int)(player.y - playerTex.height / 2.0f),
-                WHITE
-            );
+            // Ship points right (direction of travel / forward fire). It is
+            // hidden during its explosion; respawn follows once the effect ends.
+            if (!playerDestroyed) {
+                DrawTexture(
+                    playerTex,
+                    (int)(player.x - playerTex.width / 2.0f),
+                    (int)(player.y - playerTex.height / 2.0f),
+                    WHITE
+                );
+            }
 
             for (int i = 0; i < MAX_BULLETS; i++) {
                 if (!bullets[i].active) continue;
@@ -480,6 +600,19 @@ int main(void) {
                     2.5f,
                     (Color){ airTargetColor.r, airTargetColor.g, airTargetColor.b, corePulse }
                 );
+            }
+
+            for (int i = 0; i < MAX_EXPLOSION_EFFECTS; i++) {
+                if (!explosions[i].active) continue;
+                float progress = explosions[i].age / explosions[i].lifetime;
+                float radius = explosions[i].radius * (0.45f + 0.75f * progress);
+                unsigned char alpha = (unsigned char)(255.0f * (1.0f - progress));
+                Color edge = explosions[i].type == EXPLOSION_AIR_TARGET
+                    ? (Color){ 255, 100, 216, alpha }
+                    : (Color){ 255, 180, 72, alpha };
+                if (explosions[i].type == EXPLOSION_PLAYER) edge = (Color){ 96, 232, 255, alpha };
+                DrawCircleLines((int)explosions[i].pos.x, (int)explosions[i].pos.y, radius, edge);
+                DrawCircleV(explosions[i].pos, radius * 0.35f, (Color){ 255, 242, 196, alpha });
             }
 
             // Torpedo reads as player tech: hull-white body with pointed nose,

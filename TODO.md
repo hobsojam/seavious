@@ -46,9 +46,12 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       it as minimal text in the reserved HUD bar; wider scoring table is
       documented in README
 - [x] Lives / game-over loop (post-MVP, needed for full stage structure):
-      enemy contact now costs one life, respawns the player with brief
-      invulnerability, and ends the run on the last life; full checkpoint
-      structure still belongs with the later stage system
+      enemy contact now costs one life, plays a short player explosion before
+      respawning with brief invulnerability, and ends the run after the final
+      death effect; full checkpoint structure still belongs with the later
+      stage system
+- [x] Destruction effects: air targets burst briefly then disappear; destroyed
+      surface targets leave inert burnt-out wrecks that drift with the water
 - [ ] Boss fight structure (post-MVP, end of each stage)
 - [ ] Stage/wave definition + sequencing (post-MVP)
 - [x] Implement HUD (reserved 512x32 bottom bar, play area 512x352):

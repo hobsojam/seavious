@@ -217,13 +217,15 @@ reserved bar rather than an overlay so the HUD never competes with the
 glow/bloom-heavy playfield for readability.
 
 **Structure**: Stage-based, with a boss fight at the end of each stage.
-Lives-based: enemy contact costs one life, the ship respawns with brief
-invulnerability if any lives remain, and game over triggers on the last
-life. Checkpoints still come later with the stage system. No roguelike
-meta-progression between runs.
+Lives-based: enemy contact costs one life, the ship explodes briefly, then
+respawns with brief invulnerability if any lives remain; game over triggers
+after the final death effect. Destroyed air targets burst and disappear;
+destroyed surface targets leave inert, scrolling burnt-out wrecks. Checkpoints
+still come later with the stage system. No roguelike meta-progression between
+runs.
 
 **Current scope (bare mechanical proof)**: Player movement, gun, bomb, one
-air enemy type, one ground target type. No full stage or boss yet; the
+air enemy type, two ground target types. No full stage or boss yet; the
 remaining work is the checkpoint/failure flow around the implemented
 contact-damage loop, then stage content on top of it.
 
@@ -273,8 +275,9 @@ saved reticle point as it drifts with the water if nothing is hit first.
 Hits before arming do only small direct impact damage, with no splash.
 Casemates fire straight red lane shots; rotating turrets lead the player's
 current movement before firing.
-Enemy contact costs one life, respawns the ship briefly invulnerable if any
-remain, and game over ends the run on the last life.
+Enemy contact costs one life, triggers a brief ship explosion, then respawns
+the ship briefly invulnerable if any remain; game over follows the final
+explosion.
 
 ## Technical Follow-ups
 
@@ -323,6 +326,10 @@ Manual smoke checklist:
 - Destroying a Skimmer Drone adds 100 points exactly once.
 - Destroying a Casemate adds 300 points, and a Tracking Turret adds 400 points, exactly once, including
   when it is caught in a torpedo explosion.
+- Air-target explosions are brief and disappear; destroyed surface targets
+  leave inert burnt-out wrecks that drift with the ocean.
+- A player death shows an explosion, disables control during the short death
+  delay, then respawns or reaches game over as appropriate.
 - Torpedo cooldown and one-in-flight behavior are obvious while playing.
 - Torpedo reticle marks max range clearly and does not read as a target lock.
 - Armed torpedoes explode on the first surface target or at max range.
