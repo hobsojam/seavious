@@ -10,6 +10,12 @@ add_executable(seavious
     src/main.c
 )
 
+# TEMPORARY: a stale Windows-side file handle has the exact path
+# build/Release/seavious.exe blocked (Access denied on creation, survives
+# wsl --shutdown). Output under a different name until the next Windows
+# reboot clears it, then this line can be removed.
+set_target_properties(seavious PROPERTIES OUTPUT_NAME seavious-dev)
+
 target_link_libraries(seavious PRIVATE raylib)
 
 add_custom_command(TARGET seavious POST_BUILD

@@ -156,8 +156,18 @@ it to a native Windows path for faster builds — either works with CMake.
 ```powershell
 cmake --preset default    # or: cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 cmake --build build --config Release
-.\build\Release\seavious.exe
+.\build\Release\seavious-dev.exe   # temp name, see CMakeLists.txt / TODO.md
 ```
+
+**Note — `vcpkg-overlays/raylib`**: the project overrides the stock vcpkg
+raylib port. Stock vcpkg builds raylib 6.0 with `-DCUSTOMIZE_BUILD=ON`,
+which trips a raylib CMake bug (`ParseConfigHeader.cmake` reads
+`#define SUPPORT_X 0` as ON) that silently enables
+`SUPPORT_CUSTOM_FRAME_CONTROL` — with it, `EndDrawing()` never presents a
+frame and the window stays permanently blank at uncapped fps. The overlay
+port forces that flag (and `SUPPORT_BUSY_WAIT_LOOP`) off. The preset wires
+it in via `VCPKG_OVERLAY_PORTS`; don't remove it until the upstream
+port/raylib is fixed.
 
 Or just open the folder in Visual Studio 2022 — it detects `CMakeLists.txt`
 and `vcpkg.json` automatically (manifest mode) and configures itself.

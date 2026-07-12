@@ -19,8 +19,8 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       movement bounds now clamp to the sprite's actual 48x24 half-size
       instead of the old triangle's 8px margin; CMake copies `assets/` next
       to the built exe (POST_BUILD step) so the relative load path works
-- [ ] 4. Confirm 4-directional controls feel right against the new bounds
-      and spawn position (needs an actual play-test on Windows)
+- [x] 4. Confirm 4-directional controls feel right against the new bounds
+      and spawn position — play-tested on Windows, confirmed working
 
 - [x] Forward (rightward) gun: auto-fire bullets (fixed pool, spawns from
       the nose, 0.15s interval, culled off the right edge)
@@ -82,7 +82,21 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 ## Infra
 
-- [ ] Verify the CMake + vcpkg build actually compiles on Windows (untested
-      so far — no compiler available in the WSL dev environment)
+- [x] Verify the CMake + vcpkg build actually compiles on Windows — builds
+      and runs (first playable confirmation 2026-07-12)
 - [ ] Decide whether/when this repo gets a GitHub remote (relevant if we
       ever move task tracking to Issues, or just want backups/collaborators)
+- [ ] After the next Windows reboot: remove the temporary
+      `OUTPUT_NAME seavious-dev` workaround in `CMakeLists.txt` (a stale
+      Windows-side file handle blocks creating `build/Release/seavious.exe`;
+      only a reboot clears it) and confirm the exe builds under its real
+      name again
+- [ ] Consider reporting the raylib 6.0 bug upstream: with
+      `-DCUSTOMIZE_BUILD=ON` (which the vcpkg port passes),
+      `cmake/ParseConfigHeader.cmake` treats every uncommented
+      `#define SUPPORT_X 0` in `config.h` as default ON, silently enabling
+      `SUPPORT_CUSTOM_FRAME_CONTROL` — `EndDrawing()` then never calls
+      `SwapScreenBuffer()`/`PollInputEvents()`/frame pacing, so every app
+      built on vcpkg's raylib 6.0 shows a permanently blank window at
+      uncapped fps. Worked around locally via `vcpkg-overlays/raylib`
+      (forces the flag OFF); affects raylib upstream and the vcpkg port
