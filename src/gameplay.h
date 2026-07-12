@@ -15,13 +15,13 @@
 #define BULLET_FIRE_INTERVAL 0.15f
 #define BULLET_RADIUS       3.0f
 
-#define MAX_ENEMIES          16
-#define ENEMY_RADIUS         6.0f
-#define ENEMY_SPEED          60.0f
-#define ENEMY_SPAWN_INTERVAL 1.2f
-#define ENEMY_SINE_AMPLITUDE 24.0f
-#define ENEMY_SINE_FREQUENCY 2.0f
-#define ENEMY_HP             1
+#define MAX_AIR_TARGETS          16
+#define SKIMMER_DRONE_RADIUS         6.0f
+#define SKIMMER_DRONE_SPEED          60.0f
+#define SKIMMER_DRONE_SPAWN_INTERVAL 1.2f
+#define SKIMMER_DRONE_SINE_AMPLITUDE 24.0f
+#define SKIMMER_DRONE_SINE_FREQUENCY 2.0f
+#define SKIMMER_DRONE_HP             1
 #define SCORE_SKIMMER_DRONE  100
 
 #define TORPEDO_SPEED    200.0f
@@ -34,11 +34,13 @@
 #define TORPEDO_SPLASH_RADIUS 20.0f
 #define TORPEDO_DIRECT_HIT_RADIUS (TORPEDO_WIDTH / 2.0f)
 
-#define MAX_TURRETS            8
-#define TURRET_RADIUS          9.0f
-#define TURRET_SPAWN_INTERVAL  3.5f
-#define TURRET_HP              1
+#define MAX_SURFACE_TARGETS            8
+#define TURRET_PLATFORM_RADIUS          9.0f
+#define TURRET_PLATFORM_SPAWN_INTERVAL  3.5f
+#define TURRET_PLATFORM_HP              1
 #define SCORE_TURRET_PLATFORM  300
+
+#define MAX_GAME_EVENTS 64
 
 #define MAX_WAKE_PARTICLES   96
 #define WAKE_EMIT_INTERVAL   0.04f
@@ -50,13 +52,19 @@ typedef struct {
     bool active;
 } Bullet;
 
+typedef enum {
+    AIR_TARGET_SKIMMER_DRONE
+} AirTargetType;
+
 typedef struct {
+    AirTargetType type;
     Vector2 pos;
     float baseY;
     float t;
+    float radius;
     int hp;
     bool active;
-} Enemy;
+} AirTarget;
 
 typedef struct {
     Vector2 pos;
@@ -76,7 +84,6 @@ typedef enum {
 typedef struct {
     TorpedoImpactType type;
     Vector2 pos;
-    int scoreAwarded;
 } TorpedoImpact;
 
 typedef struct {
@@ -85,11 +92,36 @@ typedef struct {
     bool active;
 } WakeParticle;
 
+typedef enum {
+    SURFACE_TARGET_TURRET_PLATFORM
+} SurfaceTargetType;
+
 typedef struct {
+    SurfaceTargetType type;
     Vector2 pos;
+    float radius;
     int hp;
     bool active;
-} Turret;
+} SurfaceTarget;
+
+typedef enum {
+    GAME_EVENT_AIR_TARGET_DESTROYED,
+    GAME_EVENT_SURFACE_TARGET_DESTROYED
+} GameEventType;
+
+typedef struct {
+    GameEventType type;
+    Vector2 pos;
+    union {
+        AirTargetType airTarget;
+        SurfaceTargetType surfaceTarget;
+    } target;
+} GameEvent;
+
+typedef struct {
+    GameEvent items[MAX_GAME_EVENTS];
+    int count;
+} GameEventQueue;
 
 void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH);
 float AdvanceOceanScroll(float oceanScroll, float dt, float tileWidth);
@@ -100,19 +132,25 @@ void UpdateWakeParticles(WakeParticle wake[], int count, float dt);
 bool TrySpawnBullet(Bullet bullets[], int count, Vector2 pos);
 void UpdateBullets(Bullet bullets[], int count, float dt);
 
-bool TrySpawnEnemy(Enemy enemies[], int count, float baseY);
-void UpdateEnemies(Enemy enemies[], int count, float dt);
-int ResolveBulletEnemyCollisions(Bullet bullets[], int bulletCount, Enemy enemies[], int enemyCount);
+bool DamageAirTarget(AirTarget *target, int damage, GameEventQueue *events);
+bool DamageSurfaceTarget(SurfaceTarget *target, int damage, GameEventQueue *events);
+int ScoreGameEvents(const GameEventQueue *events);
+
+bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
+void UpdateAirTargets(AirTarget targets[], int count, float dt);
+void ResolveBulletAirTargetCollisions(Bullet bullets[], int bulletCount, AirTarget targets[], int targetCount,
+    GameEventQueue *events);
 
 Vector2 CalculateTorpedoReticle(Vector2 spawn);
-Vector2 CalculateLeadTorpedoVelocity(Vector2 spawn, const Turret turrets[], int turretCount);
+Vector2 CalculateLeadTorpedoVelocity(Vector2 spawn, const SurfaceTarget targets[], int targetCount);
 void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn);
-void FireLeadTorpedo(Torpedo *torpedo, Vector2 spawn, const Turret turrets[], int turretCount);
+void FireLeadTorpedo(Torpedo *torpedo, Vector2 spawn, const SurfaceTarget targets[], int targetCount);
 TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt);
 
-bool TrySpawnTurret(Turret turrets[], int count, float y);
-void UpdateTurrets(Turret turrets[], int count, float dt);
-TorpedoImpact ResolveTorpedoTurretCollision(Torpedo *torpedo, Turret turrets[], int turretCount);
-int ResolveTorpedoExplosion(Vector2 pos, Turret turrets[], int turretCount);
+bool TrySpawnTurretPlatform(SurfaceTarget targets[], int count, float y);
+void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt);
+TorpedoImpact ResolveTorpedoSurfaceTargetCollision(Torpedo *torpedo, SurfaceTarget targets[], int targetCount,
+    GameEventQueue *events);
+void ResolveTorpedoExplosion(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events);
 
 #endif
