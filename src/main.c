@@ -21,6 +21,9 @@ int main(void) {
     Texture2D playerTex = LoadTexture("assets/sprites/player_ship.png");
     SetTextureFilter(playerTex, TEXTURE_FILTER_POINT);
 
+    Texture2D droneTex = LoadTexture("assets/sprites/skimmer_drone.png");
+    SetTextureFilter(droneTex, TEXTURE_FILTER_POINT);
+
     Texture2D oceanTex = LoadTexture("assets/tiles/ocean.png");
     SetTextureFilter(oceanTex, TEXTURE_FILTER_POINT);
     SetTextureWrap(oceanTex, TEXTURE_WRAP_REPEAT);
@@ -244,10 +247,24 @@ int main(void) {
                 DrawCircleV(bullets[i].pos, BULLET_RADIUS, bulletColor);
             }
 
-            // Placeholder diamond silhouette for the Skimmer Drone.
+            // Skimmer Drone: dark hull so the magenta glow carries the color
+            // read. The core pulse is code-driven (no extra frames), phased by
+            // each drone's flight time so swarms shimmer instead of strobing
+            // in unison. Core sits 4px ahead of sprite center (see generator).
             for (int i = 0; i < MAX_AIR_TARGETS; i++) {
                 if (!airTargets[i].active) continue;
-                DrawPoly(airTargets[i].pos, 4, airTargets[i].radius, 45.0f, airTargetColor);
+                DrawTexture(
+                    droneTex,
+                    (int)(airTargets[i].pos.x - droneTex.width / 2.0f),
+                    (int)(airTargets[i].pos.y - droneTex.height / 2.0f),
+                    WHITE
+                );
+                unsigned char corePulse = (unsigned char)(120 + 80.0f * sinf(airTargets[i].t * 6.0f));
+                DrawCircleV(
+                    (Vector2){ airTargets[i].pos.x - 4.0f, airTargets[i].pos.y },
+                    2.5f,
+                    (Color){ airTargetColor.r, airTargetColor.g, airTargetColor.b, corePulse }
+                );
             }
 
             // Torpedo reads as player tech: hull-white body with pointed nose,
@@ -306,6 +323,7 @@ int main(void) {
     }
 
     UnloadTexture(oceanTex);
+    UnloadTexture(droneTex);
     UnloadTexture(playerTex);
     UnloadRenderTexture(target);
     CloseWindow();

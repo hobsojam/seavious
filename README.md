@@ -54,7 +54,15 @@ shape alone hints at which weapon to use, before color even registers.
 Air (magenta/purple, gun targets):
 - *Skimmer Drone* — weakest, most common filler. Sine-wave flight, dies in
   1-2 hits. Tiny dart/diamond shape, one glowing core, minimal wing area —
-  deliberately plain so it parses instantly in swarms.
+  deliberately plain so it parses instantly in swarms. Sprite (first-pass
+  programmatic, 24x16, nose left): dark gunmetal-violet hull — inverting the
+  player's white-hull-plus-accent scheme — so the full-length magenta energy
+  stripe and single pale-pink core carry the color read; at swarm scale each
+  drone reads as a magenta light moving over the water. The core's brightness
+  pulses in code with a per-drone phase offset (no extra animation frames),
+  so swarms shimmer rather than strobe in unison. The near-symmetric diamond
+  is kept deliberately plain — swept/elongated shapes are reserved for the
+  Interceptor, extra emitter detail for the Gunship.
 - *Interceptor* — faster, flies straight at/past the player, fires a single
   forward shot — the first enemy that shoots back. Elongated, forward-swept
   wings (stealth-fighter-ish), glowing spine stripe showing its weapon.
@@ -198,8 +206,8 @@ and `vcpkg.json` automatically (manifest mode) and configures itself.
 
 Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px
 is reserved HUD space). Gun auto-fires forward and downs the Skimmer
-Drones (magenta diamond placeholders) that fly in from the right on a
-sine-wave path. Space fires a torpedo (one in flight at a time, 1.5s
+Drones (dark dart-diamond craft with a pulsing magenta core) that fly in
+from the right on a sine-wave path. Space fires a torpedo (one in flight at a time, 1.5s
 reload) — the only weapon that can destroy the amber Turret Platforms
 drifting with the water; gun bullets pass right over them (the
 dual-targeting rule). The torpedo reticle sits far ahead on the current
