@@ -98,13 +98,6 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 - [x] Verify the CMake + vcpkg build actually compiles on Windows — builds
       and runs (first playable confirmation 2026-07-12)
-- [ ] Decide whether/when this repo gets a GitHub remote (relevant if we
-      ever move task tracking to Issues, or just want backups/collaborators)
-- [ ] After the next Windows reboot: remove the temporary
-      `OUTPUT_NAME seavious-dev` workaround in `CMakeLists.txt` (a stale
-      Windows-side file handle blocks creating `build/Release/seavious.exe`;
-      only a reboot clears it) and confirm the exe builds under its real
-      name again
 - [ ] Consider reporting the raylib 6.0 bug upstream: with
       `-DCUSTOMIZE_BUILD=ON` (which the vcpkg port passes),
       `cmake/ParseConfigHeader.cmake` treats every uncommented
