@@ -95,9 +95,18 @@ int main(void) {
     SetTextureFilter(oceanTex, TEXTURE_FILTER_POINT);
     SetTextureWrap(oceanTex, TEXTURE_WRAP_REPEAT);
 
+    // Foam-glint parallax layer: scrolls slightly faster than the base
+    // water and has a different tile size, so neither layer's repeat ever
+    // sits still relative to the other (baked glints in the base tile made
+    // the repeat trackable).
+    Texture2D oceanOverlayTex = LoadTexture("assets/tiles/ocean_overlay.png");
+    SetTextureFilter(oceanOverlayTex, TEXTURE_FILTER_POINT);
+    SetTextureWrap(oceanOverlayTex, TEXTURE_WRAP_REPEAT);
+
     Vector2 player = { 48.0f, PLAY_HEIGHT / 2.0f };
     const float playerSpeed = 120.0f;
     float oceanScroll = 0.0f;
+    float oceanOverlayScroll = 0.0f;
     int score = 0;
     int lives = 3;
     GameEventQueue gameEvents = { 0 };
@@ -155,6 +164,9 @@ int main(void) {
         // World scrolls right-to-left under the player. Kept bounded by
         // the tile width since REPEAT wrap only needs a modulo tile offset.
         oceanScroll = AdvanceOceanScroll(oceanScroll, dt, (float)oceanTex.width);
+        oceanOverlayScroll = AdvanceOceanScroll(
+            oceanOverlayScroll, dt * OCEAN_OVERLAY_SPEED_SCALE, (float)oceanOverlayTex.width
+        );
 
         // Wake: drop a puff from each rear ski-point on a fixed cadence.
         // The 1px jitter keeps the two trails from reading as ruled lines.
@@ -244,6 +256,19 @@ int main(void) {
             DrawTexturePro(
                 oceanTex,
                 (Rectangle){ oceanScroll, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
+                (Rectangle){ 0, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
+                (Vector2){ 0, 0 },
+                0.0f,
+                WHITE
+            );
+
+            // The glint overlay belongs to the water surface: it must stay
+            // immediately above the base ocean and below everything that
+            // sits on the water (wake, surface targets, any future land
+            // tiles), so glints never draw on top of solid objects.
+            DrawTexturePro(
+                oceanOverlayTex,
+                (Rectangle){ oceanOverlayScroll, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
                 (Rectangle){ 0, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
                 (Vector2){ 0, 0 },
                 0.0f,
@@ -387,6 +412,7 @@ int main(void) {
         EndDrawing();
     }
 
+    UnloadTexture(oceanOverlayTex);
     UnloadTexture(oceanTex);
     UnloadTexture(droneTex);
     UnloadTexture(playerTex);

@@ -105,8 +105,16 @@ player's cyan. Texture-heavy water was tried and rejected three times
 pattern with visible contrast reads as fabric or stripes rather than
 water; texture only survives at near-invisible contrast. Distinct baked
 marks were also tried and rejected (sparse white flecks): any landmark
-feature makes the tile repeat trackable, so foam glints may only ever be
-added as randomized/animated runtime particles, never baked pixels.
+feature makes the tile repeat trackable. Foam glints instead live on a
+separate parallax overlay (`assets/tiles/ocean_overlay.png`, 160x96,
+~14 dim `#cfeff0` marks on transparency) that scrolls slightly faster
+than the base water (`OCEAN_OVERLAY_SPEED_SCALE`) — the glints drift
+relative to the water body like propagating wavelets, and since 160x96
+never aligns with the 128x64 base tile, the combined repeat period is
+far longer than either texture alone. The overlay is part of the water
+surface in draw order: immediately above the base ocean, below
+everything that sits on the water (wake, surface targets, future land),
+so glints never draw over solid objects.
 Faction colors double as gameplay readability cues for dual-targeting:
 player (skimmer + gun bullets) bright cyan/white/silver (`#e8f8f8` hull,
 `#4ce0e8` accents); air enemies (gun targets) glowing magenta/purple
