@@ -22,36 +22,36 @@ static bool PushGameEvent(GameEventQueue *events, GameEvent event) {
     return true;
 }
 
+static bool DamageTarget(int *hp, bool *active, int damage, GameEventQueue *events, GameEvent event) {
+    if (hp == NULL || active == NULL || !*active || damage <= 0) return false;
+
+    *hp -= damage;
+    if (*hp > 0) return false;
+
+    *hp = 0;
+    *active = false;
+    PushGameEvent(events, event);
+    return true;
+}
+
 bool DamageAirTarget(AirTarget *target, int damage, GameEventQueue *events) {
     if (target == NULL || !target->active || damage <= 0) return false;
 
-    target->hp -= damage;
-    if (target->hp > 0) return false;
-
-    target->hp = 0;
-    target->active = false;
-    PushGameEvent(events, (GameEvent){
+    return DamageTarget(&target->hp, &target->active, damage, events, (GameEvent){
         .type = GAME_EVENT_AIR_TARGET_DESTROYED,
         .pos = target->pos,
         .target.airTarget = target->type
     });
-    return true;
 }
 
 bool DamageSurfaceTarget(SurfaceTarget *target, int damage, GameEventQueue *events) {
     if (target == NULL || !target->active || damage <= 0) return false;
 
-    target->hp -= damage;
-    if (target->hp > 0) return false;
-
-    target->hp = 0;
-    target->active = false;
-    PushGameEvent(events, (GameEvent){
+    return DamageTarget(&target->hp, &target->active, damage, events, (GameEvent){
         .type = GAME_EVENT_SURFACE_TARGET_DESTROYED,
         .pos = target->pos,
         .target.surfaceTarget = target->type
     });
-    return true;
 }
 
 int ScoreGameEvents(const GameEventQueue *events) {

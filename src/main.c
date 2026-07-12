@@ -21,16 +21,16 @@ static void DrawHudShipSlot(Vector2 center, Color color) {
     DrawLine((int)(center.x - 3.0f), (int)center.y, (int)(center.x + 3.0f), (int)center.y, color);
 }
 
-static void ResetRunState(Vector2 *player, int *score, int *lives, bool *gameOver,
-    float *fireTimer, float *airTargetSpawnTimer, float *surfaceTargetSpawnTimer, float *wakeEmitTimer,
-    float *torpedoCooldown, Torpedo *torpedo, TorpedoImpactType *torpedoImpactType,
-    Vector2 *torpedoImpactPos, float *torpedoImpactTimer, float *oceanScroll, float *oceanOverlayScroll,
-    float *respawnInvulnerability, Bullet bullets[], AirTarget airTargets[], SurfaceTarget surfaceTargets[],
-    WakeParticle wake[], GameEventQueue *gameEvents) {
+static void ResetPlayerProgress(Vector2 *player, int *score, int *lives) {
     *player = (Vector2){ PLAYER_START_X, PLAYER_START_Y };
     *score = 0;
     *lives = 3;
-    *gameOver = false;
+}
+
+static void ResetTransientState(float *fireTimer, float *airTargetSpawnTimer, float *surfaceTargetSpawnTimer,
+    float *wakeEmitTimer, float *torpedoCooldown, Torpedo *torpedo, TorpedoImpactType *torpedoImpactType,
+    Vector2 *torpedoImpactPos, float *torpedoImpactTimer, float *oceanScroll, float *oceanOverlayScroll,
+    float *respawnInvulnerability) {
     *fireTimer = 0.0f;
     *airTargetSpawnTimer = 0.0f;
     *surfaceTargetSpawnTimer = 0.0f;
@@ -43,11 +43,31 @@ static void ResetRunState(Vector2 *player, int *score, int *lives, bool *gameOve
     *oceanScroll = 0.0f;
     *oceanOverlayScroll = 0.0f;
     *respawnInvulnerability = 0.0f;
+}
+
+static void ResetEntityPools(Bullet bullets[], AirTarget airTargets[], SurfaceTarget surfaceTargets[],
+    WakeParticle wake[], GameEventQueue *gameEvents) {
     memset(bullets, 0, sizeof(Bullet) * MAX_BULLETS);
     memset(airTargets, 0, sizeof(AirTarget) * MAX_AIR_TARGETS);
     memset(surfaceTargets, 0, sizeof(SurfaceTarget) * MAX_SURFACE_TARGETS);
     memset(wake, 0, sizeof(WakeParticle) * MAX_WAKE_PARTICLES);
     gameEvents->count = 0;
+}
+
+static void ResetRunState(Vector2 *player, int *score, int *lives, bool *gameOver,
+    float *fireTimer, float *airTargetSpawnTimer, float *surfaceTargetSpawnTimer, float *wakeEmitTimer,
+    float *torpedoCooldown, Torpedo *torpedo, TorpedoImpactType *torpedoImpactType,
+    Vector2 *torpedoImpactPos, float *torpedoImpactTimer, float *oceanScroll, float *oceanOverlayScroll,
+    float *respawnInvulnerability, Bullet bullets[], AirTarget airTargets[], SurfaceTarget surfaceTargets[],
+    WakeParticle wake[], GameEventQueue *gameEvents) {
+    ResetPlayerProgress(player, score, lives);
+    *gameOver = false;
+    ResetTransientState(
+        fireTimer, airTargetSpawnTimer, surfaceTargetSpawnTimer, wakeEmitTimer, torpedoCooldown, torpedo,
+        torpedoImpactType, torpedoImpactPos, torpedoImpactTimer, oceanScroll, oceanOverlayScroll,
+        respawnInvulnerability
+    );
+    ResetEntityPools(bullets, airTargets, surfaceTargets, wake, gameEvents);
 }
 
 static void DrawHud(int score, int lives, float torpedoCooldown, bool torpedoActive) {
