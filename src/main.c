@@ -28,6 +28,8 @@ int main(void) {
     Vector2 player = { 48.0f, PLAY_HEIGHT / 2.0f };
     const float playerSpeed = 120.0f;
     float oceanScroll = 0.0f;
+    int score = 0;
+    GameEventQueue gameEvents = { 0 };
 
     Bullet bullets[MAX_BULLETS] = { 0 };
     float fireTimer = 0.0f;
@@ -36,24 +38,27 @@ int main(void) {
     // Skimmer Drone: weakest, most common air filler (see README roster).
     // Sine-wave flight around a fixed baseline, dies in one hit for now —
     // the "1-2 hits" in the design doc is a tuning pass for later.
-    Enemy enemies[MAX_ENEMIES] = { 0 };
-    float enemySpawnTimer = 0.0f;
-    const Color enemyColor = (Color){ 216, 72, 192, 255 };
+    AirTarget airTargets[MAX_AIR_TARGETS] = { 0 };
+    float airTargetSpawnTimer = 0.0f;
+    const Color airTargetColor = (Color){ 216, 72, 192, 255 };
 
     // Second fire input, single-shot-at-a-time with a reload cooldown (unlike
-    // the gun's unlimited auto-fire). Fire-and-forget with lead-targeting:
-    // the launch solves an intercept against turret drift and locks that
-    // heading — it does not home mid-flight, so the skill is in when you fire.
+    // the gun's unlimited auto-fire). The default torpedo runs straight along
+    // the surface lane to the reticle max range; lead targeting is reserved for
+    // a future upgrade path in the gameplay layer.
     Torpedo torpedo = { 0 };
     float torpedoCooldown = 0.0f;
     const Color torpedoColor = (Color){ 232, 248, 248, 255 };
+    TorpedoImpactType torpedoImpactType = TORPEDO_IMPACT_NONE;
+    Vector2 torpedoImpactPos = { 0.0f, 0.0f };
+    float torpedoImpactTimer = 0.0f;
 
     // Turret Platform: baseline ground/surface target (see README roster).
     // Stationary on the water, so it drifts left at exactly the ocean scroll
     // speed. Torpedo-only: gun bullets fly over it (Xevious rule).
-    Turret turrets[MAX_TURRETS] = { 0 };
-    float turretSpawnTimer = 0.0f;
-    const Color turretColor = (Color){ 232, 148, 44, 255 };
+    SurfaceTarget surfaceTargets[MAX_SURFACE_TARGETS] = { 0 };
+    float surfaceTargetSpawnTimer = 0.0f;
+    const Color surfaceTargetColor = (Color){ 232, 148, 44, 255 };
 
     // Wake/spray puff left on the water by the player's rear ski-points.
     // Once emitted it belongs to the water, not the ship.
@@ -61,6 +66,7 @@ int main(void) {
     float wakeEmitTimer = 0.0f;
 
     while (!WindowShouldClose()) {
+        gameEvents.count = 0;
         float dt = GetFrameTime();
         float halfW = playerTex.width / 2.0f;
         float halfH = playerTex.height / 2.0f;
@@ -72,6 +78,8 @@ int main(void) {
         if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
         if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
         MovePlayer(&player, inputX, inputY, playerSpeed, dt, halfW, halfH);
+        Vector2 torpedoSpawn = { player.x + halfW, player.y };
+        Vector2 torpedoReticle = CalculateTorpedoReticle(torpedoSpawn);
 
         // World scrolls right-to-left under the player. Kept bounded by
         // the tile width since REPEAT wrap only needs a modulo tile offset.
@@ -90,6 +98,7 @@ int main(void) {
             }
         }
         UpdateWakeParticles(wake, MAX_WAKE_PARTICLES, dt);
+        if (torpedoImpactTimer > 0.0f) torpedoImpactTimer -= dt;
 
         // Auto-fire: accumulate dt and emit as many shots as the interval
         // allows, so a stalled frame can't silently eat a shot.
@@ -102,41 +111,59 @@ int main(void) {
 
         // Enemies spawn off the right edge and fly left to meet the player,
         // opposite the bullets, since the world scrolls the other way under them.
-        enemySpawnTimer += dt;
-        while (enemySpawnTimer >= ENEMY_SPAWN_INTERVAL) {
-            enemySpawnTimer -= ENEMY_SPAWN_INTERVAL;
-            float margin = ENEMY_RADIUS + ENEMY_SINE_AMPLITUDE;
+        airTargetSpawnTimer += dt;
+        while (airTargetSpawnTimer >= SKIMMER_DRONE_SPAWN_INTERVAL) {
+            airTargetSpawnTimer -= SKIMMER_DRONE_SPAWN_INTERVAL;
+            float margin = SKIMMER_DRONE_RADIUS + SKIMMER_DRONE_SINE_AMPLITUDE;
             float baseY = (float)GetRandomValue((int)margin, (int)(PLAY_HEIGHT - margin));
-            TrySpawnEnemy(enemies, MAX_ENEMIES, baseY);
+            TrySpawnSkimmerDrone(airTargets, MAX_AIR_TARGETS, baseY);
         }
-        UpdateEnemies(enemies, MAX_ENEMIES, dt);
+        UpdateAirTargets(airTargets, MAX_AIR_TARGETS, dt);
 
-        // Gun-vs-air collision: brute-force O(bullets*enemies) is fine at
+        // Gun-vs-air collision: brute-force O(bullets*targets) is fine at
         // these pool sizes (32*16 max).
-        ResolveBulletEnemyCollisions(bullets, MAX_BULLETS, enemies, MAX_ENEMIES);
+        ResolveBulletAirTargetCollisions(
+            bullets, MAX_BULLETS, airTargets, MAX_AIR_TARGETS, &gameEvents
+        );
 
         // Torpedo: manual second input, gated by both "one in flight at a
         // time" and a reload cooldown so it isn't unlimited-fire like the gun.
         if (torpedoCooldown > 0.0f) torpedoCooldown -= dt;
         if (IsKeyPressed(KEY_SPACE) && !torpedo.active && torpedoCooldown <= 0.0f) {
-            FireTorpedo(&torpedo, (Vector2){ player.x + halfW, player.y }, turrets, MAX_TURRETS);
+            FireFixedRangeTorpedo(&torpedo, torpedoSpawn);
             torpedoCooldown = TORPEDO_COOLDOWN;
         }
-        UpdateTorpedo(&torpedo, dt);
+        TorpedoImpact torpedoImpact = UpdateTorpedo(&torpedo, dt);
 
         // Turret Platforms spawn off the right edge like air enemies, but
         // being anchored to the water they drift left at the ocean scroll speed.
-        turretSpawnTimer += dt;
-        while (turretSpawnTimer >= TURRET_SPAWN_INTERVAL) {
-            turretSpawnTimer -= TURRET_SPAWN_INTERVAL;
-            float y = (float)GetRandomValue((int)TURRET_RADIUS, (int)(PLAY_HEIGHT - TURRET_RADIUS));
-            TrySpawnTurret(turrets, MAX_TURRETS, y);
+        surfaceTargetSpawnTimer += dt;
+        while (surfaceTargetSpawnTimer >= TURRET_PLATFORM_SPAWN_INTERVAL) {
+            surfaceTargetSpawnTimer -= TURRET_PLATFORM_SPAWN_INTERVAL;
+            float y = (float)GetRandomValue(
+                (int)TURRET_PLATFORM_RADIUS, (int)(PLAY_HEIGHT - TURRET_PLATFORM_RADIUS)
+            );
+            TrySpawnTurretPlatform(surfaceTargets, MAX_SURFACE_TARGETS, y);
         }
-        UpdateTurrets(turrets, MAX_TURRETS, dt);
+        UpdateSurfaceTargets(surfaceTargets, MAX_SURFACE_TARGETS, dt);
 
         // Torpedo-vs-surface collision — the gun deliberately has no case
         // here: bullets pass over ground targets (dual-targeting rule).
-        ResolveTorpedoTurretCollision(&torpedo, turrets, MAX_TURRETS);
+        if (torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION) {
+            ResolveTorpedoExplosion(
+                torpedoImpact.pos, surfaceTargets, MAX_SURFACE_TARGETS, &gameEvents
+            );
+        } else if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
+            torpedoImpact = ResolveTorpedoSurfaceTargetCollision(
+                &torpedo, surfaceTargets, MAX_SURFACE_TARGETS, &gameEvents
+            );
+        }
+        if (torpedoImpact.type != TORPEDO_IMPACT_NONE) {
+            torpedoImpactType = torpedoImpact.type;
+            torpedoImpactPos = torpedoImpact.pos;
+            torpedoImpactTimer = torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f;
+        }
+        score += ScoreGameEvents(&gameEvents);
 
         BeginTextureMode(target);
             ClearBackground(BLACK);
@@ -163,20 +190,45 @@ int main(void) {
                 );
             }
 
+            // Reticle marks maximum torpedo range, not a target lock.
+            DrawLine((int)torpedoSpawn.x, (int)torpedoSpawn.y, (int)torpedoReticle.x, (int)torpedoReticle.y,
+                (Color){ 76, 224, 232, 55 });
+            DrawCircleLines((int)torpedoReticle.x, (int)torpedoReticle.y, 6.0f, (Color){ 232, 148, 44, 190 });
+            DrawLine((int)(torpedoReticle.x - 10.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x - 4.0f), (int)torpedoReticle.y,
+                (Color){ 232, 148, 44, 190 });
+            DrawLine((int)(torpedoReticle.x + 4.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x + 10.0f), (int)torpedoReticle.y,
+                (Color){ 232, 148, 44, 190 });
+            DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y - 10.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y - 4.0f),
+                (Color){ 232, 148, 44, 190 });
+            DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y + 4.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y + 10.0f),
+                (Color){ 232, 148, 44, 190 });
+
+            if (torpedoImpactTimer > 0.0f) {
+                float life = torpedoImpactTimer / (torpedoImpactType == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f);
+                if (torpedoImpactType == TORPEDO_IMPACT_EXPLOSION) {
+                    DrawCircleLines((int)torpedoImpactPos.x, (int)torpedoImpactPos.y,
+                        TORPEDO_SPLASH_RADIUS * (1.0f + 0.25f * (1.0f - life)),
+                        (Color){ 255, 220, 140, (unsigned char)(220.0f * life) });
+                    DrawCircleV(torpedoImpactPos, 5.0f, (Color){ 255, 246, 216, (unsigned char)(180.0f * life) });
+                } else {
+                    DrawCircleV(torpedoImpactPos, 3.0f, (Color){ 207, 239, 240, (unsigned char)(160.0f * life) });
+                }
+            }
+
             // Surface layer: ground targets draw under everything airborne.
             // Placeholder for the Turret Platform per README.
-            for (int i = 0; i < MAX_TURRETS; i++) {
-                if (!turrets[i].active) continue;
-                DrawCircleLines((int)turrets[i].pos.x, (int)turrets[i].pos.y,
-                    TURRET_RADIUS + 2.0f, (Color){ 232, 148, 44, 110 });
-                DrawPoly(turrets[i].pos, 6, TURRET_RADIUS, 0.0f, turretColor);
+            for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
+                if (!surfaceTargets[i].active) continue;
+                DrawCircleLines((int)surfaceTargets[i].pos.x, (int)surfaceTargets[i].pos.y,
+                    surfaceTargets[i].radius + 2.0f, (Color){ 232, 148, 44, 110 });
+                DrawPoly(surfaceTargets[i].pos, 6, surfaceTargets[i].radius, 0.0f, surfaceTargetColor);
                 DrawRectangle(
-                    (int)(turrets[i].pos.x - TURRET_RADIUS - 3.0f),
-                    (int)(turrets[i].pos.y - 1.0f),
-                    (int)(TURRET_RADIUS + 3.0f), 2,
+                    (int)(surfaceTargets[i].pos.x - surfaceTargets[i].radius - 3.0f),
+                    (int)(surfaceTargets[i].pos.y - 1.0f),
+                    (int)(surfaceTargets[i].radius + 3.0f), 2,
                     (Color){ 168, 100, 24, 255 }
                 );
-                DrawCircleV(turrets[i].pos, 3.0f, (Color){ 255, 200, 120, 255 });
+                DrawCircleV(surfaceTargets[i].pos, 3.0f, (Color){ 255, 200, 120, 255 });
             }
 
             // Ship points right (direction of travel / forward fire).
@@ -193,9 +245,9 @@ int main(void) {
             }
 
             // Placeholder diamond silhouette for the Skimmer Drone.
-            for (int i = 0; i < MAX_ENEMIES; i++) {
-                if (!enemies[i].active) continue;
-                DrawPoly(enemies[i].pos, 4, ENEMY_RADIUS, 45.0f, enemyColor);
+            for (int i = 0; i < MAX_AIR_TARGETS; i++) {
+                if (!airTargets[i].active) continue;
+                DrawPoly(airTargets[i].pos, 4, airTargets[i].radius, 45.0f, airTargetColor);
             }
 
             // Torpedo reads as player tech: hull-white body with pointed nose,
@@ -237,6 +289,7 @@ int main(void) {
             // HUD bar placeholder — real content is a separate TODO item.
             DrawRectangle(0, PLAY_HEIGHT, GAME_WIDTH, HUD_HEIGHT, (Color){ 10, 14, 18, 255 });
             DrawLine(0, PLAY_HEIGHT, GAME_WIDTH, PLAY_HEIGHT, (Color){ 76, 224, 232, 255 });
+            DrawText(TextFormat("%06d", score), 72, PLAY_HEIGHT + 8, 16, (Color){ 232, 248, 248, 255 });
         EndTextureMode();
 
         BeginDrawing();

@@ -100,10 +100,32 @@ are white-hot fading to orange (`#fff6d8` → `#e8942c`) with bloom.
 
 **Core mechanic**: Xevious-style air/ground dual targeting, reskinned for
 the setting. Forward (rightward) gun auto-fires at air enemies; a separate
-torpedo hits ground/surface targets. The torpedo is forward-fired and
-travels along the surface toward a leading target rather than dropped/arced
-from altitude (the skimmer flies too low for a falling bomb to make sense)
-— still just a second fire input, no extra control axis needed.
+torpedo hits ground/surface targets. The torpedo is forward-fired and runs straight along the water lane toward
+a visible max-range reticle rather than dropped/arced from altitude (the
+skimmer flies too low for a falling bomb to make sense). The reticle marks
+range, not lock-on: once fired, that max-range point is anchored to the
+scrolling surface and drifts left with the water. The torpedo explodes on
+the first armed surface hit or at max range, while very close unarmed
+impacts only deal direct hit damage.
+Lead-targeting is kept as a future upgrade idea, not the baseline weapon.
+
+**Scoring (first pass)**: Points are awarded once, when a target is
+destroyed. The current mechanical proof implements the two live target
+types; the remaining values establish the intended arcade weighting for
+future enemies.
+
+| Target | Points | Status |
+| --- | ---: | --- |
+| Skimmer Drone | 100 | Implemented |
+| Interceptor | 200 | Planned |
+| Turret Platform | 300 | Implemented |
+| Relay Node | 400 | Planned |
+| Gunship / Mobile Platform | 500 | Planned |
+| Mine | 100 | Planned |
+| Boss part | 1,000+ each | Planned; boss-clear bonus later |
+
+Basic filler targets are inexpensive, limited-torpedo surface threats pay
+more, and heavier or progression-gating threats carry the highest awards.
 
 **Art pipeline**: Sprites and tiles are authored in **LibreSprite** (free,
 open-source), exported as `.png`, loaded via raylib's `LoadTexture`. Chosen
@@ -180,10 +202,13 @@ Drones (magenta diamond placeholders) that fly in from the right on a
 sine-wave path. Space fires a torpedo (one in flight at a time, 1.5s
 reload) — the only weapon that can destroy the amber Turret Platforms
 drifting with the water; gun bullets pass right over them (the
-dual-targeting rule). The torpedo leads its target: at launch it aims at
-the earliest intercept point for an active turret ahead, then locks that
-heading (no mid-flight homing); with no target it fires straight. There's
-no lives/game-over loop yet — see `TODO.md` for what's next.
+dual-targeting rule). The torpedo reticle sits far ahead on the current
+surface lane and marks maximum range, clamped before the right edge of the
+screen. Firing launches a straight torpedo down that lane: after a short
+arming distance it explodes on the first surface target it hits, or at the
+saved reticle point as it drifts with the water if nothing is hit first.
+Hits before arming do only small direct impact damage, with no splash. There's no lives/game-over loop
+yet — see `TODO.md` for what's next.
 
 ## Technical Follow-ups
 
@@ -229,8 +254,13 @@ Manual smoke checklist:
 - Diagonal movement does not become faster once movement normalization is added.
 - Gun bullets destroy Skimmer Drones and do not affect Turret Platforms.
 - Torpedoes destroy Turret Platforms and do not affect air enemies.
+- Destroying a Skimmer Drone adds 100 points exactly once.
+- Destroying a Turret Platform adds 300 points exactly once, including
+  when it is caught in a torpedo explosion.
 - Torpedo cooldown and one-in-flight behavior are obvious while playing.
-- Torpedo lead-targeting aims at a plausible intercept point for targets ahead.
+- Torpedo reticle marks max range clearly and does not read as a target lock.
+- Armed torpedoes explode on the first surface target or at max range.
+- Unarmed close-range torpedo impacts do not create splash damage.
 - Missing assets or failed texture/render-target loads fail clearly once load
   checks are added.
 - The raylib/vcpkg overlay still prevents the blank-window regression after
@@ -241,8 +271,9 @@ Good first automated tests after extracting pure gameplay logic:
 - Player input normalization produces equal cardinal and diagonal speed.
 - Player clamping respects sprite half-size and the reserved HUD bar.
 - Ocean scroll wrapping handles large `dt` values.
-- Torpedo target selection ignores turrets behind the player.
-- Torpedo target selection picks the earliest valid intercept ahead.
+- Fixed-range torpedo reticle clamps before the right edge and never behind the launch point.
+- Torpedo arming distance separates direct impact from splash explosion.
+- Lead-targeting math remains isolated for a future upgrade path.
 - Collision rules preserve the dual-targeting split: gun-vs-air only,
   torpedo-vs-surface only.
 
