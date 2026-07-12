@@ -48,9 +48,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [ ] Lives / game-over loop (post-MVP, needed for full stage structure)
 - [ ] Boss fight structure (post-MVP, end of each stage)
 - [ ] Stage/wave definition + sequencing (post-MVP)
-- [ ] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
-      lives icons left, score center-left, torpedo status right, boss
-      health bar far right (boss fights only) — see README for full layout
+- [x] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
+      two reserve-life icons for the initial three-life count, score
+      center-left, live torpedo ready/flight/reload status right, and space
+      reserved at far right for the future boss health bar. Losing lives and
+      game-over behavior remain part of the separate lives-system task
 
 ## Content
 
