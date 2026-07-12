@@ -95,8 +95,14 @@ destructible parts — the dual-targeting mechanic made literal in one fight.
 Visual design deferred to a separate pass (see `TODO.md`).
 
 **Color palette**: No sky rendered — open water scrolls underneath the
-top-down camera. Environment is deep teal-to-navy ocean
-(`#0a2530` → `#134a5c`) with pale cyan-white foam/wave crests (`#cfeff0`).
+top-down camera. Environment is calm, dark, mostly-flat deep navy water
+(`#0a2530` base, with broad organic swell bands stepping up through
+`#0e3140` to crest tops at `#194e60`) and rare pale cyan-white foam dashes
+(`#cfeff0`). The water is deliberately low-contrast and sparse in detail:
+the glow-heavy sprites are meant to own the scene, wave structure runs in
+long noise-warped horizontal bands (suiting the scroll direction), and
+dense high-frequency texture is avoided because it reads as fabric rather
+than water at this scale.
 Faction colors double as gameplay readability cues for dual-targeting:
 player (skimmer + gun bullets) bright cyan/white/silver (`#e8f8f8` hull,
 `#4ce0e8` accents); air enemies (gun targets) glowing magenta/purple

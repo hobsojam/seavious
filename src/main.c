@@ -172,7 +172,7 @@ int main(void) {
             ClearBackground(BLACK);
 
             // Single draw call tiles the whole play area: the source rect is
-            // larger than the 32x32 texture, so REPEAT wrap fills it by sampling.
+            // larger than the tile texture, so REPEAT wrap fills it by sampling.
             DrawTexturePro(
                 oceanTex,
                 (Rectangle){ oceanScroll, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
