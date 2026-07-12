@@ -64,8 +64,20 @@ Air (magenta/purple, gun targets):
   is kept deliberately plain — swept/elongated shapes are reserved for the
   Interceptor, extra emitter detail for the Gunship.
 - *Interceptor* — faster, flies straight at/past the player, fires a single
-  forward shot — the first enemy that shoots back. Elongated, forward-swept
-  wings (stealth-fighter-ish), glowing spine stripe showing its weapon.
+  forward shot — the first enemy that shoots back. Elongated,
+  stealth-fighter-ish silhouette with a glowing spine stripe showing its
+  weapon. Sprite (first-pass programmatic, 32x16, nose left): same air-family
+  language as the drone (dark gunmetal-violet hull, magenta energy) but
+  clearly elongated with swept-back wings (the original brief said
+  forward-swept; back-swept read cleaner at this sprite size), a full-length
+  spine stripe with a bright top and dark bottom half, wingtip glints, and a
+  pale weapon core at the nose marking it as armed. Behavior numbers (first
+  pass): 140 px/s straight flight along its spawn row (vs the drone's 60
+  px/s sine), 1 HP, fires once when it crosses two-thirds of the screen.
+  Its shot establishes the universal enemy projectile: code-drawn red
+  (`#e83c3c`) diamond ~5px across with a white-hot single-pixel center,
+  180 px/s, identical for every enemy that shoots. Implementation is
+  blocked on the lives/damage system.
 - *Wing Formation* — not a new sprite, just Skimmer Drones flying a fixed V
   or line formation, testing aim/positioning across a spread.
 - *Gunship* (heavier, less frequent) — bigger, tougher, fires a 3-way
@@ -80,11 +92,25 @@ Ground/surface (amber/orange, torpedo targets):
   launches Skimmer Drones — high priority since destroying it cuts off
   reinforcements. Spire/tower with a pulsing beacon top instead of a gun
   barrel (reads as "broadcasting," not "shooting"), flashes brighter when
-  launching a drone.
+  launching a drone. Sprite (first-pass programmatic, 24x24, top-down):
+  amber waterline glow ring echoing the Turret Platform (the shared
+  ground-family cue), dark warm platform disc lit from the upper-left,
+  three radial masts at 120° reading as broadcast structure rather than a
+  gun, and a 2x2 pale beacon core whose launch flash is code-driven.
+  Behavior numbers (first pass): anchored to the water (drifts at scroll
+  speed), 1 HP to a torpedo, launches a Skimmer Drone every 2.5s while
+  fully on-screen with at most 3 of its drones alive at once. The one
+  roster enemy implementable before the lives system exists, since it
+  never attacks the player directly.
 - *Mine* — stationary, no attack, but sits in the player's path and
   detonates on contact if not destroyed first — a positioning check rather
   than a threat that shoots. Small spiked-sphere/urchin shape at the
   waterline, kept dim/low-key so it doesn't visually announce itself.
+  Sprite (first-pass programmatic, 14x14, top-down): eight dark-rust spikes
+  around a dark warm body with a small dim amber core — deliberately the
+  least luminous object on the water. Behavior numbers (first pass):
+  anchored to the water, 1 HP to a torpedo (gun passes over it), detonates
+  on player contact. Implementation is blocked on the lives/damage system.
 - *Mobile Platform* (heavier, less frequent) — slowly drifts across the
   water, higher HP, wider shot spread. Wider, flatter barge/raft shape,
   several small weapon emitters along its edge, trailing wake.
