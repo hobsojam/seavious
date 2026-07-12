@@ -98,13 +98,15 @@ Visual design deferred to a separate pass (see `TODO.md`).
 top-down camera. Environment is classic flat arcade water in the
 Xevious/1942 tradition: solid navy (`#144874`) that reads as flat color at
 a glance, with a whisper-subtle darker mottle (`#113e66`, barely one value
-step down) and a few sparse white flecks (`#cfeff0`). The deliberate
-plainness lets the glow-heavy sprites own the scene, and the navy hue
-separates cleanly from the player's cyan. Texture-heavy water was tried
-and rejected three times (dithered chevrons, swell bands, dappled
-patches) — at this scale any pattern with visible contrast reads as
-fabric or stripes rather than water; texture only survives at
-near-invisible contrast.
+step down) and nothing else. The deliberate plainness lets the glow-heavy
+sprites own the scene, and the navy hue separates cleanly from the
+player's cyan. Texture-heavy water was tried and rejected three times
+(dithered chevrons, swell bands, dappled patches) — at this scale any
+pattern with visible contrast reads as fabric or stripes rather than
+water; texture only survives at near-invisible contrast. Distinct baked
+marks were also tried and rejected (sparse white flecks): any landmark
+feature makes the tile repeat trackable, so foam glints may only ever be
+added as randomized/animated runtime particles, never baked pixels.
 Faction colors double as gameplay readability cues for dual-targeting:
 player (skimmer + gun bullets) bright cyan/white/silver (`#e8f8f8` hull,
 `#4ce0e8` accents); air enemies (gun targets) glowing magenta/purple
