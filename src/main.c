@@ -10,6 +10,73 @@
 __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 
+static void DrawHudShipSlot(Vector2 center, Color color) {
+    DrawTriangleLines(
+        (Vector2){ center.x + 6.0f, center.y },
+        (Vector2){ center.x - 5.0f, center.y - 4.0f },
+        (Vector2){ center.x - 5.0f, center.y + 4.0f },
+        color
+    );
+    DrawLine((int)(center.x - 3.0f), (int)center.y, (int)(center.x + 3.0f), (int)center.y, color);
+}
+
+static void DrawHud(int score, int lives, float torpedoCooldown, bool torpedoActive) {
+    const Color panel = (Color){ 10, 14, 18, 255 };
+    const Color panelInset = (Color){ 16, 24, 30, 255 };
+    const Color cyan = (Color){ 76, 224, 232, 255 };
+    const Color pale = (Color){ 232, 248, 248, 255 };
+    const Color amber = (Color){ 232, 148, 44, 255 };
+    const Color inactive = (Color){ 74, 94, 102, 255 };
+    const int top = PLAY_HEIGHT;
+
+    DrawRectangle(0, top, GAME_WIDTH, HUD_HEIGHT, panel);
+    DrawLine(0, top, GAME_WIDTH, top, cyan);
+    DrawLine(64, top + 5, 64, GAME_HEIGHT - 5, (Color){ 76, 224, 232, 80 });
+    DrawLine(236, top + 5, 236, GAME_HEIGHT - 5, (Color){ 76, 224, 232, 80 });
+    DrawLine(380, top + 5, 380, GAME_HEIGHT - 5, (Color){ 76, 224, 232, 80 });
+
+    // The active ship consumes one life; the HUD shows the remaining reserves.
+    DrawText("LIVES", 6, top + 4, 8, inactive);
+    int reserveLives = lives > 0 ? lives - 1 : 0;
+    for (int i = 0; i < reserveLives; i++) {
+        DrawHudShipSlot((Vector2){ 13.0f + 17.0f * i, (float)top + 21.0f }, cyan);
+    }
+
+    DrawText("SCORE", 72, top + 4, 8, cyan);
+    DrawText(TextFormat("%08d", score), 72, top + 12, 18, pale);
+
+    DrawText("TORPEDO", 244, top + 4, 8, cyan);
+    Color torpedoStatusColor = amber;
+    const char *torpedoStatus = "READY";
+    float reloadProgress = 1.0f;
+    if (torpedoActive) {
+        torpedoStatus = "IN FLIGHT";
+        torpedoStatusColor = pale;
+        reloadProgress = 0.0f;
+    } else if (torpedoCooldown > 0.0f) {
+        torpedoStatus = "RELOAD";
+        torpedoStatusColor = inactive;
+        reloadProgress = 1.0f - torpedoCooldown / TORPEDO_COOLDOWN;
+        if (reloadProgress < 0.0f) reloadProgress = 0.0f;
+        if (reloadProgress > 1.0f) reloadProgress = 1.0f;
+    }
+
+    DrawRectangle(244, top + 14, 14, 6, torpedoStatusColor);
+    DrawTriangle(
+        (Vector2){ 263.0f, (float)top + 17.0f },
+        (Vector2){ 258.0f, (float)top + 14.0f },
+        (Vector2){ 258.0f, (float)top + 20.0f },
+        torpedoStatusColor
+    );
+    DrawText(torpedoStatus, 270, top + 12, 10, torpedoStatusColor);
+    DrawRectangle(244, top + 25, 126, 3, panelInset);
+    DrawRectangle(244, top + 25, (int)(126.0f * reloadProgress), 3, torpedoStatusColor);
+
+    // Reserved boss region: it becomes a labeled health meter during fights.
+    DrawRectangle(389, top + 12, 115, 8, panelInset);
+    DrawRectangleLines(389, top + 12, 115, 8, (Color){ 74, 94, 102, 90 });
+}
+
 int main(void) {
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(GAME_WIDTH * WINDOW_SCALE, GAME_HEIGHT * WINDOW_SCALE, "Seavious");
@@ -29,6 +96,7 @@ int main(void) {
     const float playerSpeed = 120.0f;
     float oceanScroll = 0.0f;
     int score = 0;
+    int lives = 3;
     GameEventQueue gameEvents = { 0 };
 
     Bullet bullets[MAX_BULLETS] = { 0 };
@@ -286,10 +354,7 @@ int main(void) {
                 rlPopMatrix();
             }
 
-            // HUD bar placeholder — real content is a separate TODO item.
-            DrawRectangle(0, PLAY_HEIGHT, GAME_WIDTH, HUD_HEIGHT, (Color){ 10, 14, 18, 255 });
-            DrawLine(0, PLAY_HEIGHT, GAME_WIDTH, PLAY_HEIGHT, (Color){ 76, 224, 232, 255 });
-            DrawText(TextFormat("%06d", score), 72, PLAY_HEIGHT + 8, 16, (Color){ 232, 248, 248, 255 });
+            DrawHud(score, lives, torpedoCooldown, torpedo.active);
         EndTextureMode();
 
         BeginDrawing();
