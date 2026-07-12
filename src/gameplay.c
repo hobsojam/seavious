@@ -22,36 +22,36 @@ static bool PushGameEvent(GameEventQueue *events, GameEvent event) {
     return true;
 }
 
+static bool DamageTarget(int *hp, bool *active, int damage, GameEventQueue *events, GameEvent event) {
+    if (hp == NULL || active == NULL || !*active || damage <= 0) return false;
+
+    *hp -= damage;
+    if (*hp > 0) return false;
+
+    *hp = 0;
+    *active = false;
+    PushGameEvent(events, event);
+    return true;
+}
+
 bool DamageAirTarget(AirTarget *target, int damage, GameEventQueue *events) {
     if (target == NULL || !target->active || damage <= 0) return false;
 
-    target->hp -= damage;
-    if (target->hp > 0) return false;
-
-    target->hp = 0;
-    target->active = false;
-    PushGameEvent(events, (GameEvent){
+    return DamageTarget(&target->hp, &target->active, damage, events, (GameEvent){
         .type = GAME_EVENT_AIR_TARGET_DESTROYED,
         .pos = target->pos,
         .target.airTarget = target->type
     });
-    return true;
 }
 
 bool DamageSurfaceTarget(SurfaceTarget *target, int damage, GameEventQueue *events) {
     if (target == NULL || !target->active || damage <= 0) return false;
 
-    target->hp -= damage;
-    if (target->hp > 0) return false;
-
-    target->hp = 0;
-    target->active = false;
-    PushGameEvent(events, (GameEvent){
+    return DamageTarget(&target->hp, &target->active, damage, events, (GameEvent){
         .type = GAME_EVENT_SURFACE_TARGET_DESTROYED,
         .pos = target->pos,
         .target.surfaceTarget = target->type
     });
-    return true;
 }
 
 int ScoreGameEvents(const GameEventQueue *events) {
@@ -67,6 +67,26 @@ int ScoreGameEvents(const GameEventQueue *events) {
         }
     }
     return score;
+}
+
+static bool CirclesOverlap(Vector2 a, float ar, Vector2 b, float br) {
+    float hitDist = ar + br;
+    return DistanceSquared(a, b) <= hitDist * hitDist;
+}
+
+bool ResolvePlayerContactDamage(Vector2 playerPos, float playerRadius, const AirTarget airTargets[], int airCount,
+    const SurfaceTarget surfaceTargets[], int surfaceCount) {
+    for (int i = 0; i < airCount; i++) {
+        if (!airTargets[i].active) continue;
+        if (CirclesOverlap(playerPos, playerRadius, airTargets[i].pos, airTargets[i].radius)) return true;
+    }
+
+    for (int i = 0; i < surfaceCount; i++) {
+        if (!surfaceTargets[i].active) continue;
+        if (CirclesOverlap(playerPos, playerRadius, surfaceTargets[i].pos, surfaceTargets[i].radius)) return true;
+    }
+
+    return false;
 }
 
 void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH) {

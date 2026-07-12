@@ -27,3 +27,13 @@ can't be built or run locally; verification happens on the Windows side.
 - `src/main.c` — everything currently lives here (single-file skeleton).
 - `vcpkg.json` / `CMakeLists.txt` / `CMakePresets.json` — manifest-mode
   vcpkg + CMake build setup.
+
+## Publishing Changes
+
+- When the user asks for a PR, push the branch first, then create a draft PR
+  with `gh pr create --draft --base main --head <branch> --title ... --body ...`.
+- If `gh` reports a GitHub API or DNS error, retry after `gh auth setup-git`
+  and use `gh pr create` directly; do not assume the branch push alone created
+  the PR.
+- Keep the PR body plain Markdown and include the change summary and the
+  validation steps used.

@@ -48,6 +48,11 @@
 #define WAKE_LIFETIME        1.1f
 #define WAKE_SKI_OFFSET_Y    8.0f
 
+#define PLAYER_START_X 48.0f
+#define PLAYER_START_Y (PLAY_HEIGHT / 2.0f)
+#define PLAYER_HIT_RADIUS 10.0f
+#define PLAYER_RESPAWN_INVULNERABILITY 1.0f
+
 typedef struct {
     Vector2 pos;
     bool active;
@@ -136,6 +141,8 @@ void UpdateBullets(Bullet bullets[], int count, float dt);
 bool DamageAirTarget(AirTarget *target, int damage, GameEventQueue *events);
 bool DamageSurfaceTarget(SurfaceTarget *target, int damage, GameEventQueue *events);
 int ScoreGameEvents(const GameEventQueue *events);
+bool ResolvePlayerContactDamage(Vector2 playerPos, float playerRadius, const AirTarget airTargets[], int airCount,
+    const SurfaceTarget surfaceTargets[], int surfaceCount);
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
 void UpdateAirTargets(AirTarget targets[], int count, float dt);

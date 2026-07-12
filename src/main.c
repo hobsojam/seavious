@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include <math.h>
+#include <string.h>
 
 // On hybrid-graphics laptops (integrated + discrete GPU), the OS/driver
 // otherwise defaults to the integrated GPU. These exported symbols are a
@@ -18,6 +19,55 @@ static void DrawHudShipSlot(Vector2 center, Color color) {
         color
     );
     DrawLine((int)(center.x - 3.0f), (int)center.y, (int)(center.x + 3.0f), (int)center.y, color);
+}
+
+static void ResetPlayerProgress(Vector2 *player, int *score, int *lives) {
+    *player = (Vector2){ PLAYER_START_X, PLAYER_START_Y };
+    *score = 0;
+    *lives = 3;
+}
+
+static void ResetTransientState(float *fireTimer, float *airTargetSpawnTimer, float *surfaceTargetSpawnTimer,
+    float *wakeEmitTimer, float *torpedoCooldown, Torpedo *torpedo, TorpedoImpactType *torpedoImpactType,
+    Vector2 *torpedoImpactPos, float *torpedoImpactTimer, float *oceanScroll, float *oceanOverlayScroll,
+    float *respawnInvulnerability) {
+    *fireTimer = 0.0f;
+    *airTargetSpawnTimer = 0.0f;
+    *surfaceTargetSpawnTimer = 0.0f;
+    *wakeEmitTimer = 0.0f;
+    *torpedoCooldown = 0.0f;
+    *torpedo = (Torpedo){ 0 };
+    *torpedoImpactType = TORPEDO_IMPACT_NONE;
+    *torpedoImpactPos = (Vector2){ 0.0f, 0.0f };
+    *torpedoImpactTimer = 0.0f;
+    *oceanScroll = 0.0f;
+    *oceanOverlayScroll = 0.0f;
+    *respawnInvulnerability = 0.0f;
+}
+
+static void ResetEntityPools(Bullet bullets[], AirTarget airTargets[], SurfaceTarget surfaceTargets[],
+    WakeParticle wake[], GameEventQueue *gameEvents) {
+    memset(bullets, 0, sizeof(Bullet) * MAX_BULLETS);
+    memset(airTargets, 0, sizeof(AirTarget) * MAX_AIR_TARGETS);
+    memset(surfaceTargets, 0, sizeof(SurfaceTarget) * MAX_SURFACE_TARGETS);
+    memset(wake, 0, sizeof(WakeParticle) * MAX_WAKE_PARTICLES);
+    gameEvents->count = 0;
+}
+
+static void ResetRunState(Vector2 *player, int *score, int *lives, bool *gameOver,
+    float *fireTimer, float *airTargetSpawnTimer, float *surfaceTargetSpawnTimer, float *wakeEmitTimer,
+    float *torpedoCooldown, Torpedo *torpedo, TorpedoImpactType *torpedoImpactType,
+    Vector2 *torpedoImpactPos, float *torpedoImpactTimer, float *oceanScroll, float *oceanOverlayScroll,
+    float *respawnInvulnerability, Bullet bullets[], AirTarget airTargets[], SurfaceTarget surfaceTargets[],
+    WakeParticle wake[], GameEventQueue *gameEvents) {
+    ResetPlayerProgress(player, score, lives);
+    *gameOver = false;
+    ResetTransientState(
+        fireTimer, airTargetSpawnTimer, surfaceTargetSpawnTimer, wakeEmitTimer, torpedoCooldown, torpedo,
+        torpedoImpactType, torpedoImpactPos, torpedoImpactTimer, oceanScroll, oceanOverlayScroll,
+        respawnInvulnerability
+    );
+    ResetEntityPools(bullets, airTargets, surfaceTargets, wake, gameEvents);
 }
 
 static void DrawHud(int score, int lives, float torpedoCooldown, bool torpedoActive) {
@@ -103,12 +153,14 @@ int main(void) {
     SetTextureFilter(oceanOverlayTex, TEXTURE_FILTER_POINT);
     SetTextureWrap(oceanOverlayTex, TEXTURE_WRAP_REPEAT);
 
-    Vector2 player = { 48.0f, PLAY_HEIGHT / 2.0f };
+    Vector2 player = { PLAYER_START_X, PLAYER_START_Y };
     const float playerSpeed = 120.0f;
     float oceanScroll = 0.0f;
     float oceanOverlayScroll = 0.0f;
     int score = 0;
     int lives = 3;
+    bool gameOver = false;
+    float respawnInvulnerability = 0.0f;
     GameEventQueue gameEvents = { 0 };
 
     Bullet bullets[MAX_BULLETS] = { 0 };
@@ -150,103 +202,137 @@ int main(void) {
         float dt = GetFrameTime();
         float halfW = playerTex.width / 2.0f;
         float halfH = playerTex.height / 2.0f;
-
-        float inputX = 0.0f;
-        float inputY = 0.0f;
-        if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))  inputX -= 1.0f;
-        if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) inputX += 1.0f;
-        if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
-        if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
-        MovePlayer(&player, inputX, inputY, playerSpeed, dt, halfW, halfH);
+        float playerRadius = PLAYER_HIT_RADIUS;
         Vector2 torpedoSpawn = { player.x + halfW, player.y };
         Vector2 torpedoReticle = CalculateTorpedoReticle(torpedoSpawn);
 
-        // World scrolls right-to-left under the player. Kept bounded by
-        // the tile width since REPEAT wrap only needs a modulo tile offset.
-        oceanScroll = AdvanceOceanScroll(oceanScroll, dt, (float)oceanTex.width);
-        oceanOverlayScroll = AdvanceOceanScroll(
-            oceanOverlayScroll, dt * OCEAN_OVERLAY_SPEED_SCALE, (float)oceanOverlayTex.width
-        );
+        if (gameOver && (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))) {
+            ResetRunState(
+                &player, &score, &lives, &gameOver, &fireTimer, &airTargetSpawnTimer,
+                &surfaceTargetSpawnTimer, &wakeEmitTimer, &torpedoCooldown, &torpedo,
+                &torpedoImpactType, &torpedoImpactPos, &torpedoImpactTimer, &oceanScroll,
+                &oceanOverlayScroll, &respawnInvulnerability, bullets, airTargets, surfaceTargets,
+                wake, &gameEvents
+            );
+        }
 
-        // Wake: drop a puff from each rear ski-point on a fixed cadence.
-        // The 1px jitter keeps the two trails from reading as ruled lines.
-        wakeEmitTimer += dt;
-        while (wakeEmitTimer >= WAKE_EMIT_INTERVAL) {
-            wakeEmitTimer -= WAKE_EMIT_INTERVAL;
-            for (int ski = -1; ski <= 1; ski += 2) {
-                TryEmitWakeParticle(wake, MAX_WAKE_PARTICLES, (Vector2){
-                    player.x - halfW + (float)GetRandomValue(-1, 1),
-                    player.y + ski * WAKE_SKI_OFFSET_Y + (float)GetRandomValue(-1, 1)
-                });
+        if (!gameOver) {
+            if (respawnInvulnerability > 0.0f) respawnInvulnerability -= dt;
+
+            float inputX = 0.0f;
+            float inputY = 0.0f;
+            if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))  inputX -= 1.0f;
+            if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) inputX += 1.0f;
+            if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
+            if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
+            MovePlayer(&player, inputX, inputY, playerSpeed, dt, halfW, halfH);
+            torpedoSpawn = (Vector2){ player.x + halfW, player.y };
+            torpedoReticle = CalculateTorpedoReticle(torpedoSpawn);
+
+            // World scrolls right-to-left under the player. Kept bounded by
+            // the tile width since REPEAT wrap only needs a modulo tile offset.
+            oceanScroll = AdvanceOceanScroll(oceanScroll, dt, (float)oceanTex.width);
+            oceanOverlayScroll = AdvanceOceanScroll(
+                oceanOverlayScroll, dt * OCEAN_OVERLAY_SPEED_SCALE, (float)oceanOverlayTex.width
+            );
+
+            // Wake: drop a puff from each rear ski-point on a fixed cadence.
+            // The 1px jitter keeps the two trails from reading as ruled lines.
+            wakeEmitTimer += dt;
+            while (wakeEmitTimer >= WAKE_EMIT_INTERVAL) {
+                wakeEmitTimer -= WAKE_EMIT_INTERVAL;
+                for (int ski = -1; ski <= 1; ski += 2) {
+                    TryEmitWakeParticle(wake, MAX_WAKE_PARTICLES, (Vector2){
+                        player.x - halfW + (float)GetRandomValue(-1, 1),
+                        player.y + ski * WAKE_SKI_OFFSET_Y + (float)GetRandomValue(-1, 1)
+                    });
+                }
+            }
+            UpdateWakeParticles(wake, MAX_WAKE_PARTICLES, dt);
+            if (torpedoImpactTimer > 0.0f) torpedoImpactTimer -= dt;
+
+            // Auto-fire: accumulate dt and emit as many shots as the interval
+            // allows, so a stalled frame can't silently eat a shot.
+            fireTimer += dt;
+            while (fireTimer >= BULLET_FIRE_INTERVAL) {
+                fireTimer -= BULLET_FIRE_INTERVAL;
+                TrySpawnBullet(bullets, MAX_BULLETS, (Vector2){ player.x + halfW, player.y });
+            }
+            UpdateBullets(bullets, MAX_BULLETS, dt);
+
+            // Enemies spawn off the right edge and fly left to meet the player,
+            // opposite the bullets, since the world scrolls the other way under them.
+            airTargetSpawnTimer += dt;
+            while (airTargetSpawnTimer >= SKIMMER_DRONE_SPAWN_INTERVAL) {
+                airTargetSpawnTimer -= SKIMMER_DRONE_SPAWN_INTERVAL;
+                float margin = SKIMMER_DRONE_RADIUS + SKIMMER_DRONE_SINE_AMPLITUDE;
+                float baseY = (float)GetRandomValue((int)margin, (int)(PLAY_HEIGHT - margin));
+                TrySpawnSkimmerDrone(airTargets, MAX_AIR_TARGETS, baseY);
+            }
+            UpdateAirTargets(airTargets, MAX_AIR_TARGETS, dt);
+
+            // Gun-vs-air collision: brute-force O(bullets*targets) is fine at
+            // these pool sizes (32*16 max).
+            ResolveBulletAirTargetCollisions(
+                bullets, MAX_BULLETS, airTargets, MAX_AIR_TARGETS, &gameEvents
+            );
+
+            // Torpedo: manual second input, gated by both "one in flight at a
+            // time" and a reload cooldown so it isn't unlimited-fire like the gun.
+            if (torpedoCooldown > 0.0f) torpedoCooldown -= dt;
+            if (IsKeyPressed(KEY_SPACE) && !torpedo.active && torpedoCooldown <= 0.0f) {
+                FireFixedRangeTorpedo(&torpedo, torpedoSpawn);
+                torpedoCooldown = TORPEDO_COOLDOWN;
+            }
+            TorpedoImpact torpedoImpact = UpdateTorpedo(&torpedo, dt);
+
+            // Turret Platforms spawn off the right edge like air enemies, but
+            // being anchored to the water they drift left at the ocean scroll speed.
+            surfaceTargetSpawnTimer += dt;
+            while (surfaceTargetSpawnTimer >= TURRET_PLATFORM_SPAWN_INTERVAL) {
+                surfaceTargetSpawnTimer -= TURRET_PLATFORM_SPAWN_INTERVAL;
+                float y = (float)GetRandomValue(
+                    (int)TURRET_PLATFORM_RADIUS, (int)(PLAY_HEIGHT - TURRET_PLATFORM_RADIUS)
+                );
+                TrySpawnTurretPlatform(surfaceTargets, MAX_SURFACE_TARGETS, y);
+            }
+            UpdateSurfaceTargets(surfaceTargets, MAX_SURFACE_TARGETS, dt);
+
+            // Torpedo-vs-surface collision — the gun deliberately has no case
+            // here: bullets pass over ground targets (dual-targeting rule).
+            if (torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION) {
+                ResolveTorpedoExplosion(
+                    torpedoImpact.pos, surfaceTargets, MAX_SURFACE_TARGETS, &gameEvents
+                );
+            } else if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
+                torpedoImpact = ResolveTorpedoSurfaceTargetCollision(
+                    &torpedo, surfaceTargets, MAX_SURFACE_TARGETS, &gameEvents
+                );
+            }
+            if (torpedoImpact.type != TORPEDO_IMPACT_NONE) {
+                torpedoImpactType = torpedoImpact.type;
+                torpedoImpactPos = torpedoImpact.pos;
+                torpedoImpactTimer = torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f;
+            }
+            score += ScoreGameEvents(&gameEvents);
+
+            if (respawnInvulnerability <= 0.0f
+                && ResolvePlayerContactDamage(player, playerRadius, airTargets, MAX_AIR_TARGETS,
+                    surfaceTargets, MAX_SURFACE_TARGETS)) {
+                lives--;
+                if (lives > 0) {
+                    player = (Vector2){ PLAYER_START_X, PLAYER_START_Y };
+                    respawnInvulnerability = PLAYER_RESPAWN_INVULNERABILITY;
+                    torpedo.active = false;
+                    torpedoCooldown = 0.0f;
+                    torpedoImpactType = TORPEDO_IMPACT_NONE;
+                    torpedoImpactTimer = 0.0f;
+                } else {
+                    lives = 0;
+                    gameOver = true;
+                }
             }
         }
-        UpdateWakeParticles(wake, MAX_WAKE_PARTICLES, dt);
-        if (torpedoImpactTimer > 0.0f) torpedoImpactTimer -= dt;
-
-        // Auto-fire: accumulate dt and emit as many shots as the interval
-        // allows, so a stalled frame can't silently eat a shot.
-        fireTimer += dt;
-        while (fireTimer >= BULLET_FIRE_INTERVAL) {
-            fireTimer -= BULLET_FIRE_INTERVAL;
-            TrySpawnBullet(bullets, MAX_BULLETS, (Vector2){ player.x + halfW, player.y });
-        }
-        UpdateBullets(bullets, MAX_BULLETS, dt);
-
-        // Enemies spawn off the right edge and fly left to meet the player,
-        // opposite the bullets, since the world scrolls the other way under them.
-        airTargetSpawnTimer += dt;
-        while (airTargetSpawnTimer >= SKIMMER_DRONE_SPAWN_INTERVAL) {
-            airTargetSpawnTimer -= SKIMMER_DRONE_SPAWN_INTERVAL;
-            float margin = SKIMMER_DRONE_RADIUS + SKIMMER_DRONE_SINE_AMPLITUDE;
-            float baseY = (float)GetRandomValue((int)margin, (int)(PLAY_HEIGHT - margin));
-            TrySpawnSkimmerDrone(airTargets, MAX_AIR_TARGETS, baseY);
-        }
-        UpdateAirTargets(airTargets, MAX_AIR_TARGETS, dt);
-
-        // Gun-vs-air collision: brute-force O(bullets*targets) is fine at
-        // these pool sizes (32*16 max).
-        ResolveBulletAirTargetCollisions(
-            bullets, MAX_BULLETS, airTargets, MAX_AIR_TARGETS, &gameEvents
-        );
-
-        // Torpedo: manual second input, gated by both "one in flight at a
-        // time" and a reload cooldown so it isn't unlimited-fire like the gun.
-        if (torpedoCooldown > 0.0f) torpedoCooldown -= dt;
-        if (IsKeyPressed(KEY_SPACE) && !torpedo.active && torpedoCooldown <= 0.0f) {
-            FireFixedRangeTorpedo(&torpedo, torpedoSpawn);
-            torpedoCooldown = TORPEDO_COOLDOWN;
-        }
-        TorpedoImpact torpedoImpact = UpdateTorpedo(&torpedo, dt);
-
-        // Turret Platforms spawn off the right edge like air enemies, but
-        // being anchored to the water they drift left at the ocean scroll speed.
-        surfaceTargetSpawnTimer += dt;
-        while (surfaceTargetSpawnTimer >= TURRET_PLATFORM_SPAWN_INTERVAL) {
-            surfaceTargetSpawnTimer -= TURRET_PLATFORM_SPAWN_INTERVAL;
-            float y = (float)GetRandomValue(
-                (int)TURRET_PLATFORM_RADIUS, (int)(PLAY_HEIGHT - TURRET_PLATFORM_RADIUS)
-            );
-            TrySpawnTurretPlatform(surfaceTargets, MAX_SURFACE_TARGETS, y);
-        }
-        UpdateSurfaceTargets(surfaceTargets, MAX_SURFACE_TARGETS, dt);
-
-        // Torpedo-vs-surface collision — the gun deliberately has no case
-        // here: bullets pass over ground targets (dual-targeting rule).
-        if (torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION) {
-            ResolveTorpedoExplosion(
-                torpedoImpact.pos, surfaceTargets, MAX_SURFACE_TARGETS, &gameEvents
-            );
-        } else if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
-            torpedoImpact = ResolveTorpedoSurfaceTargetCollision(
-                &torpedo, surfaceTargets, MAX_SURFACE_TARGETS, &gameEvents
-            );
-        }
-        if (torpedoImpact.type != TORPEDO_IMPACT_NONE) {
-            torpedoImpactType = torpedoImpact.type;
-            torpedoImpactPos = torpedoImpact.pos;
-            torpedoImpactTimer = torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f;
-        }
-        score += ScoreGameEvents(&gameEvents);
 
         BeginTextureMode(target);
             ClearBackground(BLACK);
@@ -394,6 +480,15 @@ int main(void) {
                 DrawRectangle((int)(-hw + 1.0f), 0, (int)(TORPEDO_WIDTH - 1.0f), 1, cyan);
 
                 rlPopMatrix();
+            }
+
+            if (gameOver) {
+                DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (Color){ 0, 0, 0, 140 });
+                DrawText("GAME OVER", 162, 150, 24, (Color){ 232, 248, 248, 255 });
+                DrawText("PRESS R TO RESTART", 132, 184, 12, (Color){ 76, 224, 232, 255 });
+            } else if (respawnInvulnerability > 0.0f) {
+                unsigned char blink = (unsigned char)(120 + 80 * sinf(GetTime() * 22.0f));
+                DrawText("RESPAWNING", 180, 150, 12, (Color){ 76, 224, 232, blink });
             }
 
             DrawHud(score, lives, torpedoCooldown, torpedo.active);
