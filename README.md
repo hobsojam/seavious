@@ -203,6 +203,22 @@ played via `raudio`'s `Sound` API. A dedicated SFX synth is a better fit
 than the tracker for one-shot sounds, and WAV has no compatibility caveats
 the way XM/MOD does.
 
+**Music structure**: Every track is three layers authored together from one
+shared OpenMPT template — a 2-bar drum loop that never changes, a 4-bar
+walking bass loop outlining a fixed chord skeleton (`I–vi–IV–V` in A major),
+and a lead tune loop (8 bars to start, 16 as a stretch) swapped per context.
+152 BPM, 4/4 throughout. Reuse is a composition-workflow trick, not engine
+code: the drum/bass patterns get copied unchanged into each new track's
+project file, so only the lead pattern differs between, say, the stage 1
+theme and the stage 2 theme. Boss fights hard-cut to a separate `.xm` built
+from the same template but with the bass reharmonized to the parallel minor
+(`i–VI–iv–v`, same A–F–D–E root motion, so only the bass's color notes
+change) — a straight track swap via `LoadMusicStream`/`PlayMusicStream` at
+the moment a boss fight starts, not a live crossfade. A hard cut was chosen
+over a seamless transition specifically to avoid needing synced simultaneous
+music streams or per-channel muting in `raudio`, neither of which is
+confirmed to work cleanly.
+
 **HUD/UI**: Reserved bottom bar (512x32), carved out of the 512x384 canvas
 — play area becomes 512x352. Left: reserve lives, shown as small cyan
 ship-silhouette icons matching the player color. A run starts with three

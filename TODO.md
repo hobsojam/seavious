@@ -143,8 +143,13 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 ## Audio
 
-- [ ] Compose music (OpenMPT, XM/MOD) — first stage track, then boss/menu
-      themes as those get scoped
+- [ ] Build the shared OpenMPT template: 2-bar drum loop + 4-bar A-major
+      walking bass loop (`I–vi–IV–V`) — see README Music structure
+- [ ] Compose first stage lead tune (8 bars) over the template
+- [ ] Build the boss variant: same template, bass reharmonized to parallel
+      A minor (`i–VI–iv–v`), swapped in via a hard cut
+      (`LoadMusicStream`/`PlayMusicStream`) at boss start, no crossfade
+- [ ] Compose menu theme
 - [ ] Define sound effects — full list of SFX the game needs (gunfire,
       torpedo launch, torpedo impact/splash, explosion, player hit/death,
       UI blips, plus whatever else content design turns up)
