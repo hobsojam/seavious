@@ -299,6 +299,14 @@ int main(void) {
     WakeParticle wake[MAX_WAKE_PARTICLES] = { 0 };
     float wakeEmitTimer = 0.0f;
 
+    ResetRunState(
+        &player, &score, &lives, &gameOver, &fireTimer, &airTargetSpawnTimer,
+        &surfaceTargetSpawnTimer, &wakeEmitTimer, &torpedoCooldown, &torpedo,
+        &torpedoImpactType, &torpedoImpactPos, &torpedoImpactTimer, &oceanScroll,
+        &oceanOverlayScroll, &respawnInvulnerability, bullets, airTargets, surfaceTargets, enemyBullets,
+        wake, explosions, wrecks, &playerDestroyed, &playerDeathTimer, &gameEvents
+    );
+
     // Set by the headless CI smoke test so the real game loop exits cleanly
     // after a deterministic number of frames and writes its gcov data.
     const char *smokeFramesValue = getenv("SEAVIOUS_SMOKE_FRAMES");
@@ -313,6 +321,20 @@ int main(void) {
         float playerRadius = PLAYER_HIT_RADIUS;
         Vector2 torpedoSpawn = { player.x + halfW, player.y };
         Vector2 torpedoReticle = CalculateTorpedoReticle(torpedoSpawn);
+
+        if (smokeFrames > 0 && framesRun == 0) {
+            surfaceTargets[0] = (SurfaceTarget){
+                .type = SURFACE_TARGET_CASEMATE,
+                .pos = { player.x + 150.0f, player.y },
+                .radius = CASEMATE_RADIUS,
+                .hp = CASEMATE_HP,
+                .aimDirection = { -1.0f, 0.0f },
+                .active = true
+            };
+        }
+        if (smokeFrames > 0 && framesRun == 120) {
+            enemyBullets[0] = (EnemyBullet){ .pos = player, .active = true };
+        }
 
         if (gameOver && (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))) {
             ResetRunState(
@@ -409,7 +431,8 @@ int main(void) {
             // Torpedo: manual second input, gated by both "one in flight at a
             // time" and a reload cooldown so it isn't unlimited-fire like the gun.
             if (torpedoCooldown > 0.0f) torpedoCooldown -= dt;
-            if (!playerDestroyed && IsKeyPressed(KEY_SPACE) && !torpedo.active && torpedoCooldown <= 0.0f) {
+            bool fireTorpedo = IsKeyPressed(KEY_SPACE) || (smokeFrames > 0 && framesRun == 0);
+            if (!playerDestroyed && fireTorpedo && !torpedo.active && torpedoCooldown <= 0.0f) {
                 FireFixedRangeTorpedo(&torpedo, torpedoSpawn);
                 torpedoCooldown = TORPEDO_COOLDOWN;
             }
