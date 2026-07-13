@@ -27,6 +27,7 @@ if(BUILD_TESTING)
         tests/gameplay_tests.c
         src/gameplay.c
     )
+    target_include_directories(gameplay_tests PRIVATE src)
     target_link_libraries(gameplay_tests PRIVATE raylib glfw)
     add_test(NAME gameplay_tests COMMAND gameplay_tests)
 endif()
