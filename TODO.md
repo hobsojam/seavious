@@ -153,7 +153,14 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       this dev environment; structurally validated byte-for-byte but not
       yet heard — auditioning/refining in OpenMPT (tone/levels/panning,
       maybe a less synthetic kick/snare) still outstanding
-- [ ] Compose first stage lead tune (8 bars) over the template
+- [ ] Compose first stage lead tune (8 bars) over the template — two
+      candidate options generated for audition at
+      `assets/audio/stage1_theme_a.xm` ("anthem": long held notes, mostly
+      stepwise, ends on the leading tone so the loop resolves) and
+      `assets/audio/stage1_theme_b.xm` ("driver": one syncopated arpeggio
+      cell transposed through the chords, run-up + breath in bar 8), both
+      from `tools/gen-stage1-xm.py`; pick one (or direct changes) after
+      hearing them on Windows
 - [ ] Build the boss variant: same template, bass reharmonized to parallel
       A minor (`i–VI–iv–v`), swapped in via a hard cut
       (`LoadMusicStream`/`PlayMusicStream`) at boss start, no crossfade
