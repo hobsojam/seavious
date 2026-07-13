@@ -30,7 +30,8 @@ jobs:
             libxrandr-dev \
             libxinerama-dev \
             libxcursor-dev \
-            libxi-dev
+            libxi-dev \
+            gcovr
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
@@ -39,7 +40,9 @@ jobs:
       - name: Configure CMake
         run: >
           cmake -S . -B build -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_FLAGS="--coverage -O0 -g"
+          -DCMAKE_EXE_LINKER_FLAGS="--coverage"
           -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
           -DVCPKG_OVERLAY_PORTS="$GITHUB_WORKSPACE/vcpkg-overlays"
 
@@ -49,7 +52,13 @@ jobs:
       - name: Build under Sonar build wrapper
         run: >
           build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR"
-          cmake --build build --config Release
+          cmake --build build --config Debug
+
+      - name: Run unit tests and generate coverage
+        run: |
+          ctest --test-dir build --output-on-failure
+          gcovr --root "$GITHUB_WORKSPACE" --filter "$GITHUB_WORKSPACE/src" \
+            --sonarqube coverage.xml build
 
       - name: Scan with SonarCloud
         uses: SonarSource/sonarqube-scan-action@v8
@@ -58,3 +67,4 @@ jobs:
         with:
           args: >
             --define sonar.cfamily.compile-commands=${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json
+            --define sonar.coverageReportPaths=coverage.xml
