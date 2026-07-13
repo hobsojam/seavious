@@ -1,6 +1,7 @@
 #include "gameplay.h"
 
 #include <math.h>
+#include <stddef.h>
 
 static TorpedoImpact NoTorpedoImpact(void) {
     return (TorpedoImpact){ TORPEDO_IMPACT_NONE, (Vector2){ 0.0f, 0.0f } };
