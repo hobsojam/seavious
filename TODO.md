@@ -166,7 +166,15 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       needs a Windows build/playtest to confirm audio comes through
 - [ ] Build the boss variant: same template, bass reharmonized to parallel
       A minor (`i–VI–iv–v`), swapped in via a hard cut
-      (`LoadMusicStream`/`PlayMusicStream`) at boss start, no crossfade
+      (`LoadMusicStream`/`PlayMusicStream`) at boss start, no crossfade —
+      minor backing done (`assets/audio/boss1_drums_bass.xm`: identical
+      drums and bass contour, only the color notes flattened) plus two
+      candidate boss tunes for audition, `boss1_theme_a.xm` ("siren": high
+      wailing descent, register collapse in the second pass, chromatic G#
+      lift at the loop seam) and `boss1_theme_b.xm` ("hammer": relentless
+      straight-8ths arpeggio grind with half-step stabs, same seam lift);
+      pick one after hearing them, then wiring waits on the boss fight
+      structure existing
 - [ ] Compose menu theme
 - [ ] Define sound effects — full list of SFX the game needs (gunfire,
       torpedo launch, torpedo impact/splash, explosion, player hit/death,
