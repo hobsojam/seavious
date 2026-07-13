@@ -684,7 +684,10 @@ int main(void) {
             );
         EndDrawing();
 
-        if (smokeFrames > 0 && ++framesRun >= smokeFrames) break;
+        if (smokeFrames > 0) {
+            framesRun++;
+            if (framesRun >= smokeFrames) break;
+        }
     }
 
     UnloadTexture(oceanOverlayTex);
