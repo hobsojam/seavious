@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(seavious C)
 
+include(CTest)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
@@ -19,6 +21,15 @@ add_executable(seavious
 set_target_properties(seavious PROPERTIES OUTPUT_NAME seavious-dev)
 
 target_link_libraries(seavious PRIVATE raylib glfw)
+
+if(BUILD_TESTING)
+    add_executable(gameplay_tests
+        tests/gameplay_tests.c
+        src/gameplay.c
+    )
+    target_link_libraries(gameplay_tests PRIVATE raylib glfw)
+    add_test(NAME gameplay_tests COMMAND gameplay_tests)
+endif()
 
 add_custom_command(TARGET seavious POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
