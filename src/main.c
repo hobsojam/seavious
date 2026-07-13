@@ -8,8 +8,10 @@
 // otherwise defaults to the integrated GPU. These exported symbols are a
 // standard convention the NVIDIA and AMD drivers scan for at load time to
 // route this specific executable to the discrete GPU instead.
+#ifdef _WIN32
 __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+#endif
 
 #define MAX_EXPLOSION_EFFECTS 32
 #define MAX_SURFACE_WRECKS 16
