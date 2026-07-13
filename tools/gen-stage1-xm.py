@@ -181,7 +181,11 @@ def build_xm(module_name, n_channels, patterns, instruments):
 
     xm = b'Extended Module: ' + header_name + b'\x1a' + tracker_name
     xm += struct.pack('<H', 0x0104)
-    xm += struct.pack('<I', 272)
+    # Header size is counted from its own offset (60) and *includes* this
+    # dword, so it's 4 + the 16 bytes of song fields + the 256-byte order
+    # table = 276. Writing 272 here shifts a conforming reader's pattern
+    # start 4 bytes early and every pattern decodes as empty.
+    xm += struct.pack('<I', 4 + len(header_after_size))
     xm += header_after_size
     for p in patterns:
         xm += p
