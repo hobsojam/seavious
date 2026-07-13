@@ -5,6 +5,7 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 find_package(raylib CONFIG REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
 
 add_executable(seavious
     src/gameplay.c
@@ -17,7 +18,7 @@ add_executable(seavious
 # reboot clears it, then this line can be removed.
 set_target_properties(seavious PROPERTIES OUTPUT_NAME seavious-dev)
 
-target_link_libraries(seavious PRIVATE raylib)
+target_link_libraries(seavious PRIVATE raylib glfw)
 
 add_custom_command(TARGET seavious POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
