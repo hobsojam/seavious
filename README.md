@@ -370,6 +370,15 @@ Manual smoke checklist:
 - The raylib/vcpkg overlay still prevents the blank-window regression after
   dependency or build-system changes.
 
+The XM music assets are covered by `tests/test_xm_assets.py` (run
+standalone with `python3 tests/test_xm_assets.py`): it regenerates all
+tracks via `tools/gen-stage1-xm.py` into a temp dir, validates each file
+structurally against the XM spec, byte-compares against the committed
+`assets/audio/` files so generator and assets can't drift, and — where
+libopenmpt is installed (CI does) — loads each file with the reference
+engine and checks duration, pattern layout, and that rendered audio is
+audible.
+
 Good first automated tests after extracting pure gameplay logic:
 
 - Player input normalization produces equal cardinal and diagonal speed.

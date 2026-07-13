@@ -356,9 +356,10 @@ def lead_events(tune, first_bar, lead_channel, lead_inst):
 
 # ------------------------------------------------------------------- main --
 
-def main():
-    out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                           'assets', 'audio')
+def main(out_dir=None):
+    if out_dir is None:
+        out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                               'assets', 'audio')
     os.makedirs(out_dir, exist_ok=True)
 
     kick = delta_encode(gen_kick())
@@ -414,4 +415,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    main(sys.argv[1] if len(sys.argv) > 1 else None)
