@@ -30,6 +30,14 @@ if(BUILD_TESTING)
     target_include_directories(gameplay_tests PRIVATE src)
     target_link_libraries(gameplay_tests PRIVATE raylib glfw)
     add_test(NAME gameplay_tests COMMAND gameplay_tests)
+
+    if(UNIX)
+        add_test(
+            NAME game_smoke
+            COMMAND xvfb-run -a ${CMAKE_COMMAND} -E env SEAVIOUS_SMOKE_FRAMES=300 $<TARGET_FILE:seavious>
+        )
+        set_tests_properties(game_smoke PROPERTIES WORKING_DIRECTORY $<TARGET_FILE_DIR:seavious>)
+    endif()
 endif()
 
 add_custom_command(TARGET seavious POST_BUILD

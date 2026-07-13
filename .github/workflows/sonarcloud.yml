@@ -31,6 +31,8 @@ jobs:
             libxinerama-dev \
             libxcursor-dev \
             libxi-dev \
+            xvfb \
+            xauth \
             gcovr
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11

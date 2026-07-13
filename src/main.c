@@ -2,6 +2,7 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 // On hybrid-graphics laptops (integrated + discrete GPU), the OS/driver
@@ -297,6 +298,12 @@ int main(void) {
     // Once emitted it belongs to the water, not the ship.
     WakeParticle wake[MAX_WAKE_PARTICLES] = { 0 };
     float wakeEmitTimer = 0.0f;
+
+    // Set by the headless CI smoke test so the real game loop exits cleanly
+    // after a deterministic number of frames and writes its gcov data.
+    const char *smokeFramesValue = getenv("SEAVIOUS_SMOKE_FRAMES");
+    int smokeFrames = smokeFramesValue == NULL ? 0 : atoi(smokeFramesValue);
+    int framesRun = 0;
 
     while (!WindowShouldClose()) {
         gameEvents.count = 0;
@@ -676,6 +683,8 @@ int main(void) {
                 WHITE
             );
         EndDrawing();
+
+        if (smokeFrames > 0 && ++framesRun >= smokeFrames) break;
     }
 
     UnloadTexture(oceanOverlayTex);
