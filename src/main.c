@@ -228,6 +228,17 @@ int main(void) {
     InitWindow(GAME_WIDTH * WINDOW_SCALE, GAME_HEIGHT * WINDOW_SCALE, "Seavious");
     SetTargetFPS(60);
 
+    // Music follows the design's hard-cut rule: whole tracks are swapped at
+    // state changes, never crossfaded or layered live. Theme A carries the
+    // stage; the backing-only template (same drums+bass, tune dropped out)
+    // covers the game-over screen. Guarded so a headless/no-audio run (CI
+    // smoke test) just plays nothing instead of crashing.
+    InitAudioDevice();
+    Music stageMusic = LoadMusicStream("assets/audio/stage1_theme_a.xm");
+    Music gameOverMusic = LoadMusicStream("assets/audio/stage1_drums_bass.xm");
+    Music *currentMusic = &stageMusic;
+    if (IsMusicValid(stageMusic)) PlayMusicStream(stageMusic);
+
     RenderTexture2D target = LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
 
@@ -316,6 +327,16 @@ int main(void) {
     while (!WindowShouldClose()) {
         gameEvents.count = 0;
         float dt = GetFrameTime();
+
+        // Hard-cut the music when the run state changes (design rule: swap
+        // whole tracks, no live transitions). Streams loop by default.
+        Music *wantMusic = gameOver ? &gameOverMusic : &stageMusic;
+        if (wantMusic != currentMusic) {
+            if (IsMusicValid(*currentMusic)) StopMusicStream(*currentMusic);
+            if (IsMusicValid(*wantMusic)) PlayMusicStream(*wantMusic);
+            currentMusic = wantMusic;
+        }
+        if (IsMusicValid(*currentMusic)) UpdateMusicStream(*currentMusic);
         float halfW = playerTex.width / 2.0f;
         float halfH = playerTex.height / 2.0f;
         float playerRadius = PLAYER_HIT_RADIUS;
@@ -713,6 +734,9 @@ int main(void) {
         }
     }
 
+    UnloadMusicStream(gameOverMusic);
+    UnloadMusicStream(stageMusic);
+    CloseAudioDevice();
     UnloadTexture(oceanOverlayTex);
     UnloadTexture(oceanTex);
     UnloadTexture(droneTex);
