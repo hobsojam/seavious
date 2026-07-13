@@ -34,7 +34,7 @@ if(BUILD_TESTING)
     if(UNIX)
         add_test(
             NAME game_smoke
-            COMMAND xvfb-run -a ${CMAKE_COMMAND} -E env SEAVIOUS_SMOKE_FRAMES=300 $<TARGET_FILE:seavious>
+            COMMAND xvfb-run -a ${CMAKE_COMMAND} -E env SEAVIOUS_SMOKE_FRAMES=480 $<TARGET_FILE:seavious>
         )
         set_tests_properties(game_smoke PROPERTIES WORKING_DIRECTORY $<TARGET_FILE_DIR:seavious>)
     endif()

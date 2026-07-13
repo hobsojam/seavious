@@ -332,7 +332,7 @@ int main(void) {
                 .active = true
             };
         }
-        if (smokeFrames > 0 && framesRun == 120) {
+        if (smokeFrames > 0 && (framesRun == 120 || framesRun == 240 || framesRun == 360)) {
             enemyBullets[0] = (EnemyBullet){ .pos = player, .active = true };
         }
 
