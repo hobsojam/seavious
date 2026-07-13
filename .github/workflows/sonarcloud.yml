@@ -2,29 +2,73 @@ name: SonarCloud
 
 on:
   push:
-    branches:
-      - main
-      - 'agent/**'
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   analyze:
     name: SonarCloud
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
+    env:
+      BUILD_WRAPPER_OUT_DIR: build-wrapper-output
 
     steps:
       - name: Check out source
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xorg-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            xvfb \
+            xauth \
+            gcovr
+      - name: Set up vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgJsonGlob: 'vcpkg.json'
 
-      - name: Run SonarCloud analysis
-        uses: SonarSource/sonarcloud-github-action@v5
+      - name: Configure CMake
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_FLAGS="--coverage -O0 -g"
+          -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_OVERLAY_PORTS="$GITHUB_WORKSPACE/vcpkg-overlays"
+
+      - name: Install Sonar build wrapper
+        uses: SonarSource/sonarqube-scan-action/install-build-wrapper@v8
+
+      - name: Build under Sonar build wrapper
+        run: >
+          build-wrapper-linux-x86-64 --out-dir "$BUILD_WRAPPER_OUT_DIR"
+          cmake --build build --config Debug
+
+      - name: Run unit tests and generate coverage
+        run: |
+          ctest --test-dir build --output-on-failure
+          gcovr --root "$GITHUB_WORKSPACE" --filter "$GITHUB_WORKSPACE/src" \
+            --sonarqube coverage.xml build
+
+      - name: Scan with SonarCloud
+        uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            --define sonar.cfamily.compile-commands=${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json
+            --define sonar.coverageReportPaths=coverage.xml

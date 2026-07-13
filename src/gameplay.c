@@ -1,6 +1,7 @@
 #include "gameplay.h"
 
 #include <math.h>
+#include <stddef.h>
 
 static TorpedoImpact NoTorpedoImpact(void) {
     return (TorpedoImpact){ TORPEDO_IMPACT_NONE, (Vector2){ 0.0f, 0.0f } };
@@ -63,7 +64,8 @@ int ScoreGameEvents(const GameEventQueue *events) {
         if (event->type == GAME_EVENT_AIR_TARGET_DESTROYED) {
             if (event->target.airTarget == AIR_TARGET_SKIMMER_DRONE) score += SCORE_SKIMMER_DRONE;
         } else if (event->type == GAME_EVENT_SURFACE_TARGET_DESTROYED) {
-            if (event->target.surfaceTarget == SURFACE_TARGET_TURRET_PLATFORM) score += SCORE_TURRET_PLATFORM;
+            if (event->target.surfaceTarget == SURFACE_TARGET_CASEMATE) score += SCORE_CASEMATE;
+            if (event->target.surfaceTarget == SURFACE_TARGET_TRACKING_TURRET) score += SCORE_TRACKING_TURRET;
         }
     }
     return score;
@@ -137,11 +139,35 @@ bool TrySpawnBullet(Bullet bullets[], int count, Vector2 pos) {
     return false;
 }
 
+bool TrySpawnEnemyBullet(EnemyBullet bullets[], int count, Vector2 pos, Vector2 vel) {
+    for (int i = 0; i < count; i++) {
+        if (!bullets[i].active) {
+            bullets[i].active = true;
+            bullets[i].pos = pos;
+            bullets[i].vel = vel;
+            return true;
+        }
+    }
+    return false;
+}
+
 void UpdateBullets(Bullet bullets[], int count, float dt) {
     for (int i = 0; i < count; i++) {
         if (!bullets[i].active) continue;
         bullets[i].pos.x += BULLET_SPEED * dt;
         if (bullets[i].pos.x - BULLET_RADIUS > GAME_WIDTH) bullets[i].active = false;
+    }
+}
+
+void UpdateEnemyBullets(EnemyBullet bullets[], int count, float dt) {
+    for (int i = 0; i < count; i++) {
+        if (!bullets[i].active) continue;
+        bullets[i].pos.x += bullets[i].vel.x * dt;
+        bullets[i].pos.y += bullets[i].vel.y * dt;
+        if (bullets[i].pos.x < -ENEMY_BULLET_RADIUS || bullets[i].pos.x > GAME_WIDTH + ENEMY_BULLET_RADIUS
+            || bullets[i].pos.y < -ENEMY_BULLET_RADIUS || bullets[i].pos.y > PLAY_HEIGHT + ENEMY_BULLET_RADIUS) {
+            bullets[i].active = false;
+        }
     }
 }
 
@@ -272,18 +298,31 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt) {
     return NoTorpedoImpact();
 }
 
-bool TrySpawnTurretPlatform(SurfaceTarget targets[], int count, float y) {
+static bool TrySpawnSurfaceTarget(SurfaceTarget targets[], int count, SurfaceTargetType type, float radius, int hp,
+    Vector2 aimDirection, float y) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) {
-            targets[i].type = SURFACE_TARGET_TURRET_PLATFORM;
+            targets[i].type = type;
             targets[i].active = true;
-            targets[i].hp = TURRET_PLATFORM_HP;
-            targets[i].radius = TURRET_PLATFORM_RADIUS;
-            targets[i].pos = (Vector2){ GAME_WIDTH + TURRET_PLATFORM_RADIUS, y };
+            targets[i].hp = hp;
+            targets[i].radius = radius;
+            targets[i].fireTimer = 0.0f;
+            targets[i].aimDirection = aimDirection;
+            targets[i].pos = (Vector2){ GAME_WIDTH + radius, y };
             return true;
         }
     }
     return false;
+}
+
+bool TrySpawnCasemate(SurfaceTarget targets[], int count, float y) {
+    return TrySpawnSurfaceTarget(targets, count, SURFACE_TARGET_CASEMATE, CASEMATE_RADIUS, CASEMATE_HP,
+        (Vector2){ -1.0f, 0.0f }, y);
+}
+
+bool TrySpawnTrackingTurret(SurfaceTarget targets[], int count, float y) {
+    return TrySpawnSurfaceTarget(targets, count, SURFACE_TARGET_TRACKING_TURRET, TRACKING_TURRET_RADIUS,
+        TRACKING_TURRET_HP, (Vector2){ -1.0f, 0.0f }, y);
 }
 
 void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt) {
@@ -292,6 +331,73 @@ void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt) {
         targets[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
         if (targets[i].pos.x < -targets[i].radius) targets[i].active = false;
     }
+}
+
+static Vector2 CalculateInterceptVelocity(Vector2 spawn, Vector2 targetPos, Vector2 targetVelocity, float speed) {
+    Vector2 offset = { targetPos.x - spawn.x, targetPos.y - spawn.y };
+    float a = targetVelocity.x * targetVelocity.x + targetVelocity.y * targetVelocity.y - speed * speed;
+    float b = 2.0f * (offset.x * targetVelocity.x + offset.y * targetVelocity.y);
+    float c = offset.x * offset.x + offset.y * offset.y;
+    float discriminant = b * b - 4.0f * a * c;
+    float time = -1.0f;
+
+    if (fabsf(a) > 0.0001f && discriminant >= 0.0f) {
+        float root = sqrtf(discriminant);
+        float first = (-b - root) / (2.0f * a);
+        float second = (-b + root) / (2.0f * a);
+        if (first > 0.0f) time = first;
+        if (second > 0.0f && (time < 0.0f || second < time)) time = second;
+    } else if (fabsf(b) > 0.0001f) {
+        float linearTime = -c / b;
+        if (linearTime > 0.0f) time = linearTime;
+    }
+
+    Vector2 aim = time > 0.0f
+        ? (Vector2){ offset.x + targetVelocity.x * time, offset.y + targetVelocity.y * time }
+        : offset;
+    float length = sqrtf(aim.x * aim.x + aim.y * aim.y);
+    if (length <= 0.0001f) return (Vector2){ -speed, 0.0f };
+    return (Vector2){ aim.x / length * speed, aim.y / length * speed };
+}
+
+void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vector2 playerPos, Vector2 playerVelocity,
+    EnemyBullet bullets[], int bulletCount) {
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active) continue;
+        float fireInterval = CASEMATE_FIRE_INTERVAL;
+        Vector2 velocity = (Vector2){ -ENEMY_BULLET_SPEED, 0.0f };
+        if (targets[i].type == SURFACE_TARGET_TRACKING_TURRET) {
+            velocity = CalculateInterceptVelocity(targets[i].pos, playerPos, playerVelocity, ENEMY_BULLET_SPEED);
+            fireInterval = TRACKING_TURRET_FIRE_INTERVAL;
+        }
+        float speed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
+        targets[i].aimDirection = (Vector2){ velocity.x / speed, velocity.y / speed };
+        targets[i].fireTimer += dt;
+        while (targets[i].fireTimer >= fireInterval) {
+            targets[i].fireTimer -= fireInterval;
+            TrySpawnEnemyBullet(
+                bullets,
+                bulletCount,
+                (Vector2){
+                    targets[i].pos.x + targets[i].aimDirection.x * (targets[i].radius + 3.0f),
+                    targets[i].pos.y + targets[i].aimDirection.y * (targets[i].radius + 3.0f)
+                },
+                velocity
+            );
+        }
+    }
+}
+
+bool ResolveEnemyBulletPlayerCollision(EnemyBullet bullets[], int bulletCount, Vector2 playerPos, float playerRadius) {
+    for (int i = 0; i < bulletCount; i++) {
+        if (!bullets[i].active) continue;
+        float hitDist = playerRadius + ENEMY_BULLET_RADIUS;
+        if (DistanceSquared(playerPos, bullets[i].pos) <= hitDist * hitDist) {
+            bullets[i].active = false;
+            return true;
+        }
+    }
+    return false;
 }
 
 void ResolveTorpedoExplosion(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events) {

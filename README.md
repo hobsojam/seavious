@@ -85,15 +85,18 @@ Air (magenta/purple, gun targets):
   naval theme even airborne), three visible weapon-emitter nodes.
 
 Ground/surface (amber/orange, torpedo targets):
-- *Turret Platform* — stationary, breaches the surface, fires straight
-  shots up the player's lane. The baseline ground threat. Low hexagonal
-  platform, single rotating cannon on top, amber glow ring at the waterline.
+- *Casemate* — stationary, breaches the surface, and fires straight left
+  across its own row. The baseline ground threat: a low hexagonal platform
+  with a fixed cannon and amber glow ring at the waterline.
+- *Tracking Turret* — stationary circular mount with a rotating cannon. It
+  leads the player's current movement before firing, so changing direction
+  after a shot is the reliable evasion response.
 - *Relay Node* — stationary, doesn't attack directly but periodically
   launches Skimmer Drones — high priority since destroying it cuts off
   reinforcements. Spire/tower with a pulsing beacon top instead of a gun
   barrel (reads as "broadcasting," not "shooting"), flashes brighter when
   launching a drone. Sprite (first-pass programmatic, 24x24, top-down):
-  amber waterline glow ring echoing the Turret Platform (the shared
+  amber waterline glow ring echoing the Casemate (the shared
   ground-family cue), dark warm platform disc lit from the upper-left,
   three radial masts at 120° reading as broadcast structure rather than a
   gun, and a 2x2 pale beacon core whose launch flash is code-driven.
@@ -170,7 +173,8 @@ future enemies.
 | --- | ---: | --- |
 | Skimmer Drone | 100 | Implemented |
 | Interceptor | 200 | Planned |
-| Turret Platform | 300 | Implemented |
+| Casemate | 300 | Implemented |
+| Tracking Turret | 400 | Implemented |
 | Relay Node | 400 | Planned |
 | Gunship / Mobile Platform | 500 | Planned |
 | Mine | 100 | Planned |
@@ -213,13 +217,15 @@ reserved bar rather than an overlay so the HUD never competes with the
 glow/bloom-heavy playfield for readability.
 
 **Structure**: Stage-based, with a boss fight at the end of each stage.
-Lives-based: enemy contact costs one life, the ship respawns with brief
-invulnerability if any lives remain, and game over triggers on the last
-life. Checkpoints still come later with the stage system. No roguelike
-meta-progression between runs.
+Lives-based: enemy contact costs one life, the ship explodes briefly, then
+respawns with brief invulnerability if any lives remain; game over triggers
+after the final death effect. Destroyed air targets burst and disappear;
+destroyed surface targets leave inert, scrolling burnt-out wrecks. Checkpoints
+still come later with the stage system. No roguelike meta-progression between
+runs.
 
 **Current scope (bare mechanical proof)**: Player movement, gun, bomb, one
-air enemy type, one ground target type. No full stage or boss yet; the
+air enemy type, two ground target types. No full stage or boss yet; the
 remaining work is the checkpoint/failure flow around the implemented
 contact-damage loop, then stage content on top of it.
 
@@ -259,7 +265,7 @@ Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px
 is reserved HUD space). Gun auto-fires forward and downs the Skimmer
 Drones (dark dart-diamond craft with a pulsing magenta core) that fly in
 from the right on a sine-wave path. Space fires a torpedo (one in flight at a time, 1.5s
-reload) — the only weapon that can destroy the amber Turret Platforms
+reload) — the only weapon that can destroy the amber surface threats
 drifting with the water; gun bullets pass right over them (the
 dual-targeting rule). The torpedo reticle sits far ahead on the current
 surface lane and marks maximum range, clamped before the right edge of the
@@ -267,8 +273,11 @@ screen. Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.
 Hits before arming do only small direct impact damage, with no splash.
-Enemy contact costs one life, respawns the ship briefly invulnerable if any
-remain, and game over ends the run on the last life.
+Casemates fire straight red lane shots; rotating turrets lead the player's
+current movement before firing.
+Enemy contact costs one life, triggers a brief ship explosion, then respawns
+the ship briefly invulnerable if any remain; game over follows the final
+explosion.
 
 ## Technical Follow-ups
 
@@ -312,11 +321,15 @@ Manual smoke checklist:
 - Ocean scrolls continuously without seams or jumps.
 - Player movement stays within the 512x352 play area and never enters the HUD.
 - Diagonal movement does not become faster once movement normalization is added.
-- Gun bullets destroy Skimmer Drones and do not affect Turret Platforms.
-- Torpedoes destroy Turret Platforms and do not affect air enemies.
+- Gun bullets destroy Skimmer Drones and do not affect surface threats.
+- Torpedoes destroy Casemates and Tracking Turrets and do not affect air enemies.
 - Destroying a Skimmer Drone adds 100 points exactly once.
-- Destroying a Turret Platform adds 300 points exactly once, including
+- Destroying a Casemate adds 300 points, and a Tracking Turret adds 400 points, exactly once, including
   when it is caught in a torpedo explosion.
+- Air-target explosions are brief and disappear; destroyed surface targets
+  leave inert burnt-out wrecks that drift with the ocean.
+- A player death shows an explosion, disables control during the short death
+  delay, then respawns or reaches game over as appropriate.
 - Torpedo cooldown and one-in-flight behavior are obvious while playing.
 - Torpedo reticle marks max range clearly and does not read as a target lock.
 - Armed torpedoes explode on the first surface target or at max range.
