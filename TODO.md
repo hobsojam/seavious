@@ -160,21 +160,21 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       kept in the repo, reserved for future modal screens (menus,
       high-score entry) — wire it when those screens exist
 - [x] Wire music into the game: Theme A loops during gameplay, hard-cut
-      to the backing-only template (`stage1_drums_bass.xm`) on the
-      game-over screen, back to Theme A on restart; guarded so headless
-      CI runs (no audio device) play nothing instead of crashing —
-      needs a Windows build/playtest to confirm audio comes through
-- [ ] Build the boss variant: same template, bass reharmonized to parallel
-      A minor (`i–VI–iv–v`), swapped in via a hard cut
-      (`LoadMusicStream`/`PlayMusicStream`) at boss start, no crossfade —
-      minor backing done (`assets/audio/boss1_drums_bass.xm`: identical
-      drums and bass contour, only the color notes flattened) plus two
-      candidate boss tunes for audition, `boss1_theme_a.xm` ("siren": high
-      wailing descent, register collapse in the second pass, chromatic G#
-      lift at the loop seam) and `boss1_theme_b.xm` ("hammer": relentless
-      straight-8ths arpeggio grind with half-step stabs, same seam lift);
-      pick one after hearing them, then wiring waits on the boss fight
-      structure existing
+      to the "siren" lament (`boss1_theme_a.xm`) on the game-over screen,
+      back to Theme A on restart, with the "hammer" boss theme loaded and
+      selected whenever the future `bossActive` flag goes true; guarded so
+      headless CI runs (no audio device) play nothing instead of crashing
+      — needs a Windows build/playtest to confirm audio comes through
+- [x] Build the boss variant: minor backing done
+      (`assets/audio/boss1_drums_bass.xm`: identical drums and bass
+      contour, only the color notes flattened to `i–VI–iv–v`); two boss
+      tunes auditioned and both kept — "hammer" (`boss1_theme_b.xm`,
+      relentless straight-8ths grind) picked as the boss theme and wired
+      behind a `bossActive` flag in `main.c` that the boss fight
+      structure will drive when it exists; "siren" (`boss1_theme_a.xm`,
+      high wailing descent) repurposed as the game-over lament, replacing
+      the backing-only template there (per-life deaths at 0.6s are too
+      short for a music cut, so only the final death swaps the track)
 - [ ] Compose menu theme
 - [ ] Define sound effects — full list of SFX the game needs (gunfire,
       torpedo launch, torpedo impact/splash, explosion, player hit/death,

@@ -230,12 +230,15 @@ int main(void) {
 
     // Music follows the design's hard-cut rule: whole tracks are swapped at
     // state changes, never crossfaded or layered live. Theme A carries the
-    // stage; the backing-only template (same drums+bass, tune dropped out)
-    // covers the game-over screen. Guarded so a headless/no-audio run (CI
-    // smoke test) just plays nothing instead of crashing.
+    // stage, the boss "hammer" theme takes over while a boss is active, and
+    // the boss "siren" doubles as a lament over the game-over screen (the
+    // 0.6s per-life death is far too short for a music cut, so only the
+    // final death changes the track). Guarded so a headless/no-audio run
+    // (CI smoke test) just plays nothing instead of crashing.
     InitAudioDevice();
     Music stageMusic = LoadMusicStream("assets/audio/stage1_theme_a.xm");
-    Music gameOverMusic = LoadMusicStream("assets/audio/stage1_drums_bass.xm");
+    Music bossMusic = LoadMusicStream("assets/audio/boss1_theme_b.xm");
+    Music lamentMusic = LoadMusicStream("assets/audio/boss1_theme_a.xm");
     Music *currentMusic = &stageMusic;
     if (IsMusicValid(stageMusic)) PlayMusicStream(stageMusic);
 
@@ -267,6 +270,9 @@ int main(void) {
     int score = 0;
     int lives = 3;
     bool gameOver = false;
+    // Music trigger only for now: the boss fight structure (see TODO) will
+    // own setting/clearing this when it exists.
+    bool bossActive = false;
     float respawnInvulnerability = 0.0f;
     bool playerDestroyed = false;
     float playerDeathTimer = 0.0f;
@@ -330,7 +336,9 @@ int main(void) {
 
         // Hard-cut the music when the run state changes (design rule: swap
         // whole tracks, no live transitions). Streams loop by default.
-        Music *wantMusic = gameOver ? &gameOverMusic : &stageMusic;
+        Music *wantMusic = gameOver ? &lamentMusic
+                         : bossActive ? &bossMusic
+                         : &stageMusic;
         if (wantMusic != currentMusic) {
             if (IsMusicValid(*currentMusic)) StopMusicStream(*currentMusic);
             if (IsMusicValid(*wantMusic)) PlayMusicStream(*wantMusic);
@@ -734,7 +742,8 @@ int main(void) {
         }
     }
 
-    UnloadMusicStream(gameOverMusic);
+    UnloadMusicStream(lamentMusic);
+    UnloadMusicStream(bossMusic);
     UnloadMusicStream(stageMusic);
     CloseAudioDevice();
     UnloadTexture(oceanOverlayTex);
