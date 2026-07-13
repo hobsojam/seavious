@@ -192,6 +192,13 @@ def main():
     if lib is None:
         print('note: libopenmpt not found, reference-engine checks skipped')
 
+    # The output-dir guard must reject paths outside the repo/system temp.
+    try:
+        gen.validated_out_dir('/definitely/not/allowed')
+        check(False, 'validated_out_dir accepted a path outside allowed roots')
+    except ValueError:
+        pass
+
     with tempfile.TemporaryDirectory() as tmp:
         gen.main(tmp)
 

@@ -56,6 +56,7 @@ import math
 import os
 import random
 import struct
+import tempfile
 
 SR = 8363  # XM C-4 reference sample rate (linear frequency table, note 49)
 KEY_OFF = 97
@@ -356,10 +357,28 @@ def lead_events(tune, first_bar, lead_channel, lead_inst):
 
 # ------------------------------------------------------------------- main --
 
+def _repo_root():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def validated_out_dir(out_dir):
+    """Canonicalize a caller-supplied output dir and require it to stay
+    inside the repo or the system temp dir, so a bad CLI argument can't
+    write outside those roots."""
+    resolved = os.path.realpath(out_dir)
+    allowed = (os.path.realpath(_repo_root()),
+               os.path.realpath(tempfile.gettempdir()))
+    for root in allowed:
+        if resolved == root or resolved.startswith(root + os.sep):
+            return resolved
+    raise ValueError(f'output dir {out_dir!r} must be inside one of {allowed}')
+
+
 def main(out_dir=None):
     if out_dir is None:
-        out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                               'assets', 'audio')
+        out_dir = os.path.join(_repo_root(), 'assets', 'audio')
+    else:
+        out_dir = validated_out_dir(out_dir)
     os.makedirs(out_dir, exist_ok=True)
 
     kick = delta_encode(gen_kick())
