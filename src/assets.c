@@ -15,6 +15,9 @@ GameAssets LoadGameAssets(void) {
     assets.trackingTurretTex = LoadTexture("assets/sprites/tracking_turret.png");
     SetTextureFilter(assets.trackingTurretTex, TEXTURE_FILTER_POINT);
 
+    assets.relayNodeTex = LoadTexture("assets/sprites/relay_node.png");
+    SetTextureFilter(assets.relayNodeTex, TEXTURE_FILTER_POINT);
+
     assets.oceanTex = LoadTexture("assets/tiles/ocean.png");
     SetTextureFilter(assets.oceanTex, TEXTURE_FILTER_POINT);
     SetTextureWrap(assets.oceanTex, TEXTURE_WRAP_REPEAT);
@@ -33,6 +36,7 @@ GameAssets LoadGameAssets(void) {
 void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->oceanOverlayTex);
     UnloadTexture(assets->oceanTex);
+    UnloadTexture(assets->relayNodeTex);
     UnloadTexture(assets->trackingTurretTex);
     UnloadTexture(assets->casemateTex);
     UnloadTexture(assets->droneTex);

@@ -109,6 +109,66 @@ static void TestSurfaceTargets(void) {
     CHECK(!targets[0].active && targets[1].active && events.count == 1);
 }
 
+static void TestRelayNode(void) {
+    SurfaceTarget surface[MAX_SURFACE_TARGETS] = { 0 };
+    AirTarget air[MAX_AIR_TARGETS] = { 0 };
+    EnemyBullet bullets[MAX_ENEMY_BULLETS] = { 0 };
+    GameEventQueue events = { 0 };
+
+    CHECK(TrySpawnRelayNode(surface, MAX_SURFACE_TARGETS, 100.0f));
+    CHECK(surface[0].type == SURFACE_TARGET_RELAY_NODE);
+
+    // Off-screen (spawns beyond the right edge): interval elapses, no launch.
+    UpdateRelayNodeLaunches(surface, MAX_SURFACE_TARGETS, RELAY_NODE_LAUNCH_INTERVAL + 0.1f,
+        air, MAX_AIR_TARGETS, &events);
+    CHECK(air[0].active == false && events.count == 0);
+
+    // Fully on-screen: the held timer launches immediately.
+    surface[0].pos.x = 200.0f;
+    UpdateRelayNodeLaunches(surface, MAX_SURFACE_TARGETS, 0.01f, air, MAX_AIR_TARGETS, &events);
+    CHECK(air[0].active && air[0].ownerId == 1 && events.count == 1);
+    CHECK(events.items[0].type == GAME_EVENT_DRONE_LAUNCHED);
+    // Launched drones start at the relay, not the screen edge.
+    NEAR(air[0].pos.x, 200.0f);
+    NEAR(air[0].baseY, 100.0f);
+
+    // Cap: at most RELAY_NODE_MAX_DRONES of its drones alive at once.
+    for (int i = 0; i < 5; i++) {
+        UpdateRelayNodeLaunches(surface, MAX_SURFACE_TARGETS, RELAY_NODE_LAUNCH_INTERVAL + 0.1f,
+            air, MAX_AIR_TARGETS, &events);
+    }
+    int owned = 0;
+    for (int i = 0; i < MAX_AIR_TARGETS; i++) {
+        if (air[i].active && air[i].ownerId == 1) owned++;
+    }
+    CHECK(owned == RELAY_NODE_MAX_DRONES);
+
+    // A freed slot refills immediately (timer held at the interval).
+    air[0].active = false;
+    UpdateRelayNodeLaunches(surface, MAX_SURFACE_TARGETS, 0.01f, air, MAX_AIR_TARGETS, &events);
+    owned = 0;
+    for (int i = 0; i < MAX_AIR_TARGETS; i++) {
+        if (air[i].active && air[i].ownerId == 1) owned++;
+    }
+    CHECK(owned == RELAY_NODE_MAX_DRONES);
+
+    // Relays never fire enemy bullets.
+    UpdateSurfaceTargetFire(surface, MAX_SURFACE_TARGETS, 10.0f, (Vector2){ 0, 0 }, (Vector2){ 0, 0 },
+        bullets, MAX_ENEMY_BULLETS);
+    for (int i = 0; i < MAX_ENEMY_BULLETS; i++) CHECK(!bullets[i].active);
+
+    // Destroying a relay scores it; its drones stay alive (only the
+    // reinforcement source is cut off).
+    GameEventQueue killEvents = { 0 };
+    CHECK(DamageSurfaceTarget(&surface[0], 1, &killEvents));
+    CHECK(ScoreGameEvents(&killEvents) == SCORE_RELAY_NODE);
+    owned = 0;
+    for (int i = 0; i < MAX_AIR_TARGETS; i++) {
+        if (air[i].active && air[i].ownerId == 1) owned++;
+    }
+    CHECK(owned == RELAY_NODE_MAX_DRONES);
+}
+
 static void TestTurretLeadIsSoft(void) {
     // A player moving straight up at full speed, turret dead ahead. A
     // perfect intercept would fire steeply upward (|vy| > |vx|, pinning the
@@ -151,6 +211,7 @@ int main(void) {
     TestAirTargets();
     TestTorpedoes();
     TestSurfaceTargets();
+    TestRelayNode();
     TestTurretLeadIsSoft();
     TestTurretAimClampedToPlayArea();
     return failures != 0;

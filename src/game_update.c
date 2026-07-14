@@ -120,6 +120,10 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
         state->surfaceTargets, MAX_SURFACE_TARGETS, dt, state->player, playerVelocity,
         state->enemyBullets, MAX_ENEMY_BULLETS
     );
+    UpdateRelayNodeLaunches(
+        state->surfaceTargets, MAX_SURFACE_TARGETS, dt, state->airTargets, MAX_AIR_TARGETS,
+        &state->gameEvents
+    );
     UpdateEnemyBullets(state->enemyBullets, MAX_ENEMY_BULLETS, dt);
 
     // Torpedo-vs-surface collision — the gun deliberately has no case

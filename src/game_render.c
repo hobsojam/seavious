@@ -170,6 +170,20 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
                 (int)(state->surfaceTargets[i].pos.y - assets->casemateTex.height / 2.0f),
                 WHITE
             );
+        } else if (state->surfaceTargets[i].type == SURFACE_TARGET_RELAY_NODE) {
+            // The beacon flash right after a drone launch is code-driven
+            // (fireTimer resets to 0 on launch), per the roster design.
+            DrawTexture(
+                assets->relayNodeTex,
+                (int)(state->surfaceTargets[i].pos.x - assets->relayNodeTex.width / 2.0f),
+                (int)(state->surfaceTargets[i].pos.y - assets->relayNodeTex.height / 2.0f),
+                WHITE
+            );
+            float flash = 1.0f - state->surfaceTargets[i].fireTimer / 0.3f;
+            if (flash > 0.0f) {
+                DrawCircleV(state->surfaceTargets[i].pos, 4.0f,
+                    (Color){ 255, 224, 168, (unsigned char)(200.0f * flash) });
+            }
         } else {
             // Sprite bakes the ring and rotating mount; only the aiming
             // barrel stays code-drawn so it can lead the player.

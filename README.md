@@ -138,9 +138,12 @@ the drifting-vessel niche already belongs to the Mobile Platform.
   gun, and a 2x2 pale beacon core whose launch flash is code-driven.
   Behavior numbers (first pass): anchored to the water (drifts at scroll
   speed), 1 HP to a torpedo, launches a Skimmer Drone every 2.5s while
-  fully on-screen with at most 3 of its drones alive at once. The one
-  roster enemy implementable before the lives system exists, since it
-  never attacks the player directly.
+  fully on-screen with at most 3 of its drones alive at once.
+  Implemented: spawns from its stage glyph, launched drones start at the
+  relay itself (not the screen edge) and count against its cap so a
+  freed slot refills immediately, destroying it scores 400 and strands
+  its surviving drones, and each launch fires the code-driven beacon
+  flash plus a broadcast-warble SFX.
 - *Mine* — stationary, no attack, but sits in the player's path and
   detonates on contact if not destroyed first — a positioning check rather
   than a threat that shoots. Small spiked-sphere/urchin shape at the

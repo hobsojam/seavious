@@ -70,6 +70,48 @@ static void TestEventsFireOnceInOrder(void) {
     CHECK(state.stageCursor == 0 && state.scrollDistance == 0.0f);
 }
 
+static void TestRelayGlyphSpawns(void) {
+    // Find the map's Relay Node event and fire exactly that one.
+    int relayIndex = -1;
+    for (int i = 0; i < STAGE1_EVENT_COUNT; i++) {
+        if (STAGE1_EVENTS[i].kind == STAGE_SPAWN_RELAY_NODE) {
+            relayIndex = i;
+            break;
+        }
+    }
+    CHECK(relayIndex >= 0);
+    if (relayIndex < 0) return;
+
+    GameState state;
+    ResetRunState(&state);
+    state.stageCursor = relayIndex;
+    state.scrollDistance = (float)STAGE1_EVENTS[relayIndex].px - 0.5f;
+    UpdateStageScript(&state, 1.0f / OCEAN_SCROLL_SPEED);
+
+    bool relaySpawned = false;
+    for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
+        if (state.surfaceTargets[i].active
+            && state.surfaceTargets[i].type == SURFACE_TARGET_RELAY_NODE) {
+            relaySpawned = true;
+        }
+    }
+    CHECK(relaySpawned);
+}
+
+static void TestRelayWreckRadius(void) {
+    ExplosionEffect explosions[MAX_EXPLOSION_EFFECTS] = { 0 };
+    SurfaceWreck wrecks[MAX_SURFACE_WRECKS] = { 0 };
+    GameEventQueue events = { 0 };
+    PushGameEvent(&events, (GameEvent){
+        .type = GAME_EVENT_SURFACE_TARGET_DESTROYED,
+        .pos = { 100.0f, 100.0f },
+        .target.surfaceTarget = SURFACE_TARGET_RELAY_NODE
+    });
+    SpawnTargetDestructionEffects(&events, explosions, wrecks);
+    CHECK(wrecks[0].active);
+    CHECK(wrecks[0].radius == RELAY_NODE_RADIUS);
+}
+
 static void TestBossLockFreezesScript(void) {
     GameState state;
     ResetRunState(&state);
@@ -115,6 +157,8 @@ static void TestFormationPatterns(void) {
 int main(void) {
     TestTableInvariants();
     TestEventsFireOnceInOrder();
+    TestRelayGlyphSpawns();
+    TestRelayWreckRadius();
     TestBossLockFreezesScript();
     TestFormationPatterns();
 

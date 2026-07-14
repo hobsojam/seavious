@@ -86,12 +86,14 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       Gunship — Interceptor sprite + behavior numbers are designed (see
       README/Art); its implementation is blocked on the lives/damage
       system because it shoots back
-- [ ] Implement remaining ground roster: Relay Node, Mine, Mobile
-      Platform — Relay Node and Mine sprites + behavior numbers are
-      designed (see README/Art); Relay Node is implementable now (it never
-      attacks directly, so it doesn't need the lives system) and is the
-      natural next enemy to wire in; Mine contact damage is blocked on
-      lives/damage
+- [ ] Implement remaining ground roster: Mine and Mobile Platform (both
+      designed, see README/Art; the lives system exists so neither is
+      blocked). Relay Node is done: spawns from its stage glyph, drifts
+      with the water, launches a Skimmer Drone from its own position
+      every 2.5s while fully on-screen (capped at 3 of its drones alive;
+      a freed slot refills immediately), never attacks directly, dies to
+      one torpedo for 400 points leaving its drones alive, code-driven
+      beacon flash + broadcast-warble SFX on launch
 - [x] Design Stage 1 boss visuals (Leviathan-class dreadnought) — fight
       design done (see README "Stage 1 boss design": part layout with 2
       AA pods + 2 hull sections + indestructible mortar turret + hidden
