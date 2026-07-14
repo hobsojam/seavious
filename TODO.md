@@ -88,12 +88,16 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       attacks directly, so it doesn't need the lives system) and is the
       natural next enemy to wire in; Mine contact damage is blocked on
       lives/damage
-- [ ] Design Stage 1 boss visuals (Leviathan-class dreadnought) — fight
+- [x] Design Stage 1 boss visuals (Leviathan-class dreadnought) — fight
       design done (see README "Stage 1 boss design": part layout with 2
       AA pods + 2 hull sections + indestructible mortar turret + hidden
       core, HP/scoring numbers, emergent fight decay, entrance/defeat/
-      salvage sequence); sprite set still to draw (base hull with burnt
-      sockets, the five part sprites, mortar shell + shadow + blast VFX); now includes the
+      salvage sequence) and first-pass sprite set generated at
+      `assets/sprites/leviathan_*.png` by `tools/gen-leviathan.py`
+      (breached hull base, pod, hull section, faction-colorless mortar
+      dome, white-hot core); mortar shell/shadow/blast stay code-drawn
+      VFX and part-death scorch reuses the wreck treatment; refining in
+      LibreSprite still outstanding; now includes the
       armored (indestructible) mortar turret that lobs arcing shells during
       the fight and is salvaged intact afterward (see README boss entry)
 - [ ] Implement Stage 1 boss: Leviathan-class dreadnought (gun-weak pods +
