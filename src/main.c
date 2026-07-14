@@ -50,6 +50,16 @@ int main(void) {
                 .aimDirection = { -1.0f, 0.0f },
                 .active = true
             };
+            // A relay on a quiet lane exercises the launch/flash/SFX path
+            // headlessly; the map's own relay sits far beyond the smoke run.
+            state.surfaceTargets[1] = (SurfaceTarget){
+                .type = SURFACE_TARGET_RELAY_NODE,
+                .pos = { 400.0f, 60.0f },
+                .radius = RELAY_NODE_RADIUS,
+                .hp = RELAY_NODE_HP,
+                .aimDirection = { -1.0f, 0.0f },
+                .active = true
+            };
         }
         if (smokeFrames > 0 && (framesRun == 120 || framesRun == 240 || framesRun == 360)) {
             state.enemyBullets[0] = (EnemyBullet){ .pos = state.player, .active = true };
