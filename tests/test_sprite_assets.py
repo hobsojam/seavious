@@ -20,13 +20,16 @@ import zlib
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSET_DIR = os.path.join(REPO, 'assets', 'sprites')
 
-# generator script -> (output file, width, height)
-GENERATORS = {
-    'gen-casemate.py': ('casemate.png', 24, 24),
-    'gen-tracking-turret.py': ('tracking_turret.png', 24, 24),
-}
+AMBER = (232, 148, 44)      # ground family
+MAGENTA = (216, 72, 192)    # air family
 
-AMBER = (232, 148, 44)
+# generator script -> (output file, width, height, family color)
+GENERATORS = {
+    'gen-casemate.py': ('casemate.png', 24, 24, AMBER),
+    'gen-tracking-turret.py': ('tracking_turret.png', 24, 24, AMBER),
+    'gen-mobile-platform.py': ('mobile_platform.png', 36, 18, AMBER),
+    'gen-gunship.py': ('gunship.png', 32, 24, MAGENTA),
+}
 
 failures = []
 
@@ -81,7 +84,7 @@ def parse_png(name, data):
     return width, height, pixels
 
 
-def validate_sprite(name, data, exp_w, exp_h):
+def validate_sprite(name, data, exp_w, exp_h, family_color):
     width, height, pixels = parse_png(name, data)
     check(width == exp_w and height == exp_h,
           f'{name}: {width}x{height}, want {exp_w}x{exp_h}')
@@ -90,15 +93,15 @@ def validate_sprite(name, data, exp_w, exp_h):
     opaque = [p for p in flat if p[3] == 255]
     check(len(opaque) > len(flat) * 0.3,
           f'{name}: only {len(opaque)} opaque pixels - sprite mostly empty?')
-    check(any(p[:3] == AMBER for p in opaque),
-          f'{name}: ground-family amber {AMBER} missing')
+    check(any(p[:3] == family_color for p in opaque),
+          f'{name}: family color {family_color} missing')
     for cx, cy in ((0, 0), (exp_w - 1, 0), (0, exp_h - 1), (exp_w - 1, exp_h - 1)):
         check(pixels[cy][cx][3] == 0,
               f'{name}: corner ({cx},{cy}) not transparent')
 
 
 def main():
-    for script, (out_name, exp_w, exp_h) in GENERATORS.items():
+    for script, (out_name, exp_w, exp_h, family_color) in GENERATORS.items():
         gen = load_tool(script)
         with tempfile.TemporaryDirectory() as tmp:
             gen.main(tmp)
@@ -108,7 +111,7 @@ def main():
                 continue
             with open(path, 'rb') as f:
                 data = f.read()
-            validate_sprite(out_name, data, exp_w, exp_h)
+            validate_sprite(out_name, data, exp_w, exp_h, family_color)
 
             committed_path = os.path.join(ASSET_DIR, out_name)
             check(os.path.exists(committed_path),

@@ -82,7 +82,17 @@ Air (magenta/purple, gun targets):
   or line formation, testing aim/positioning across a spread.
 - *Gunship* (heavier, less frequent) — bigger, tougher, fires a 3-way
   spread. Bulky twin-hull frame (like a small flying catamaran, echoing the
-  naval theme even airborne), three visible weapon-emitter nodes.
+  naval theme even airborne), three visible weapon-emitter nodes. Sprite
+  (first-pass programmatic, 32x24, noses left): two parallel gunmetal-violet
+  fuselages joined by a recessed deck, each hull carrying the family's
+  magenta spine stripe with the bright/dark split, and the three emitters
+  as pale cores — one at each hull nose plus a 2x2 block on the deck's
+  leading edge (the spread's center emitter). Behavior numbers (first
+  pass): 70 px/s straight flight along its spawn row (half the
+  Interceptor's speed — the bulk should read in motion), 3 HP to the gun
+  (the first multi-hit air target), fires a 3-way spread aimed at the
+  player (±16°) every 2.4s while fully on-screen, 500 points.
+  Implementation is part of the air-roster task.
 
 Ground/surface (amber/orange, torpedo targets):
 - *Casemate* — stationary, breaches the surface, and fires straight left
@@ -135,7 +145,18 @@ the drifting-vessel niche already belongs to the Mobile Platform.
   on player contact. Implementation is blocked on the lives/damage system.
 - *Mobile Platform* (heavier, less frequent) — slowly drifts across the
   water, higher HP, wider shot spread. Wider, flatter barge/raft shape,
-  several small weapon emitters along its edge, trailing wake.
+  several small weapon emitters along its edge, trailing wake. Sprite
+  (first-pass programmatic, 36x18, bow left): the one ground unit that
+  moves, so its amber waterline hugs the hull outline like a vessel
+  instead of sitting as the anchored units' detached ring — pointed bow
+  in the drift direction, dark warm deck lit upper-left, raised rust
+  deckhouse, and three pale emitters (bow tip + two along the deck
+  edges). Wake trails from the stern at runtime (code VFX, like the
+  player's). Behavior numbers (first pass): self-propelled at 60 px/s
+  leftward (1.5x scroll speed, visibly moving relative to the water),
+  2 HP to torpedoes (the first multi-torpedo surface target), fires a
+  3-shot fan aimed at the player (±14°) every 3.0s while on-screen,
+  500 points. Implementation is part of the ground-roster task.
 
 Stage 1 boss: *Leviathan-class dreadnought*, partially breaching the
 surface, with separate gun-weak pods and torpedo-weak hull sections as

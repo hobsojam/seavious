@@ -33,7 +33,9 @@ def write_grid_png(width, height, palette, grid, out_path):
            + _chunk(b'IHDR', ihdr)
            + _chunk(b'IDAT', zlib.compress(bytes(raw), 9))
            + _chunk(b'IEND', b''))
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     with open(out_path, 'wb') as f:
         f.write(png)
     print(f'wrote {out_path} ({width}x{height})')
