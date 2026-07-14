@@ -107,9 +107,10 @@ Ground/surface (amber/orange, torpedo targets):
   leads the player's current movement before firing, so changing direction
   after a shot is the reliable evasion response. The lead is deliberately
   soft: only a tenth of the player's velocity goes into the intercept
-  solve (`TRACKING_TURRET_LEAD_FACTOR`), so the shot nudges toward the
-  direction of travel. A perfect intercept was tried first and read as
-  psychic — while
+  solve (`TRACKING_TURRET_LEAD_FACTOR`), and the predicted point is
+  clamped to the play area, so the shot nudges toward the direction of
+  travel and never aims where the player can't be. A perfect intercept
+  was tried first and read as psychic — while
   flying up it aimed at the top edge, where the player *would* be seconds
   later. Sprite (first-pass programmatic, 24x24, top-down): same amber
   waterline ring, a rust-brown circular deck lit from the upper-left, a

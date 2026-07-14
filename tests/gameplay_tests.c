@@ -127,6 +127,24 @@ static void TestTurretLeadIsSoft(void) {
     CHECK(fabsf(bullets[0].vel.y) < 0.15f * fabsf(bullets[0].vel.x));
 }
 
+static void TestTurretAimClampedToPlayArea(void) {
+    // A player hugging the top edge while moving up: even the soft lead
+    // extrapolates past the edge, where the player can never be. The
+    // implied aim point at the player's x must stay inside the play area.
+    SurfaceTarget turret[1] = { 0 };
+    CHECK(TrySpawnTrackingTurret(turret, 1, 20));
+    turret[0].pos = (Vector2){ 400, 20 };
+
+    EnemyBullet bullets[1] = { 0 };
+    UpdateSurfaceTargetFire(turret, 1, TRACKING_TURRET_FIRE_INTERVAL,
+        (Vector2){ 100, 10 }, (Vector2){ 0, -120 }, bullets, 1);
+    CHECK(bullets[0].active);
+    float timeToPlayerX = (100.0f - 400.0f) / bullets[0].vel.x;
+    float yAtPlayerX = 20.0f + bullets[0].vel.y * timeToPlayerX;
+    CHECK(yAtPlayerX >= -0.01f);
+    CHECK(yAtPlayerX <= 10.01f);
+}
+
 int main(void) {
     TestDamageAndScore();
     TestMovementAndProjectiles();
@@ -134,5 +152,6 @@ int main(void) {
     TestTorpedoes();
     TestSurfaceTargets();
     TestTurretLeadIsSoft();
+    TestTurretAimClampedToPlayArea();
     return failures != 0;
 }
