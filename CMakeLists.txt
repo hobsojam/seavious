@@ -17,6 +17,8 @@ add_executable(seavious
     src/game_update.c
     src/gameplay.c
     src/main.c
+    src/stage.c
+    src/stage1_data.c
 )
 
 # TEMPORARY: a stale Windows-side file handle has the exact path
@@ -35,6 +37,17 @@ if(BUILD_TESTING)
     target_include_directories(gameplay_tests PRIVATE src)
     target_link_libraries(gameplay_tests PRIVATE raylib glfw)
     add_test(NAME gameplay_tests COMMAND gameplay_tests)
+
+    add_executable(stage_tests
+        tests/stage_tests.c
+        src/game_state.c
+        src/gameplay.c
+        src/stage.c
+        src/stage1_data.c
+    )
+    target_include_directories(stage_tests PRIVATE src)
+    target_link_libraries(stage_tests PRIVATE raylib glfw)
+    add_test(NAME stage_tests COMMAND stage_tests)
 
     if(UNIX)
         add_test(

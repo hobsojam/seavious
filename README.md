@@ -472,10 +472,16 @@ beat 3 taught the torpedo: a land target the other weapons visibly can't
 touch. Boss-yields-an-upgrade is a candidate pattern for later stages'
 progression spine, not yet a commitment beyond Stage 1.
 
-**Current scope (bare mechanical proof)**: Player movement, gun, bomb, one
-air enemy type, two ground target types. No full stage or boss yet; the
-remaining work is the checkpoint/failure flow around the implemented
-contact-damage loop, then stage content on top of it.
+**Current scope**: Player movement, gun, torpedo, lives/game-over loop,
+music + SFX, and the Stage 1 script driving all spawning: the committed
+map (`assets/stages/stage1.txt`) compiles to a C event table
+(`src/stage1_data.c`) that the engine walks by scroll distance — the
+implemented enemies (Skimmer Drone solo/line/V formations, Casemate,
+Tracking Turret) spawn at their authored beats, the not-yet-implemented
+roster glyphs are skipped until each enemy lands, and the boss lock at
+map end freezes the scroll (raising the boss music as a placeholder for
+the future fight). Remaining for a completable Stage 1: the rest of the
+roster, the terrain system, and the boss fight itself.
 
 ## Building on Windows (MSVC + vcpkg)
 

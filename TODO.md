@@ -53,16 +53,20 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] Destruction effects: air targets burst briefly then disappear; destroyed
       surface targets leave inert burnt-out wrecks that drift with the water
 - [ ] Boss fight structure (post-MVP, end of each stage)
-- [ ] Stage/wave definition + sequencing — design decided (see README
-      Level & stage design): deterministic scripted timeline of
-      scroll-distance-triggered events referencing reusable parameterized
-      wave patterns; script keeps running through death pauses; boss lock
-      stops scroll and therefore spawns. Authoring format also decided:
-      per-stage ASCII map (1 char = 32 px, 11 rows x 16 cols/screen,
-      per-beat `@offset` blocks, glyphs = pattern instances, `#` = land)
-      compiled by a `tools/` script into a committed C spawn table with a
-      regenerate-and-compare drift test, like the XM assets. To implement:
-      map compiler, pattern functions, spawn-event runner, drift test
+- [x] Stage/wave definition + sequencing — implemented:
+      `tools/gen-stage-table.py` compiles `assets/stages/stage1.txt` into
+      the committed `src/stage1_data.c` event table (drift-tested by
+      `tests/test_stage_table.py`); `src/stage.c` walks the sorted table
+      with a cursor as scroll distance accumulates, fires wave patterns
+      (lone drone / line of 3 / V of 5 live in `gameplay.c`), raises the
+      boss lock at map end (freezes scroll, water-anchored drift, and
+      spawns; raises `bossActive` as a placeholder until the boss fight
+      owns it), and replaces the old random spawn timers. Unimplemented
+      roster glyphs (i/G/R/m/P) compile into the table and are skipped
+      until each enemy lands; terrain footprints (`#`) compile in for
+      the future terrain system. Restart rewinds the script. Unit-tested
+      in `tests/stage_tests.c`; needs a Windows playtest for beat
+      pacing/feel
 - [ ] Terrain system: stage-data land footprints drifting at scroll speed —
       non-colliding for ship/gun, blocks torpedoes (armed = detonate at
       land edge, unarmed = fizzle), reticle clamps to the first land edge
