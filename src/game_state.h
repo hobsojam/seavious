@@ -42,6 +42,13 @@ typedef struct {
     // Music trigger only for now: the boss fight structure (see TODO) will
     // own setting/clearing this when it exists.
     bool bossActive;
+    // Stage script progress: total scroll distance is the trigger currency
+    // for the compiled spawn table; the cursor walks the sorted events.
+    // bossLock (map end reached) freezes scroll, and with it all
+    // water-anchored drift and further spawns.
+    float scrollDistance;
+    int stageCursor;
+    bool bossLock;
     float respawnInvulnerability;
     bool playerDestroyed;
     float playerDeathTimer;
@@ -55,7 +62,6 @@ typedef struct {
     SurfaceWreck wrecks[MAX_SURFACE_WRECKS];
 
     AirTarget airTargets[MAX_AIR_TARGETS];
-    float airTargetSpawnTimer;
 
     Torpedo torpedo;
     float torpedoCooldown;
@@ -64,7 +70,6 @@ typedef struct {
     float torpedoImpactTimer;
 
     SurfaceTarget surfaceTargets[MAX_SURFACE_TARGETS];
-    float surfaceTargetSpawnTimer;
 
     WakeParticle wake[MAX_WAKE_PARTICLES];
     float wakeEmitTimer;
