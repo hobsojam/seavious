@@ -167,8 +167,64 @@ landing) throughout the fight, shaping the dodging as persistent pressure
 — and teaching the mortar's visual language as an enemy weapon before the
 player owns it. When the boss core dies the turret powers down intact, and
 the end-of-stage sequence has the skimmer salvage it: from Stage 2 onward
-it's fitted to the player as the third weapon (see Core mechanic). Visual
-design deferred to a separate pass (see `TODO.md`).
+it's fitted to the player as the third weapon (see Core mechanic).
+
+**Stage 1 boss design (Leviathan)**:
+
+*Body & layout* — a long broadside hull, bow left (toward the player),
+parked on the right ~40% of the screen once the boss lock stops the
+scroll; the player owns the left side of the arena. Overall footprint
+~200x120 on the 512x352 play area, drawn as one dark breached-hull base
+sprite (the "wreck-to-be") with the five interactive parts as separate
+sprites layered on top, each with its own hitbox and HP, following the
+weapon-class colors exactly:
+
+- 2x *AA pods* (magenta, gun-weak, ~20x20): raised turret bulbs on the
+  hull spine, fore and aft. Same air-family visual language as the drone
+  swarms — gunmetal-violet housings with magenta energy lines — because
+  magenta = "shoot it." 12 gun hits each; 1,000 points. Each fires
+  turret-style aimed red shots every ~2.0s.
+- 2x *hull sections* (amber, torpedo-weak, ~40x24): armored casemate
+  plates at the waterline, fore and aft, with the ground-family amber
+  waterline glow. 2 torpedoes each; 1,000 points. Each fires straight
+  lane shots (casemate-style) every ~2.5s.
+- 1x *mortar turret* (indestructible, ~24x24): armored dome aft-center,
+  deliberately *colorless* in weapon-class terms — bare dark steel with
+  no amber/magenta glow, the visual grammar for "no weapon works on
+  this." Lobs an arcing shell every ~4.0s at the player's position: a
+  launch puff, a shrinking-then-growing shadow at the landing point
+  (~1.2s of air time — the dodge window), then an area blast. Red
+  accents only on the shell/blast (universal "this kills you").
+- 1x *core* (initially hidden): amidships beneath a breach in the base
+  hull, revealed once both hull sections are destroyed — a white-hot
+  pale opening with escaping glow (the same white-hot palette as
+  explosion centers, reading as "the inside of the machine"). Weak to
+  *both* weapons once exposed (4 torpedoes or ~24 gun hits; mixing
+  works), so the endgame rewards whichever weapon the player has left
+  free. 2,000 points + stage-clear bonus later.
+
+*Fight flow* — no scripted phases; the structure emerges from the parts:
+pods and hull sections all fire from the start (staggered timers so
+volleys interleave rather than wall), the mortar lobs throughout, and
+every destroyed part permanently silences its gun — the fight naturally
+decays from "bullet storm + mortar" to "just the mortar's rhythm" as the
+player dismantles the ship. Destroying a part leaves a burnt socket on
+the base sprite (the wreck look assembling in place). The mortar's
+cadence quickens slightly (~4.0s → ~2.8s) once the core is exposed, so
+the final push stays under pressure. Boss HP bar (reserved HUD slot)
+shows the sum of remaining destructible-part HP.
+
+*Entrance & defeat* — the boss slides in from the right over ~3s under
+the boss-lock (scroll stopped, spawns stopped, "hammer" theme
+hard-cut in). On core death: chain of part-explosions along the hull
+(white-hot → orange, biggest VFX in the game), the wreck settles a few
+pixels lower in the water, music hard-cuts back to the stage theme, and
+the mortar turret's red accents fade to dark — powered down, intact.
+The salvage beat is deliberately simple: the skimmer auto-pilots
+alongside, the turret dome lifts off the wreck and docks onto the
+skimmer's spine (a few seconds of sprite animation, no input), a pickup
+jingle plays, and the stage-clear flow takes over. Stage 2 then opens
+with the mortar equipped.
 
 **Color palette**: No sky rendered — open water scrolls underneath the
 top-down camera. Environment is classic flat arcade water in the
