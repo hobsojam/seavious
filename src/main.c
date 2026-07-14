@@ -228,6 +228,20 @@ int main(void) {
     InitWindow(GAME_WIDTH * WINDOW_SCALE, GAME_HEIGHT * WINDOW_SCALE, "Seavious");
     SetTargetFPS(60);
 
+    // Music follows the design's hard-cut rule: whole tracks are swapped at
+    // state changes, never crossfaded or layered live. Theme A carries the
+    // stage, the boss "hammer" theme takes over while a boss is active, and
+    // the boss "siren" doubles as a lament over the game-over screen (the
+    // 0.6s per-life death is far too short for a music cut, so only the
+    // final death changes the track). Guarded so a headless/no-audio run
+    // (CI smoke test) just plays nothing instead of crashing.
+    InitAudioDevice();
+    Music stageMusic = LoadMusicStream("assets/audio/stage1_theme_a.xm");
+    Music bossMusic = LoadMusicStream("assets/audio/boss1_theme_b.xm");
+    Music lamentMusic = LoadMusicStream("assets/audio/boss1_theme_a.xm");
+    Music *currentMusic = &stageMusic;
+    if (IsMusicValid(stageMusic)) PlayMusicStream(stageMusic);
+
     RenderTexture2D target = LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
 
@@ -256,6 +270,9 @@ int main(void) {
     int score = 0;
     int lives = 3;
     bool gameOver = false;
+    // Music trigger only for now: the boss fight structure (see TODO) will
+    // own setting/clearing this when it exists.
+    bool bossActive = false;
     float respawnInvulnerability = 0.0f;
     bool playerDestroyed = false;
     float playerDeathTimer = 0.0f;
@@ -316,6 +333,18 @@ int main(void) {
     while (!WindowShouldClose()) {
         gameEvents.count = 0;
         float dt = GetFrameTime();
+
+        // Hard-cut the music when the run state changes (design rule: swap
+        // whole tracks, no live transitions). Streams loop by default.
+        Music *wantMusic = gameOver ? &lamentMusic
+                         : bossActive ? &bossMusic
+                         : &stageMusic;
+        if (wantMusic != currentMusic) {
+            if (IsMusicValid(*currentMusic)) StopMusicStream(*currentMusic);
+            if (IsMusicValid(*wantMusic)) PlayMusicStream(*wantMusic);
+            currentMusic = wantMusic;
+        }
+        if (IsMusicValid(*currentMusic)) UpdateMusicStream(*currentMusic);
         float halfW = playerTex.width / 2.0f;
         float halfH = playerTex.height / 2.0f;
         float playerRadius = PLAYER_HIT_RADIUS;
@@ -713,6 +742,10 @@ int main(void) {
         }
     }
 
+    UnloadMusicStream(lamentMusic);
+    UnloadMusicStream(bossMusic);
+    UnloadMusicStream(stageMusic);
+    CloseAudioDevice();
     UnloadTexture(oceanOverlayTex);
     UnloadTexture(oceanTex);
     UnloadTexture(droneTex);

@@ -35,7 +35,9 @@ jobs:
             libxi-dev \
             xvfb \
             xauth \
-            gcovr
+            gcovr \
+            libopenmpt0t64 \
+            python3-coverage
       - name: Set up vcpkg
         uses: lukka/run-vcpkg@v11
         with:
@@ -64,6 +66,11 @@ jobs:
           gcovr --root "$GITHUB_WORKSPACE" --filter "$GITHUB_WORKSPACE/src" \
             --sonarqube coverage.xml build
 
+      - name: Validate XM music assets and generate Python coverage
+        run: |
+          python3 -m coverage run --include='tools/*' tests/test_xm_assets.py
+          python3 -m coverage xml -o coverage-python.xml
+
       - name: Scan with SonarCloud
         uses: SonarSource/sonarqube-scan-action@v8
         env:
@@ -72,3 +79,4 @@ jobs:
           args: >
             --define sonar.cfamily.compile-commands=${{ env.BUILD_WRAPPER_OUT_DIR }}/compile_commands.json
             --define sonar.coverageReportPaths=coverage.xml
+            --define sonar.python.coverage.reportPaths=coverage-python.xml
