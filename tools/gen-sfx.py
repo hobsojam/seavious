@@ -22,27 +22,13 @@ import math
 import os
 import random
 import struct
-import tempfile
+import sys
 import wave
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import genlib
+
 SR = 22050
-
-
-def _repo_root():
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-def validated_out_dir(out_dir):
-    """Canonicalize a caller-supplied output dir and require it to stay
-    inside the repo or the system temp dir, so a bad CLI argument can't
-    write outside those roots."""
-    resolved = os.path.realpath(out_dir)
-    allowed = (os.path.realpath(_repo_root()),
-               os.path.realpath(tempfile.gettempdir()))
-    for root in allowed:
-        if resolved == root or resolved.startswith(root + os.sep):
-            return resolved
-    raise ValueError(f'output dir {out_dir!r} must be inside one of {allowed}')
 
 
 def square(phase, duty=0.5):
@@ -169,10 +155,7 @@ def write_wav(path, samples):
 
 
 def main(out_dir=None):
-    if out_dir is None:
-        out_dir = os.path.join(_repo_root(), 'assets', 'audio', 'sfx')
-    else:
-        out_dir = validated_out_dir(out_dir)
+    out_dir = genlib.resolve_out_dir(out_dir, 'assets', 'audio', 'sfx')
     os.makedirs(out_dir, exist_ok=True)
     for name, gen in SOUNDS.items():
         path = os.path.join(out_dir, name)
@@ -182,5 +165,4 @@ def main(out_dir=None):
 
 
 if __name__ == '__main__':
-    import sys
     main(sys.argv[1] if len(sys.argv) > 1 else None)
