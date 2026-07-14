@@ -17,6 +17,7 @@ add_executable(seavious
     src/game_update.c
     src/gameplay.c
     src/main.c
+    src/stage1_data.c
 )
 
 # TEMPORARY: a stale Windows-side file handle has the exact path

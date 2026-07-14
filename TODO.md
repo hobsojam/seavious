@@ -61,8 +61,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       per-stage ASCII map (1 char = 32 px, 11 rows x 16 cols/screen,
       per-beat `@offset` blocks, glyphs = pattern instances, `#` = land)
       compiled by a `tools/` script into a committed C spawn table with a
-      regenerate-and-compare drift test, like the XM assets. To implement:
-      map compiler, pattern functions, spawn-event runner, drift test
+      regenerate-and-compare drift test, like the XM assets. Map compiler
+      done (`tools/compile-stage.py` → `src/stage1_data.c`, structs in
+      `src/stage_data.h`, drift test `tests/test_stage_assets.py`); still
+      to implement: pattern functions and the spawn-event runner that
+      consumes the table in-game
 - [ ] Terrain system: stage-data land footprints drifting at scroll speed —
       non-colliding for ship/gun, blocks torpedoes (armed = detonate at
       land edge, unarmed = fizzle), reticle clamps to the first land edge

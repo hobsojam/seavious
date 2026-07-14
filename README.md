@@ -336,10 +336,13 @@ stays visible while designing. The two glyph semantics share the grid
 cleanly: ground glyphs and land are world positions on the water, air
 glyphs fire their spawn when their column reaches the right screen edge —
 the same column meaning either way. Pipeline follows the repo's
-generator idiom (XM tracks, sprites): the map (`assets/stages/stage1.txt`)
-is compiled by a `tools/` script into a committed C spawn-event table the
-engine consumes directly — no text parsing at runtime — with a drift test
-that regenerates and compares, same as `tests/test_xm_assets.py`.
+generator idiom (XM tracks, sprites): `tools/compile-stage.py` compiles
+the map (`assets/stages/stage1.txt`) into a committed C spawn-event table
+(`src/stage1_data.c`, structs in `src/stage_data.h`) that the engine will
+consume directly — no text parsing at runtime — with a drift test
+(`tests/test_stage_assets.py`) that regenerates and compares, same as
+`tests/test_xm_assets.py`. Rerun the compiler and commit the result
+whenever the map changes.
 
 **Terrain**: Non-colliding for flight — the skimmer and its gun ignore land
 entirely (reaffirming the "not Scramble, no terrain crashes" stance) — but
