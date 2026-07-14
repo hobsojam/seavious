@@ -58,14 +58,23 @@ def gen_gun_shot():
 
 
 def gen_torpedo_launch():
-    duration = 0.30
+    # Covers the whole flight, not just the launch: the max torpedo run is
+    # ~0.85s (170px at 200px/s), so the dive thunk blends into a propulsion
+    # bed that lasts until impact would cut it off (audio.c stops this
+    # sound on the impact event, and on player death mid-flight).
+    duration = 0.95
     n = int(SR * duration)
     rnd = random.Random(11)
     out = [0.0] * n
+    prev = 0.0
     for i, t, phase in sweep_phase(n, lambda t: 220.0 * math.exp(-t * 6.0) + 60.0):
-        body = math.sin(2.0 * math.pi * phase)
-        hiss = rnd.uniform(-1.0, 1.0) * min(t / 0.05, 1.0) * 0.35
-        out[i] = envelope(t, duration, 7.0) * (0.75 * body + hiss)
+        dive = math.sin(2.0 * math.pi * phase) * math.exp(-t * 9.0)
+        # Propulsion: lowpassed noise with a slow throb over a low hum.
+        prev += 0.22 * (rnd.uniform(-1.0, 1.0) - prev)
+        throb = 0.75 + 0.25 * math.sin(2.0 * math.pi * 8.0 * t)
+        bed = min(t / 0.2, 1.0) * throb * (1.8 * prev + 0.3 * math.sin(2.0 * math.pi * 90.0 * t)) * 0.45
+        fade = min(1.0, (duration - t) / 0.08)
+        out[i] = (0.8 * dive + bed) * fade
     return out
 
 

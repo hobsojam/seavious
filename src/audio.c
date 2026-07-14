@@ -49,6 +49,10 @@ static void PlayIfValid(Sound sound) {
     if (IsSoundValid(sound)) PlaySound(sound);
 }
 
+static void StopIfValid(Sound sound) {
+    if (IsSoundValid(sound)) StopSound(sound);
+}
+
 void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
     for (int i = 0; i < events->count; i++) {
         const GameEvent *event = &events->items[i];
@@ -60,6 +64,9 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
                 PlayIfValid(audio->torpedoLaunch);
                 break;
             case GAME_EVENT_TORPEDO_IMPACT:
+                // The launch sound carries the whole running flight; cut it
+                // at the moment of impact so it never overlaps the payoff.
+                StopIfValid(audio->torpedoLaunch);
                 // Armed explosions boom; unarmed direct hits just plip.
                 PlayIfValid(event->target.torpedoImpact == TORPEDO_IMPACT_EXPLOSION
                     ? audio->explosion : audio->torpedoSplash);
@@ -72,6 +79,9 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
                 // torpedo explosion, whose boom already covers the moment.
                 break;
             case GAME_EVENT_PLAYER_DEATH:
+                // Death deactivates an in-flight torpedo without an impact
+                // event, so silence its run sound here too.
+                StopIfValid(audio->torpedoLaunch);
                 PlayIfValid(audio->playerDeath);
                 break;
             case GAME_EVENT_RUN_RESTARTED:

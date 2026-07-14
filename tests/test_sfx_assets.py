@@ -21,7 +21,7 @@ ASSET_DIR = os.path.join(REPO, 'assets', 'audio', 'sfx')
 FILES = {
     # name -> (min_duration_s, max_duration_s)
     'gun_shot.wav': (0.05, 0.10),
-    'torpedo_launch.wav': (0.25, 0.35),
+    'torpedo_launch.wav': (0.90, 1.00),
     'torpedo_splash.wav': (0.10, 0.20),
     'explosion.wav': (0.45, 0.55),
     'air_pop.wav': (0.15, 0.22),

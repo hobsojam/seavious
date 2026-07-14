@@ -140,7 +140,14 @@ the drifting-vessel niche already belongs to the Mobile Platform.
 Stage 1 boss: *Leviathan-class dreadnought*, partially breaching the
 surface, with separate gun-weak pods and torpedo-weak hull sections as
 destructible parts — the dual-targeting mechanic made literal in one fight.
-Visual design deferred to a separate pass (see `TODO.md`).
+It also carries one part the player *can't* destroy: an armored **mortar
+turret** that lobs arcing shells (rising/falling shadow, area blast on
+landing) throughout the fight, shaping the dodging as persistent pressure
+— and teaching the mortar's visual language as an enemy weapon before the
+player owns it. When the boss core dies the turret powers down intact, and
+the end-of-stage sequence has the skimmer salvage it: from Stage 2 onward
+it's fitted to the player as the third weapon (see Core mechanic). Visual
+design deferred to a separate pass (see `TODO.md`).
 
 **Color palette**: No sky rendered — open water scrolls underneath the
 top-down camera. Environment is classic flat arcade water in the
@@ -168,7 +175,9 @@ player (skimmer + gun bullets) bright cyan/white/silver (`#e8f8f8` hull,
 `#4ce0e8` accents); air enemies (gun targets) glowing magenta/purple
 (`#d848c0`); ground/surface targets (torpedo targets) glowing amber/orange
 (`#e8942c`) — same mechanical hull language as air enemies, different hue,
-so weapon choice reads at a glance. Enemy projectiles are red (`#e83c3c`)
+so weapon choice reads at a glance; land targets (mortar targets, Stage 2+)
+glowing green (`#48d858`, first-pass value) completing the
+weapon-class-color triad. Enemy projectiles are red (`#e83c3c`)
 regardless of source (universal "this kills you" convention). Explosions/VFX
 are white-hot fading to orange (`#fff6d8` → `#e8942c`) with bloom.
 
@@ -182,6 +191,22 @@ scrolling surface and drifts left with the water. The torpedo explodes on
 the first armed surface hit or at max range, while very close unarmed
 impacts only deal direct hit damage.
 Lead-targeting is kept as a future upgrade idea, not the baseline weapon.
+
+From Stage 2 the grammar extends to a third weapon/target class: the
+**scavenged mortar**, taken from the Stage 1 boss's armored turret after
+the fight (see the boss entry) — an upgrade the run earns, not standard
+kit, so Stage 1 stays the pure dual-targeting tutorial. The mortar is a
+lobbed shot (the "skimmer flies too low" objection was to *dropping* from
+altitude; lobbing up-and-forward from sea level reads fine top-down:
+projectile scales up then down over a drifting shadow) that **arcs over
+land**, with its own shorter fixed-range in-lane reticle that — unlike
+the torpedo's — does not clamp at land edges, an area blast where it
+lands, its own manual-fire key, and its own cooldown/HUD icon. Class
+mapping stays strict in all three lanes: gun→air, torpedo→water surface,
+mortar→land targets only — arcade readability beats blast physics, the
+same rule that lets gun bullets pass over surface targets. Land targets
+(possible from Stage 2, since only the mortar can touch them) get the
+third faction color to complete the triad.
 
 **Scoring (first pass)**: Points are awarded once, when a target is
 destroyed. The current mechanical proof implements the two live target
@@ -272,7 +297,9 @@ total lives, so the active ship is represented on the playfield and two
 reserve ships appear in the HUD. Center-left: score, in a pixel font, the
 largest text in the bar. Right: torpedo status icon — bright/amber
 when ready, pale while in flight, and dim with a reload meter on cooldown
-(torpedo isn't unlimited-fire, unlike the gun). Far right: reserved but
+(torpedo isn't unlimited-fire, unlike the gun); once the mortar is
+scavenged (Stage 2+) a second, green status icon joins it with the same
+ready/flight/cooldown states. Far right: reserved but
 empty outside boss fights, becomes a boss health bar when one is active, so
 the layout doesn't need to change later just to add that. Chosen as a
 reserved bar rather than an overlay so the HUD never competes with the
@@ -285,6 +312,77 @@ after the final death effect. Destroyed air targets burst and disappear;
 destroyed surface targets leave inert, scrolling burnt-out wrecks. Checkpoints
 still come later with the stage system. No roguelike meta-progression between
 runs.
+
+**Level & stage design**: Stages are scripted timelines — a flat,
+deterministic table of spawn events triggered by scroll distance traveled,
+in the Gradius/R-Type tradition, not a procedural wave director. Events
+reference reusable parameterized wave patterns (e.g. "V of 5 Skimmer Drones
+entering at lane Y") so the stage table stays compact and readable.
+Deterministic stages are memorizable (where shmup mastery lives),
+hand-tunable beat by beat, and unit-testable in the pure gameplay layer.
+Scroll distance — not wall-clock time — is the trigger currency, so
+scroll-speed changes stay possible later and the boss lock (scroll stops)
+halts stage spawns with no special casing. The wave script keeps running
+through the 0.6s death pause (freezing it mid-wave would create
+half-spawned states for little benefit). Checkpoints, when they arrive, are
+continue-after-game-over restart points, not Gradius-style per-death
+rollback — in-place respawn per death stays.
+
+Stage 1 doubles as the tutorial: each roster enemy debuts alone (or nearly
+so), then folds into combinations with everything already introduced. Beat
+chart, ~15–20s per beat (~3 minutes at the current 40 px/s scroll ≈ 7,200 px
+≈ 14 screen-widths): (1) lone Skimmer Drones — gun + scroll; (2) Wing
+Formations — aiming across a spread; (3) first Casemates — forces the
+torpedo; (4) mixed air + surface — the dual-targeting juggle; (5)
+Interceptors — first return fire; (6) Tracking Turrets in the mix —
+move after they fire; (7) Relay Node set-piece — priority targeting;
+(8) mine belt — positioning and torpedo economy; (9) Gunship + Mobile
+Platform finale; (10) empty-water breather, then boss lock.
+
+**Stage authoring format**: Stages are designed as ASCII maps — a text
+grid where columns are scroll distance and rows are lanes, a faithful 1:1
+picture of the horizontal ocean strip. Resolution: 1 character = 32 px,
+giving 11 rows for the 352px play area, 16 columns per screen-width, and
+~0.8s of scroll per column. The map is split into per-beat blocks, each
+headed by its scroll offset (`@4200`), so beats can be re-paced without
+redrawing. Glyphs are *pattern instances, not individual enemies* (`W` =
+"V of 5 drones, leader anchored here"); a formation's internal shape and
+timing live in its reusable pattern function, the map only places and
+times it. One unified map holds everything — terrain footprints (`#`,
+contiguous runs merge into one blocking footprint), world-anchored ground
+enemies, and air spawn triggers — so lane pressure between air and ground
+stays visible while designing. The two glyph semantics share the grid
+cleanly: ground glyphs and land are world positions on the water, air
+glyphs fire their spawn when their column reaches the right screen edge —
+the same column meaning either way. Pipeline follows the repo's
+generator idiom (XM tracks, sprites): the map (`assets/stages/stage1.txt`)
+is compiled by a `tools/` script into a committed C spawn-event table the
+engine consumes directly — no text parsing at runtime — with a drift test
+that regenerates and compares, same as `tests/test_xm_assets.py`.
+
+**Terrain**: Non-colliding for flight — the skimmer and its gun ignore land
+entirely (reaffirming the "not Scramble, no terrain crashes" stance) — but
+land **blocks torpedoes**: an armed torpedo detonates against the first
+land edge in its lane (splash can still catch shoreline targets — a
+deliberate tactic), an unarmed one fizzles with no splash, and the range
+reticle clamps to that land edge so a blocked lane reads before firing.
+Ground enemies can anchor to terrain features (a Casemate on a shoreline,
+a Relay Node on a reef), so islands create natural set-pieces — and since
+terrain and targets drift together, a target shielded behind an island is
+*permanently* blocked from its own row's approach: the counter-play is
+positional, not patience — fly forward past the island and fire from
+beyond it (deliberately risky), catch the target with edge-splash if it
+hugs the shoreline, or detonate a max-range shot in an adjacent clear
+lane and let splash reach. Terrain is therefore
+stage data (blocking footprints drifting at scroll speed in the timeline),
+not just background art. Stage 1 is open ocean with sparse islets; heavier
+terrain flavor (storms, archipelagos) is per-stage variety for later
+stages. From Stage 2, land also *holds* destructible targets — green
+mortar-class installations built on terrain (see Core mechanic) — so
+Stage 2's opening beats teach the scavenged mortar the way Stage 1's
+beat 3 taught the torpedo: a land target the other weapons visibly can't
+touch. Boss-yields-an-upgrade is a candidate pattern for later stages'
+progression spine, not yet a commitment beyond Stage 1.
 
 **Current scope (bare mechanical proof)**: Player movement, gun, bomb, one
 air enemy type, two ground target types. No full stage or boss yet; the
