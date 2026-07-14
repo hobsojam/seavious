@@ -53,7 +53,20 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] Destruction effects: air targets burst briefly then disappear; destroyed
       surface targets leave inert burnt-out wrecks that drift with the water
 - [ ] Boss fight structure (post-MVP, end of each stage)
-- [ ] Stage/wave definition + sequencing (post-MVP)
+- [ ] Stage/wave definition + sequencing — design decided (see README
+      Level & stage design): deterministic scripted timeline of
+      scroll-distance-triggered events referencing reusable parameterized
+      wave patterns; script keeps running through death pauses; boss lock
+      stops scroll and therefore spawns. Authoring format also decided:
+      per-stage ASCII map (1 char = 32 px, 11 rows x 16 cols/screen,
+      per-beat `@offset` blocks, glyphs = pattern instances, `#` = land)
+      compiled by a `tools/` script into a committed C spawn table with a
+      regenerate-and-compare drift test, like the XM assets. To implement:
+      map compiler, pattern functions, spawn-event runner, drift test
+- [ ] Terrain system: stage-data land footprints drifting at scroll speed —
+      non-colliding for ship/gun, blocks torpedoes (armed = detonate at
+      land edge, unarmed = fizzle), reticle clamps to the first land edge
+      in the lane; ground enemies can anchor to terrain features
 - [x] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
       two reserve-life icons for the initial three-life count, score
       center-left, live torpedo ready/flight/reload status right, and space
@@ -76,12 +89,30 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       natural next enemy to wire in; Mine contact damage is blocked on
       lives/damage
 - [ ] Design Stage 1 boss visuals (Leviathan-class dreadnought) — deferred
-      as its own task, separate from the roster above
+      as its own task, separate from the roster above; now includes the
+      armored (indestructible) mortar turret that lobs arcing shells during
+      the fight and is salvaged intact afterward (see README boss entry)
 - [ ] Implement Stage 1 boss: Leviathan-class dreadnought (gun-weak pods +
-      torpedo-weak hull sections)
+      torpedo-weak hull sections, plus the armored mortar turret hazard)
+      and the end-of-stage salvage sequence that awards the mortar
+- [ ] Scavenged mortar weapon (Stage 2+, see README Core mechanic): lobbed
+      arc over land blockers, shorter fixed-range in-lane reticle that
+      ignores land edges, area blast on landing, strict land-only damage
+      class, own fire key + cooldown + green HUD status icon — blocked on
+      the Stage 1 boss (it's the salvage reward)
+- [ ] Design Stage 2 land-target roster (green mortar-class installations
+      built on terrain) — the Stage 2 counterpart of the Stage 1 roster
+      task above
 - [ ] Stage list + per-stage boss concepts (beyond Stage 1)
 - [ ] Plan each level (enemy wave placement, pacing, terrain/visual variety
-      per stage — e.g. open ocean vs. storm vs. near islands)
+      per stage — e.g. open ocean vs. storm vs. near islands) — Stage 1
+      beat chart designed (10 teaching beats, ~3 min at 40 px/s ≈ 7,200 px;
+      see README Level & stage design) and its first map draft committed
+      at `assets/stages/stage1.txt`; expect placement/density tuning once
+      the wave-script system makes it playable
+- [ ] Island/islet terrain art (Stage 1: sparse islets on open ocean) —
+      needs the terrain-footprint system from Mechanics before it's more
+      than scenery
 - [ ] Ground target sprites (alien platforms/installations) — Relay Node
       and Mine first passes done (see Art below); Casemate and Tracking Turret (still a
       placeholder hexagon in-game) and Mobile Platform still to design
