@@ -10,6 +10,11 @@ find_package(raylib CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 
 add_executable(seavious
+    src/assets.c
+    src/audio.c
+    src/game_render.c
+    src/game_state.c
+    src/game_update.c
     src/gameplay.c
     src/main.c
 )

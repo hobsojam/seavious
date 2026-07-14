@@ -24,7 +24,17 @@ can't be built or run locally; verification happens on the Windows side.
 
 ## Structure
 
-- `src/main.c` — everything currently lives here (single-file skeleton).
+- `src/main.c` — entry point: window/init, the frame loop (music → update
+  → draw → present), and the CI smoke-test harness hooks.
+- `src/gameplay.c/.h` — pure gameplay rules (movement, spawning, collision,
+  scoring); no rendering or raylib state, unit-tested in `tests/`.
+- `src/game_state.c/.h` — the `GameState` struct (all run state + entity
+  pools), run reset/death flow, and effect-pool helpers.
+- `src/game_update.c/.h` — one `UpdateGame` simulation step orchestrating
+  the gameplay-layer functions.
+- `src/game_render.c/.h` — one `DrawGame` frame draw (scene + HUD).
+- `src/assets.c/.h` — `GameAssets` texture bundle, load/unload.
+- `src/audio.c/.h` — music streams and the hard-cut track selection.
 - `vcpkg.json` / `CMakeLists.txt` / `CMakePresets.json` — manifest-mode
   vcpkg + CMake build setup.
 

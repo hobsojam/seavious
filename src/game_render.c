@@ -1,0 +1,282 @@
+#include "game_render.h"
+#include "raylib.h"
+#include "rlgl.h"
+#include <math.h>
+
+static void DrawHudShipSlot(Vector2 center, Color color) {
+    DrawTriangleLines(
+        (Vector2){ center.x + 6.0f, center.y },
+        (Vector2){ center.x - 5.0f, center.y - 4.0f },
+        (Vector2){ center.x - 5.0f, center.y + 4.0f },
+        color
+    );
+    DrawLine((int)(center.x - 3.0f), (int)center.y, (int)(center.x + 3.0f), (int)center.y, color);
+}
+
+static void DrawHud(int score, int lives, float torpedoCooldown, bool torpedoActive) {
+    const Color panel = (Color){ 10, 14, 18, 255 };
+    const Color panelInset = (Color){ 16, 24, 30, 255 };
+    const Color cyan = (Color){ 76, 224, 232, 255 };
+    const Color pale = (Color){ 232, 248, 248, 255 };
+    const Color amber = (Color){ 232, 148, 44, 255 };
+    const Color inactive = (Color){ 74, 94, 102, 255 };
+    const int top = PLAY_HEIGHT;
+
+    DrawRectangle(0, top, GAME_WIDTH, HUD_HEIGHT, panel);
+    DrawLine(0, top, GAME_WIDTH, top, cyan);
+    DrawLine(64, top + 5, 64, GAME_HEIGHT - 5, (Color){ 76, 224, 232, 80 });
+    DrawLine(236, top + 5, 236, GAME_HEIGHT - 5, (Color){ 76, 224, 232, 80 });
+    DrawLine(380, top + 5, 380, GAME_HEIGHT - 5, (Color){ 76, 224, 232, 80 });
+
+    // The active ship consumes one life; the HUD shows the remaining reserves.
+    DrawText("LIVES", 6, top + 4, 8, inactive);
+    int reserveLives = lives > 0 ? lives - 1 : 0;
+    for (int i = 0; i < reserveLives; i++) {
+        DrawHudShipSlot((Vector2){ 13.0f + 17.0f * i, (float)top + 21.0f }, cyan);
+    }
+
+    DrawText("SCORE", 72, top + 4, 8, cyan);
+    DrawText(TextFormat("%08d", score), 72, top + 12, 18, pale);
+
+    DrawText("TORPEDO", 244, top + 4, 8, cyan);
+    Color torpedoStatusColor = amber;
+    const char *torpedoStatus = "READY";
+    float reloadProgress = 1.0f;
+    if (torpedoActive) {
+        torpedoStatus = "IN FLIGHT";
+        torpedoStatusColor = pale;
+        reloadProgress = 0.0f;
+    } else if (torpedoCooldown > 0.0f) {
+        torpedoStatus = "RELOAD";
+        torpedoStatusColor = inactive;
+        reloadProgress = 1.0f - torpedoCooldown / TORPEDO_COOLDOWN;
+        if (reloadProgress < 0.0f) reloadProgress = 0.0f;
+        if (reloadProgress > 1.0f) reloadProgress = 1.0f;
+    }
+
+    DrawRectangle(244, top + 14, 14, 6, torpedoStatusColor);
+    DrawTriangle(
+        (Vector2){ 263.0f, (float)top + 17.0f },
+        (Vector2){ 258.0f, (float)top + 14.0f },
+        (Vector2){ 258.0f, (float)top + 20.0f },
+        torpedoStatusColor
+    );
+    DrawText(torpedoStatus, 270, top + 12, 10, torpedoStatusColor);
+    DrawRectangle(244, top + 25, 126, 3, panelInset);
+    DrawRectangle(244, top + 25, (int)(126.0f * reloadProgress), 3, torpedoStatusColor);
+
+    // Reserved boss region: it becomes a labeled health meter during fights.
+    DrawRectangle(389, top + 12, 115, 8, panelInset);
+    DrawRectangleLines(389, top + 12, 115, 8, (Color){ 74, 94, 102, 90 });
+}
+
+void DrawGame(const GameState *state, const GameAssets *assets) {
+    const Color bulletColor = (Color){ 76, 224, 232, 255 };
+    const Color enemyBulletColor = (Color){ 232, 72, 72, 255 };
+    const Color airTargetColor = (Color){ 216, 72, 192, 255 };
+    const Color surfaceTargetColor = (Color){ 232, 148, 44, 255 };
+    const Color torpedoColor = (Color){ 232, 248, 248, 255 };
+
+    float halfW = assets->playerTex.width / 2.0f;
+    Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
+    Vector2 torpedoReticle = CalculateTorpedoReticle(torpedoSpawn);
+
+    ClearBackground(BLACK);
+
+    // Single draw call tiles the whole play area: the source rect is
+    // larger than the tile texture, so REPEAT wrap fills it by sampling.
+    DrawTexturePro(
+        assets->oceanTex,
+        (Rectangle){ state->oceanScroll, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
+        (Rectangle){ 0, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
+        (Vector2){ 0, 0 },
+        0.0f,
+        WHITE
+    );
+
+    // The glint overlay belongs to the water surface: it must stay
+    // immediately above the base ocean and below everything that
+    // sits on the water (wake, surface targets, any future land
+    // tiles), so glints never draw on top of solid objects.
+    DrawTexturePro(
+        assets->oceanOverlayTex,
+        (Rectangle){ state->oceanOverlayScroll, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
+        (Rectangle){ 0, 0, (float)GAME_WIDTH, (float)PLAY_HEIGHT },
+        (Vector2){ 0, 0 },
+        0.0f,
+        WHITE
+    );
+
+    // Wake sits directly on the water, under every other layer.
+    for (int i = 0; i < MAX_WAKE_PARTICLES; i++) {
+        if (!state->wake[i].active) continue;
+        float life = 1.0f - state->wake[i].age / WAKE_LIFETIME;
+        DrawCircleV(
+            state->wake[i].pos,
+            life > 0.5f ? 2.0f : 1.0f,
+            (Color){ 207, 239, 240, (unsigned char)(150.0f * life) }
+        );
+    }
+
+    // Wrecks belong to the water layer and are inert: they only mark
+    // that a surface installation was destroyed while the world scrolls on.
+    for (int i = 0; i < MAX_SURFACE_WRECKS; i++) {
+        if (!state->wrecks[i].active) continue;
+        Color scorch = state->wrecks[i].type == SURFACE_TARGET_CASEMATE
+            ? (Color){ 28, 36, 34, 230 } : (Color){ 34, 29, 25, 230 };
+        DrawCircleV(state->wrecks[i].pos, state->wrecks[i].radius + 2.0f, scorch);
+        DrawCircleLines((int)state->wrecks[i].pos.x, (int)state->wrecks[i].pos.y,
+            state->wrecks[i].radius + 2.0f, (Color){ 12, 18, 20, 220 });
+        DrawCircleV(
+            (Vector2){ state->wrecks[i].pos.x - 2.0f, state->wrecks[i].pos.y + 1.0f },
+            state->wrecks[i].radius * 0.45f,
+            (Color){ 10, 15, 17, 210 }
+        );
+    }
+
+    // Reticle marks maximum torpedo range, not a target lock.
+    DrawLine((int)torpedoSpawn.x, (int)torpedoSpawn.y, (int)torpedoReticle.x, (int)torpedoReticle.y,
+        (Color){ 76, 224, 232, 55 });
+    DrawCircleLines((int)torpedoReticle.x, (int)torpedoReticle.y, 6.0f, (Color){ 232, 148, 44, 190 });
+    DrawLine((int)(torpedoReticle.x - 10.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x - 4.0f), (int)torpedoReticle.y,
+        (Color){ 232, 148, 44, 190 });
+    DrawLine((int)(torpedoReticle.x + 4.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x + 10.0f), (int)torpedoReticle.y,
+        (Color){ 232, 148, 44, 190 });
+    DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y - 10.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y - 4.0f),
+        (Color){ 232, 148, 44, 190 });
+    DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y + 4.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y + 10.0f),
+        (Color){ 232, 148, 44, 190 });
+
+    if (state->torpedoImpactTimer > 0.0f) {
+        float life = state->torpedoImpactTimer / (state->torpedoImpactType == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f);
+        if (state->torpedoImpactType == TORPEDO_IMPACT_EXPLOSION) {
+            DrawCircleLines((int)state->torpedoImpactPos.x, (int)state->torpedoImpactPos.y,
+                TORPEDO_SPLASH_RADIUS * (1.0f + 0.25f * (1.0f - life)),
+                (Color){ 255, 220, 140, (unsigned char)(220.0f * life) });
+            DrawCircleV(state->torpedoImpactPos, 5.0f, (Color){ 255, 246, 216, (unsigned char)(180.0f * life) });
+        } else {
+            DrawCircleV(state->torpedoImpactPos, 3.0f, (Color){ 207, 239, 240, (unsigned char)(160.0f * life) });
+        }
+    }
+
+    // Surface layer: ground targets draw under everything airborne.
+    for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
+        if (!state->surfaceTargets[i].active) continue;
+        DrawCircleLines((int)state->surfaceTargets[i].pos.x, (int)state->surfaceTargets[i].pos.y,
+            state->surfaceTargets[i].radius + 2.0f, (Color){ 232, 148, 44, 110 });
+        if (state->surfaceTargets[i].type == SURFACE_TARGET_CASEMATE) {
+            DrawPoly(state->surfaceTargets[i].pos, 6, state->surfaceTargets[i].radius, 0.0f, surfaceTargetColor);
+        } else {
+            DrawCircleV(state->surfaceTargets[i].pos, state->surfaceTargets[i].radius, (Color){ 126, 78, 34, 255 });
+            DrawCircleLines((int)state->surfaceTargets[i].pos.x, (int)state->surfaceTargets[i].pos.y,
+                state->surfaceTargets[i].radius - 3.0f, surfaceTargetColor);
+        }
+        Vector2 barrelEnd = {
+            state->surfaceTargets[i].pos.x + state->surfaceTargets[i].aimDirection.x * (state->surfaceTargets[i].radius + 4.0f),
+            state->surfaceTargets[i].pos.y + state->surfaceTargets[i].aimDirection.y * (state->surfaceTargets[i].radius + 4.0f)
+        };
+        DrawLineEx(state->surfaceTargets[i].pos, barrelEnd, 3.0f, (Color){ 168, 100, 24, 255 });
+        DrawCircleV(state->surfaceTargets[i].pos, 3.0f, (Color){ 255, 200, 120, 255 });
+    }
+
+    // Ship points right (direction of travel / forward fire). It is
+    // hidden during its explosion; respawn follows once the effect ends.
+    if (!state->playerDestroyed) {
+        DrawTexture(
+            assets->playerTex,
+            (int)(state->player.x - assets->playerTex.width / 2.0f),
+            (int)(state->player.y - assets->playerTex.height / 2.0f),
+            WHITE
+        );
+    }
+
+    for (int i = 0; i < MAX_BULLETS; i++) {
+        if (!state->bullets[i].active) continue;
+        DrawCircleV(state->bullets[i].pos, BULLET_RADIUS, bulletColor);
+    }
+
+    for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+        if (!state->enemyBullets[i].active) continue;
+        DrawCircleV(state->enemyBullets[i].pos, ENEMY_BULLET_RADIUS, enemyBulletColor);
+    }
+
+    // Skimmer Drone: dark hull so the magenta glow carries the color
+    // read. The core pulse is code-driven (no extra frames), phased by
+    // each drone's flight time so swarms shimmer instead of strobing
+    // in unison. Core sits 4px ahead of sprite center (see generator).
+    for (int i = 0; i < MAX_AIR_TARGETS; i++) {
+        if (!state->airTargets[i].active) continue;
+        DrawTexture(
+            assets->droneTex,
+            (int)(state->airTargets[i].pos.x - assets->droneTex.width / 2.0f),
+            (int)(state->airTargets[i].pos.y - assets->droneTex.height / 2.0f),
+            WHITE
+        );
+        unsigned char corePulse = (unsigned char)(120 + 80.0f * sinf(state->airTargets[i].t * 6.0f));
+        DrawCircleV(
+            (Vector2){ state->airTargets[i].pos.x - 4.0f, state->airTargets[i].pos.y },
+            2.5f,
+            (Color){ airTargetColor.r, airTargetColor.g, airTargetColor.b, corePulse }
+        );
+    }
+
+    for (int i = 0; i < MAX_EXPLOSION_EFFECTS; i++) {
+        if (!state->explosions[i].active) continue;
+        float progress = state->explosions[i].age / state->explosions[i].lifetime;
+        float radius = state->explosions[i].radius * (0.45f + 0.75f * progress);
+        unsigned char alpha = (unsigned char)(255.0f * (1.0f - progress));
+        Color edge = state->explosions[i].type == EXPLOSION_AIR_TARGET
+            ? (Color){ 255, 100, 216, alpha }
+            : (Color){ 255, 180, 72, alpha };
+        if (state->explosions[i].type == EXPLOSION_PLAYER) edge = (Color){ 96, 232, 255, alpha };
+        DrawCircleLines((int)state->explosions[i].pos.x, (int)state->explosions[i].pos.y, radius, edge);
+        DrawCircleV(state->explosions[i].pos, radius * 0.35f, (Color){ 255, 242, 196, alpha });
+    }
+
+    // Torpedo reads as player tech: hull-white body with pointed nose,
+    // cyan spine stripe + engine glow, and a fading surface wake behind it.
+    if (state->torpedo.active) {
+        float hw = TORPEDO_WIDTH / 2.0f;
+        float hh = TORPEDO_HEIGHT / 2.0f;
+        const Color cyan = (Color){ 76, 224, 232, 255 };
+
+        rlPushMatrix();
+        rlTranslatef(state->torpedo.pos.x, state->torpedo.pos.y, 0.0f);
+        rlRotatef(atan2f(state->torpedo.vel.y, state->torpedo.vel.x) * RAD2DEG, 0.0f, 0.0f, 1.0f);
+
+        for (int i = 0; i < 3; i++) {
+            DrawRectangle(
+                (int)(-hw - 5.0f - 7.0f * i),
+                -1,
+                (int)(6.0f - 1.5f * i),
+                2,
+                (Color){ 207, 239, 240, (unsigned char)(110 - 32 * i) }
+            );
+        }
+
+        unsigned char pulse = (unsigned char)(190 + 60.0f * sinf((float)GetTime() * 20.0f));
+        DrawCircle((int)(-hw - 1.0f), 0, 2.0f, (Color){ 76, 224, 232, pulse });
+        DrawRectangle((int)-hw, (int)(-hh - 1.0f), 2, (int)TORPEDO_HEIGHT + 2, torpedoColor);
+        DrawRectangle((int)-hw, (int)-hh, (int)TORPEDO_WIDTH, (int)TORPEDO_HEIGHT, torpedoColor);
+        DrawTriangle(
+            (Vector2){ hw + 4.0f, 0.0f },
+            (Vector2){ hw, -hh },
+            (Vector2){ hw, hh },
+            torpedoColor
+        );
+        DrawRectangle((int)(-hw + 1.0f), 0, (int)(TORPEDO_WIDTH - 1.0f), 1, cyan);
+
+        rlPopMatrix();
+    }
+
+    if (state->gameOver) {
+        DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (Color){ 0, 0, 0, 140 });
+        DrawText("GAME OVER", 162, 150, 24, (Color){ 232, 248, 248, 255 });
+        DrawText("PRESS R TO RESTART", 132, 184, 12, (Color){ 76, 224, 232, 255 });
+    } else if (state->respawnInvulnerability > 0.0f) {
+        unsigned char blink = (unsigned char)(120 + 80 * sinf(GetTime() * 22.0f));
+        DrawText("RESPAWNING", 180, 150, 12, (Color){ 76, 224, 232, blink });
+    }
+
+    DrawHud(state->score, state->lives, state->torpedoCooldown, state->torpedo.active);
+}
