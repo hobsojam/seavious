@@ -105,12 +105,19 @@ Ground/surface (amber/orange, torpedo targets):
   code-drawn), and a small pale emitter core at the hub.
 - *Tracking Turret* — stationary circular mount with a rotating cannon. It
   leads the player's current movement before firing, so changing direction
-  after a shot is the reliable evasion response. Sprite (first-pass
-  programmatic, 24x24, top-down): same amber waterline ring, a rust-brown
-  circular deck lit from the upper-left, a bolt ring marking the rotation
-  bearing (the "this rotates" cue distinguishing it from the Casemate's
-  fixed plate), and a dark pivot hub — the aiming barrel stays code-drawn
-  on top so it can lead the player.
+  after a shot is the reliable evasion response. The lead is deliberately
+  soft: only a tenth of the player's velocity goes into the intercept
+  solve (`TRACKING_TURRET_LEAD_FACTOR`), and the predicted point is
+  clamped to the play area, so the shot nudges toward the direction of
+  travel and never aims where the player can't be. A perfect intercept
+  was tried first and read as psychic — while
+  flying up it aimed at the top edge, where the player *would* be seconds
+  later. Sprite (first-pass programmatic, 24x24, top-down): same amber
+  waterline ring, a rust-brown circular deck lit from the upper-left, a
+  bolt ring marking the rotation bearing (the "this rotates" cue
+  distinguishing it from the Casemate's fixed plate), and a dark pivot
+  hub — the aiming barrel stays code-drawn on top so it can lead the
+  player.
 
 Both are water designs on purpose. Land-based emplacements are *not*
 reskins of these: land blocks torpedoes, so an amber (torpedo-class)
@@ -530,8 +537,8 @@ screen. Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.
 Hits before arming do only small direct impact damage, with no splash.
-Casemates fire straight red lane shots; rotating turrets lead the player's
-current movement before firing.
+Casemates fire straight red lane shots; rotating turrets gently lead the
+player's current movement before firing.
 Enemy contact costs one life, triggers a brief ship explosion, then respawns
 the ship briefly invulnerable if any remain; game over follows the final
 explosion.

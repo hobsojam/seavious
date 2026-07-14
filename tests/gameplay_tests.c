@@ -169,6 +169,42 @@ static void TestRelayNode(void) {
     CHECK(owned == RELAY_NODE_MAX_DRONES);
 }
 
+static void TestTurretLeadIsSoft(void) {
+    // A player moving straight up at full speed, turret dead ahead. A
+    // perfect intercept would fire steeply upward (|vy| > |vx|, pinning the
+    // aim near the top edge); the soft lead must stay a gentle nudge in the
+    // movement direction instead.
+    SurfaceTarget turret[1] = { 0 };
+    CHECK(TrySpawnTrackingTurret(turret, 1, 176));
+    turret[0].pos = (Vector2){ 400, 176 };
+
+    EnemyBullet bullets[1] = { 0 };
+    UpdateSurfaceTargetFire(turret, 1, TRACKING_TURRET_FIRE_INTERVAL,
+        (Vector2){ 100, 176 }, (Vector2){ 0, -120 }, bullets, 1);
+    CHECK(bullets[0].active);
+    CHECK(bullets[0].vel.x < 0);
+    CHECK(bullets[0].vel.y < 0);
+    CHECK(fabsf(bullets[0].vel.y) < 0.15f * fabsf(bullets[0].vel.x));
+}
+
+static void TestTurretAimClampedToPlayArea(void) {
+    // A player hugging the top edge while moving up: even the soft lead
+    // extrapolates past the edge, where the player can never be. The
+    // implied aim point at the player's x must stay inside the play area.
+    SurfaceTarget turret[1] = { 0 };
+    CHECK(TrySpawnTrackingTurret(turret, 1, 20));
+    turret[0].pos = (Vector2){ 400, 20 };
+
+    EnemyBullet bullets[1] = { 0 };
+    UpdateSurfaceTargetFire(turret, 1, TRACKING_TURRET_FIRE_INTERVAL,
+        (Vector2){ 100, 10 }, (Vector2){ 0, -120 }, bullets, 1);
+    CHECK(bullets[0].active);
+    float timeToPlayerX = (100.0f - 400.0f) / bullets[0].vel.x;
+    float yAtPlayerX = 20.0f + bullets[0].vel.y * timeToPlayerX;
+    CHECK(yAtPlayerX >= -0.01f);
+    CHECK(yAtPlayerX <= 10.01f);
+}
+
 int main(void) {
     TestDamageAndScore();
     TestMovementAndProjectiles();
@@ -176,5 +212,7 @@ int main(void) {
     TestTorpedoes();
     TestSurfaceTargets();
     TestRelayNode();
+    TestTurretLeadIsSoft();
+    TestTurretAimClampedToPlayArea();
     return failures != 0;
 }

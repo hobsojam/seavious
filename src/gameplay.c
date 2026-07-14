@@ -434,9 +434,17 @@ static Vector2 CalculateInterceptVelocity(Vector2 spawn, Vector2 targetPos, Vect
         if (linearTime > 0.0f) time = linearTime;
     }
 
-    Vector2 aim = time > 0.0f
-        ? (Vector2){ offset.x + targetVelocity.x * time, offset.y + targetVelocity.y * time }
-        : offset;
+    Vector2 predicted = time > 0.0f
+        ? (Vector2){ targetPos.x + targetVelocity.x * time, targetPos.y + targetVelocity.y * time }
+        : targetPos;
+    // The target is the player, who can never leave the play area — don't
+    // aim at extrapolated points outside it.
+    if (predicted.x < 0.0f) predicted.x = 0.0f;
+    if (predicted.x > GAME_WIDTH) predicted.x = GAME_WIDTH;
+    if (predicted.y < 0.0f) predicted.y = 0.0f;
+    if (predicted.y > PLAY_HEIGHT) predicted.y = PLAY_HEIGHT;
+
+    Vector2 aim = { predicted.x - spawn.x, predicted.y - spawn.y };
     float length = sqrtf(aim.x * aim.x + aim.y * aim.y);
     if (length <= 0.0001f) return (Vector2){ -speed, 0.0f };
     return (Vector2){ aim.x / length * speed, aim.y / length * speed };
@@ -452,7 +460,11 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
         float fireInterval = CASEMATE_FIRE_INTERVAL;
         Vector2 velocity = (Vector2){ -ENEMY_BULLET_SPEED, 0.0f };
         if (targets[i].type == SURFACE_TARGET_TRACKING_TURRET) {
-            velocity = CalculateInterceptVelocity(targets[i].pos, playerPos, playerVelocity, ENEMY_BULLET_SPEED);
+            Vector2 leadVelocity = {
+                playerVelocity.x * TRACKING_TURRET_LEAD_FACTOR,
+                playerVelocity.y * TRACKING_TURRET_LEAD_FACTOR
+            };
+            velocity = CalculateInterceptVelocity(targets[i].pos, playerPos, leadVelocity, ENEMY_BULLET_SPEED);
             fireInterval = TRACKING_TURRET_FIRE_INTERVAL;
         }
         float speed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
