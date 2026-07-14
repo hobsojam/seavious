@@ -56,6 +56,7 @@ int main(void) {
         }
 
         UpdateGame(&state, &assets, dt, smokeFrames > 0 && framesRun == 0);
+        PlayGameSfx(&audio, &state.gameEvents);
 
         BeginTextureMode(target);
             DrawGame(&state, &assets);

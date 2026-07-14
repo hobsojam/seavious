@@ -132,7 +132,12 @@ typedef struct {
 
 typedef enum {
     GAME_EVENT_AIR_TARGET_DESTROYED,
-    GAME_EVENT_SURFACE_TARGET_DESTROYED
+    GAME_EVENT_SURFACE_TARGET_DESTROYED,
+    GAME_EVENT_GUN_FIRED,
+    GAME_EVENT_TORPEDO_FIRED,
+    GAME_EVENT_TORPEDO_IMPACT,
+    GAME_EVENT_PLAYER_DEATH,
+    GAME_EVENT_RUN_RESTARTED
 } GameEventType;
 
 typedef struct {
@@ -141,6 +146,7 @@ typedef struct {
     union {
         AirTargetType airTarget;
         SurfaceTargetType surfaceTarget;
+        TorpedoImpactType torpedoImpact;
     } target;
 } GameEvent;
 
@@ -161,6 +167,7 @@ bool TrySpawnEnemyBullet(EnemyBullet bullets[], int count, Vector2 pos, Vector2 
 void UpdateEnemyBullets(EnemyBullet bullets[], int count, float dt);
 bool ResolveEnemyBulletPlayerCollision(EnemyBullet bullets[], int bulletCount, Vector2 playerPos, float playerRadius);
 
+bool PushGameEvent(GameEventQueue *events, GameEvent event);
 bool DamageAirTarget(AirTarget *target, int damage, GameEventQueue *events);
 bool DamageSurfaceTarget(SurfaceTarget *target, int damage, GameEventQueue *events);
 int ScoreGameEvents(const GameEventQueue *events);

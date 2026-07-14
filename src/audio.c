@@ -7,6 +7,12 @@
 // (CI smoke test) just plays nothing instead of crashing.
 #include "audio.h"
 
+static Sound LoadSfx(const char *path, float volume) {
+    Sound sound = LoadSound(path);
+    if (IsSoundValid(sound)) SetSoundVolume(sound, volume);
+    return sound;
+}
+
 void LoadGameAudio(GameAudio *audio) {
     InitAudioDevice();
     audio->stage = LoadMusicStream("assets/audio/stage1_theme_a.xm");
@@ -14,6 +20,17 @@ void LoadGameAudio(GameAudio *audio) {
     audio->lament = LoadMusicStream("assets/audio/boss1_theme_a.xm");
     audio->current = &audio->stage;
     if (IsMusicValid(audio->stage)) PlayMusicStream(audio->stage);
+
+    // Per-sound volumes balance against the music: the constant auto-fire
+    // gun stays far in the background, big one-shots (explosion, death)
+    // are allowed to punch through.
+    audio->gunShot = LoadSfx("assets/audio/sfx/gun_shot.wav", 0.25f);
+    audio->torpedoLaunch = LoadSfx("assets/audio/sfx/torpedo_launch.wav", 0.55f);
+    audio->torpedoSplash = LoadSfx("assets/audio/sfx/torpedo_splash.wav", 0.50f);
+    audio->explosion = LoadSfx("assets/audio/sfx/explosion.wav", 0.70f);
+    audio->airPop = LoadSfx("assets/audio/sfx/air_pop.wav", 0.50f);
+    audio->playerDeath = LoadSfx("assets/audio/sfx/player_death.wav", 0.80f);
+    audio->uiBlip = LoadSfx("assets/audio/sfx/ui_blip.wav", 0.45f);
 }
 
 void UpdateGameMusic(GameAudio *audio, const GameState *state) {
@@ -28,7 +45,50 @@ void UpdateGameMusic(GameAudio *audio, const GameState *state) {
     if (IsMusicValid(*audio->current)) UpdateMusicStream(*audio->current);
 }
 
+static void PlayIfValid(Sound sound) {
+    if (IsSoundValid(sound)) PlaySound(sound);
+}
+
+void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
+    for (int i = 0; i < events->count; i++) {
+        const GameEvent *event = &events->items[i];
+        switch (event->type) {
+            case GAME_EVENT_GUN_FIRED:
+                PlayIfValid(audio->gunShot);
+                break;
+            case GAME_EVENT_TORPEDO_FIRED:
+                PlayIfValid(audio->torpedoLaunch);
+                break;
+            case GAME_EVENT_TORPEDO_IMPACT:
+                // Armed explosions boom; unarmed direct hits just plip.
+                PlayIfValid(event->target.torpedoImpact == TORPEDO_IMPACT_EXPLOSION
+                    ? audio->explosion : audio->torpedoSplash);
+                break;
+            case GAME_EVENT_AIR_TARGET_DESTROYED:
+                PlayIfValid(audio->airPop);
+                break;
+            case GAME_EVENT_SURFACE_TARGET_DESTROYED:
+                // No dedicated sound: surface kills only happen inside a
+                // torpedo explosion, whose boom already covers the moment.
+                break;
+            case GAME_EVENT_PLAYER_DEATH:
+                PlayIfValid(audio->playerDeath);
+                break;
+            case GAME_EVENT_RUN_RESTARTED:
+                PlayIfValid(audio->uiBlip);
+                break;
+        }
+    }
+}
+
 void UnloadGameAudio(GameAudio *audio) {
+    UnloadSound(audio->uiBlip);
+    UnloadSound(audio->playerDeath);
+    UnloadSound(audio->airPop);
+    UnloadSound(audio->explosion);
+    UnloadSound(audio->torpedoSplash);
+    UnloadSound(audio->torpedoLaunch);
+    UnloadSound(audio->gunShot);
     UnloadMusicStream(audio->lament);
     UnloadMusicStream(audio->boss);
     UnloadMusicStream(audio->stage);

@@ -9,6 +9,9 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
 
     if (state->gameOver && (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))) {
         ResetRunState(state);
+        PushGameEvent(&state->gameEvents, (GameEvent){
+            .type = GAME_EVENT_RUN_RESTARTED, .pos = state->player
+        });
     }
     if (state->gameOver) return;
 
@@ -59,7 +62,12 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
         state->fireTimer += dt;
         while (state->fireTimer >= BULLET_FIRE_INTERVAL) {
             state->fireTimer -= BULLET_FIRE_INTERVAL;
-            TrySpawnBullet(state->bullets, MAX_BULLETS, (Vector2){ state->player.x + halfW, state->player.y });
+            Vector2 muzzle = { state->player.x + halfW, state->player.y };
+            if (TrySpawnBullet(state->bullets, MAX_BULLETS, muzzle)) {
+                PushGameEvent(&state->gameEvents, (GameEvent){
+                    .type = GAME_EVENT_GUN_FIRED, .pos = muzzle
+                });
+            }
         }
     }
 
@@ -99,6 +107,9 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
         Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
         FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn);
         state->torpedoCooldown = TORPEDO_COOLDOWN;
+        PushGameEvent(&state->gameEvents, (GameEvent){
+            .type = GAME_EVENT_TORPEDO_FIRED, .pos = torpedoSpawn
+        });
     }
     TorpedoImpact torpedoImpact = UpdateTorpedo(&state->torpedo, dt);
 
@@ -137,6 +148,10 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
         state->torpedoImpactType = torpedoImpact.type;
         state->torpedoImpactPos = torpedoImpact.pos;
         state->torpedoImpactTimer = torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f;
+        PushGameEvent(&state->gameEvents, (GameEvent){
+            .type = GAME_EVENT_TORPEDO_IMPACT, .pos = torpedoImpact.pos,
+            .target.torpedoImpact = torpedoImpact.type
+        });
     }
     SpawnTargetDestructionEffects(&state->gameEvents, state->explosions, state->wrecks);
     state->score += ScoreGameEvents(&state->gameEvents);
