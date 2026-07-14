@@ -203,6 +203,18 @@ played via `raudio`'s `Sound` API. A dedicated SFX synth is a better fit
 than the tracker for one-shot sounds, and WAV has no compatibility caveats
 the way XM/MOD does.
 
+First-pass SFX are programmatic (`tools/gen-sfx.py` → `assets/audio/sfx/`,
+seven square/sine/noise one-shots at 22050 Hz mono; refine in ChipTone
+later): gun shot (every auto-fire shot, deliberately tiny and quiet),
+torpedo launch, torpedo splash (unarmed direct hit), explosion (armed
+boom), air pop (drone kill), player death, and a UI blip on run restart.
+They're triggered through the `GameEventQueue`: the update code emits
+events (weapon fired, impact, death, restart) and `audio.c` maps events
+to sounds — the same pattern the destruction VFX already use, so gameplay
+code never touches the audio API. Surface-target destruction deliberately
+has no dedicated sound: it only ever happens inside a torpedo explosion,
+whose boom covers the moment.
+
 **Music structure**: Every track is three layers authored together from one
 shared OpenMPT template — a 2-bar drum loop that never changes, a 4-bar
 walking bass loop outlining a fixed chord skeleton (`I–vi–IV–V` in A major),

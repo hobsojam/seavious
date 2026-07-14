@@ -17,7 +17,7 @@ static float DistanceSquared(Vector2 a, Vector2 b) {
     return dx * dx + dy * dy;
 }
 
-static bool PushGameEvent(GameEventQueue *events, GameEvent event) {
+bool PushGameEvent(GameEventQueue *events, GameEvent event) {
     if (events == NULL || events->count >= MAX_GAME_EVENTS) return false;
     events->items[events->count++] = event;
     return true;

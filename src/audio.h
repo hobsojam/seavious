@@ -9,6 +9,14 @@ typedef struct {
     Music boss;
     Music lament;
     Music *current;  // points at one of the three streams above
+
+    Sound gunShot;
+    Sound torpedoLaunch;
+    Sound torpedoSplash;
+    Sound explosion;
+    Sound airPop;
+    Sound playerDeath;
+    Sound uiBlip;
 } GameAudio;
 
 // Initializes the audio device and starts the stage theme. The struct is
@@ -16,6 +24,9 @@ typedef struct {
 // rather than returned by value.
 void LoadGameAudio(GameAudio *audio);
 void UpdateGameMusic(GameAudio *audio, const GameState *state);
+// Plays one-shot SFX for this frame's game events (fired weapons, impacts,
+// destroyed targets, player death, run restart).
+void PlayGameSfx(GameAudio *audio, const GameEventQueue *events);
 void UnloadGameAudio(GameAudio *audio);
 
 #endif

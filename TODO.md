@@ -176,10 +176,17 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       the backing-only template there (per-life deaths at 0.6s are too
       short for a music cut, so only the final death swaps the track)
 - [ ] Compose menu theme
-- [ ] Define sound effects — full list of SFX the game needs (gunfire,
-      torpedo launch, torpedo impact/splash, explosion, player hit/death,
-      UI blips, plus whatever else content design turns up)
-- [ ] Generate defined SFX in ChipTone
+- [x] Define sound effects — seven for the current game: gun shot,
+      torpedo launch, torpedo splash (unarmed hit), explosion (armed
+      boom), air pop (drone kill), player death, UI blip (restart);
+      surface-kill sound deliberately omitted (always inside an
+      explosion); more will come with new enemies (Interceptor shot,
+      Relay Node launch, Mine detonation) and menu screens
+- [x] First-pass SFX generated programmatically (`tools/gen-sfx.py` →
+      `assets/audio/sfx/*.wav`, validated by `tests/test_sfx_assets.py`)
+      and wired through the GameEventQueue in `audio.c`; volume balance
+      and sound character need a Windows playtest — refine individual
+      sounds in ChipTone if the synth versions fall short
 
 ## Infra
 
