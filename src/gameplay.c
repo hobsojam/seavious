@@ -367,7 +367,11 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
         float fireInterval = CASEMATE_FIRE_INTERVAL;
         Vector2 velocity = (Vector2){ -ENEMY_BULLET_SPEED, 0.0f };
         if (targets[i].type == SURFACE_TARGET_TRACKING_TURRET) {
-            velocity = CalculateInterceptVelocity(targets[i].pos, playerPos, playerVelocity, ENEMY_BULLET_SPEED);
+            Vector2 leadVelocity = {
+                playerVelocity.x * TRACKING_TURRET_LEAD_FACTOR,
+                playerVelocity.y * TRACKING_TURRET_LEAD_FACTOR
+            };
+            velocity = CalculateInterceptVelocity(targets[i].pos, playerPos, leadVelocity, ENEMY_BULLET_SPEED);
             fireInterval = TRACKING_TURRET_FIRE_INTERVAL;
         }
         float speed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);

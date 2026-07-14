@@ -109,11 +109,30 @@ static void TestSurfaceTargets(void) {
     CHECK(!targets[0].active && targets[1].active && events.count == 1);
 }
 
+static void TestTurretLeadIsSoft(void) {
+    // A player moving straight up at full speed, turret dead ahead. A
+    // perfect intercept would fire steeply upward (|vy| > |vx|, pinning the
+    // aim near the top edge); the soft lead must stay a gentle nudge in the
+    // movement direction instead.
+    SurfaceTarget turret[1] = { 0 };
+    CHECK(TrySpawnTrackingTurret(turret, 1, 176));
+    turret[0].pos = (Vector2){ 400, 176 };
+
+    EnemyBullet bullets[1] = { 0 };
+    UpdateSurfaceTargetFire(turret, 1, TRACKING_TURRET_FIRE_INTERVAL,
+        (Vector2){ 100, 176 }, (Vector2){ 0, -120 }, bullets, 1);
+    CHECK(bullets[0].active);
+    CHECK(bullets[0].vel.x < 0);
+    CHECK(bullets[0].vel.y < 0);
+    CHECK(fabsf(bullets[0].vel.y) < 0.15f * fabsf(bullets[0].vel.x));
+}
+
 int main(void) {
     TestDamageAndScore();
     TestMovementAndProjectiles();
     TestAirTargets();
     TestTorpedoes();
     TestSurfaceTargets();
+    TestTurretLeadIsSoft();
     return failures != 0;
 }

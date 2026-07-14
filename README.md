@@ -90,7 +90,12 @@ Ground/surface (amber/orange, torpedo targets):
   with a fixed cannon and amber glow ring at the waterline.
 - *Tracking Turret* — stationary circular mount with a rotating cannon. It
   leads the player's current movement before firing, so changing direction
-  after a shot is the reliable evasion response.
+  after a shot is the reliable evasion response. The lead is deliberately
+  soft: only a tenth of the player's velocity goes into the intercept
+  solve (`TRACKING_TURRET_LEAD_FACTOR`), so the shot nudges toward the
+  direction of travel. A perfect intercept was tried first and read as
+  psychic — while flying up it aimed at the top edge, where the player
+  *would* be seconds later.
 - *Relay Node* — stationary, doesn't attack directly but periodically
   launches Skimmer Drones — high priority since destroying it cuts off
   reinforcements. Spire/tower with a pulsing beacon top instead of a gun
@@ -414,8 +419,8 @@ screen. Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.
 Hits before arming do only small direct impact damage, with no splash.
-Casemates fire straight red lane shots; rotating turrets lead the player's
-current movement before firing.
+Casemates fire straight red lane shots; rotating turrets gently lead the
+player's current movement before firing.
 Enemy contact costs one life, triggers a brief ship explosion, then respawns
 the ship briefly invulnerable if any remain; game over follows the final
 explosion.

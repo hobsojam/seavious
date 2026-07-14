@@ -47,6 +47,9 @@
 
 #define TRACKING_TURRET_RADIUS         10.0f
 #define TRACKING_TURRET_FIRE_INTERVAL   2.0f
+// Fraction of the player's velocity fed into the intercept solve: 1.0 is a
+// perfect (psychic) intercept, 0 aims at the current position.
+#define TRACKING_TURRET_LEAD_FACTOR     0.1f
 #define TRACKING_TURRET_HP              1
 #define SCORE_TRACKING_TURRET  400
 
