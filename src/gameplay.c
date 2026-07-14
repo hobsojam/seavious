@@ -66,6 +66,7 @@ int ScoreGameEvents(const GameEventQueue *events) {
         } else if (event->type == GAME_EVENT_SURFACE_TARGET_DESTROYED) {
             if (event->target.surfaceTarget == SURFACE_TARGET_CASEMATE) score += SCORE_CASEMATE;
             if (event->target.surfaceTarget == SURFACE_TARGET_TRACKING_TURRET) score += SCORE_TRACKING_TURRET;
+            if (event->target.surfaceTarget == SURFACE_TARGET_RELAY_NODE) score += SCORE_RELAY_NODE;
         }
     }
     return score;
@@ -178,7 +179,7 @@ static float ClampDroneBaseY(float baseY) {
     return baseY;
 }
 
-bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset) {
+static bool TrySpawnSkimmerDroneFrom(AirTarget targets[], int count, Vector2 pos, int ownerId) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) {
             targets[i].type = AIR_TARGET_SKIMMER_DRONE;
@@ -186,12 +187,18 @@ bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float s
             targets[i].hp = SKIMMER_DRONE_HP;
             targets[i].radius = SKIMMER_DRONE_RADIUS;
             targets[i].t = 0.0f;
-            targets[i].baseY = baseY;
-            targets[i].pos = (Vector2){ GAME_WIDTH + SKIMMER_DRONE_RADIUS + spawnXOffset, baseY };
+            targets[i].baseY = pos.y;
+            targets[i].ownerId = ownerId;
+            targets[i].pos = pos;
             return true;
         }
     }
     return false;
+}
+
+bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset) {
+    return TrySpawnSkimmerDroneFrom(targets, count,
+        (Vector2){ GAME_WIDTH + SKIMMER_DRONE_RADIUS + spawnXOffset, baseY }, 0);
 }
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY) {
@@ -363,6 +370,43 @@ bool TrySpawnTrackingTurret(SurfaceTarget targets[], int count, float y) {
         TRACKING_TURRET_HP, (Vector2){ -1.0f, 0.0f }, y);
 }
 
+bool TrySpawnRelayNode(SurfaceTarget targets[], int count, float y) {
+    return TrySpawnSurfaceTarget(targets, count, SURFACE_TARGET_RELAY_NODE, RELAY_NODE_RADIUS,
+        RELAY_NODE_HP, (Vector2){ -1.0f, 0.0f }, y);
+}
+
+static int CountOwnedDrones(const AirTarget airTargets[], int airCount, int ownerId) {
+    int owned = 0;
+    for (int i = 0; i < airCount; i++) {
+        if (airTargets[i].active && airTargets[i].ownerId == ownerId) owned++;
+    }
+    return owned;
+}
+
+void UpdateRelayNodeLaunches(SurfaceTarget targets[], int count, float dt, AirTarget airTargets[], int airCount,
+    GameEventQueue *events) {
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active || targets[i].type != SURFACE_TARGET_RELAY_NODE) continue;
+        targets[i].fireTimer += dt;
+        if (targets[i].fireTimer < RELAY_NODE_LAUNCH_INTERVAL) continue;
+        // Hold at the interval while blocked (off-screen or at the drone
+        // cap), so a freed slot launches immediately - the relay reads as
+        // straining to reinforce, and killing its drones has urgency.
+        targets[i].fireTimer = RELAY_NODE_LAUNCH_INTERVAL;
+        bool fullyOnScreen = targets[i].pos.x >= targets[i].radius
+                          && targets[i].pos.x <= GAME_WIDTH - targets[i].radius;
+        if (!fullyOnScreen) continue;
+        int ownerId = i + 1;
+        if (CountOwnedDrones(airTargets, airCount, ownerId) >= RELAY_NODE_MAX_DRONES) continue;
+        if (TrySpawnSkimmerDroneFrom(airTargets, airCount, targets[i].pos, ownerId)) {
+            targets[i].fireTimer = 0.0f;
+            PushGameEvent(events, (GameEvent){
+                .type = GAME_EVENT_DRONE_LAUNCHED, .pos = targets[i].pos
+            });
+        }
+    }
+}
+
 void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) continue;
@@ -402,6 +446,9 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
     EnemyBullet bullets[], int bulletCount) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) continue;
+        // Relay Nodes never attack directly; their launch behavior lives
+        // in UpdateRelayNodeLaunches.
+        if (targets[i].type == SURFACE_TARGET_RELAY_NODE) continue;
         float fireInterval = CASEMATE_FIRE_INTERVAL;
         Vector2 velocity = (Vector2){ -ENEMY_BULLET_SPEED, 0.0f };
         if (targets[i].type == SURFACE_TARGET_TRACKING_TURRET) {

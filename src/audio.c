@@ -30,6 +30,7 @@ void LoadGameAudio(GameAudio *audio) {
     audio->explosion = LoadSfx("assets/audio/sfx/explosion.wav", 0.70f);
     audio->airPop = LoadSfx("assets/audio/sfx/air_pop.wav", 0.50f);
     audio->playerDeath = LoadSfx("assets/audio/sfx/player_death.wav", 0.80f);
+    audio->relayLaunch = LoadSfx("assets/audio/sfx/relay_launch.wav", 0.40f);
     audio->uiBlip = LoadSfx("assets/audio/sfx/ui_blip.wav", 0.45f);
 }
 
@@ -87,12 +88,16 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
             case GAME_EVENT_RUN_RESTARTED:
                 PlayIfValid(audio->uiBlip);
                 break;
+            case GAME_EVENT_DRONE_LAUNCHED:
+                PlayIfValid(audio->relayLaunch);
+                break;
         }
     }
 }
 
 void UnloadGameAudio(GameAudio *audio) {
     UnloadSound(audio->uiBlip);
+    UnloadSound(audio->relayLaunch);
     UnloadSound(audio->playerDeath);
     UnloadSound(audio->airPop);
     UnloadSound(audio->explosion);

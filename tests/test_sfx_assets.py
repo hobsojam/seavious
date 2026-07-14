@@ -26,6 +26,7 @@ FILES = {
     'explosion.wav': (0.45, 0.55),
     'air_pop.wav': (0.15, 0.22),
     'player_death.wav': (0.60, 0.70),
+    'relay_launch.wav': (0.18, 0.26),
     'ui_blip.wav': (0.07, 0.12),
 }
 

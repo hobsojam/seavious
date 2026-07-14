@@ -48,8 +48,9 @@ void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect
         if (event->type == GAME_EVENT_AIR_TARGET_DESTROYED) {
             TrySpawnExplosion(explosions, event->pos, EXPLOSION_AIR_TARGET, 10.0f, 0.28f);
         } else if (event->type == GAME_EVENT_SURFACE_TARGET_DESTROYED) {
-            float radius = event->target.surfaceTarget == SURFACE_TARGET_CASEMATE
-                ? CASEMATE_RADIUS : TRACKING_TURRET_RADIUS;
+            float radius = TRACKING_TURRET_RADIUS;
+            if (event->target.surfaceTarget == SURFACE_TARGET_CASEMATE) radius = CASEMATE_RADIUS;
+            if (event->target.surfaceTarget == SURFACE_TARGET_RELAY_NODE) radius = RELAY_NODE_RADIUS;
             TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, radius + 5.0f, 0.38f);
             TrySpawnSurfaceWreck(wrecks, event->pos, event->target.surfaceTarget, radius);
         }

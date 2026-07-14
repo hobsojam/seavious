@@ -49,6 +49,12 @@
 #define TRACKING_TURRET_HP              1
 #define SCORE_TRACKING_TURRET  400
 
+#define RELAY_NODE_RADIUS          12.0f
+#define RELAY_NODE_LAUNCH_INTERVAL  2.5f
+#define RELAY_NODE_MAX_DRONES       3
+#define RELAY_NODE_HP               1
+#define SCORE_RELAY_NODE  400
+
 #define MAX_GAME_EVENTS 64
 
 #define MAX_WAKE_PARTICLES   96
@@ -83,6 +89,9 @@ typedef struct {
     float t;
     float radius;
     int hp;
+    // 0 = unowned; otherwise 1 + the owning Relay Node's pool index, so
+    // relays can cap how many of *their* drones are alive at once.
+    int ownerId;
     bool active;
 } AirTarget;
 
@@ -114,7 +123,8 @@ typedef struct {
 
 typedef enum {
     SURFACE_TARGET_CASEMATE,
-    SURFACE_TARGET_TRACKING_TURRET
+    SURFACE_TARGET_TRACKING_TURRET,
+    SURFACE_TARGET_RELAY_NODE
 } SurfaceTargetType;
 
 typedef struct {
@@ -134,7 +144,8 @@ typedef enum {
     GAME_EVENT_TORPEDO_FIRED,
     GAME_EVENT_TORPEDO_IMPACT,
     GAME_EVENT_PLAYER_DEATH,
-    GAME_EVENT_RUN_RESTARTED
+    GAME_EVENT_RUN_RESTARTED,
+    GAME_EVENT_DRONE_LAUNCHED
 } GameEventType;
 
 typedef struct {
@@ -187,6 +198,9 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt);
 
 bool TrySpawnCasemate(SurfaceTarget targets[], int count, float y);
 bool TrySpawnTrackingTurret(SurfaceTarget targets[], int count, float y);
+bool TrySpawnRelayNode(SurfaceTarget targets[], int count, float y);
+void UpdateRelayNodeLaunches(SurfaceTarget targets[], int count, float dt, AirTarget airTargets[], int airCount,
+    GameEventQueue *events);
 void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt);
 void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vector2 playerPos, Vector2 playerVelocity,
     EnemyBullet bullets[], int bulletCount);

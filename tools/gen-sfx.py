@@ -131,6 +131,17 @@ def gen_player_death():
     return out
 
 
+def gen_relay_launch():
+    # Broadcast-y double warble: the Relay Node "transmitting" a drone
+    # into the air - two quick rising sine chirps with a soft edge.
+    duration = 0.22
+    n = int(SR * duration)
+    out = [0.0] * n
+    for i, t, phase in sweep_phase(n, lambda t: 460.0 + 420.0 * ((t * 9.0) % 1.0)):
+        out[i] = 0.7 * envelope(t, duration, 10.0) * math.sin(2.0 * math.pi * phase)
+    return out
+
+
 def gen_ui_blip():
     duration = 0.09
     n = int(SR * duration)
@@ -147,6 +158,7 @@ SOUNDS = {
     'explosion.wav': gen_explosion,
     'air_pop.wav': gen_air_pop,
     'player_death.wav': gen_player_death,
+    'relay_launch.wav': gen_relay_launch,
     'ui_blip.wav': gen_ui_blip,
 }
 
