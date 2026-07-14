@@ -1,4 +1,5 @@
 #include "game_update.h"
+#include "stage.h"
 #include "raylib.h"
 
 void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool forceTorpedoFire) {
@@ -71,26 +72,24 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
         }
     }
 
+    // The stage script owns all enemy spawning: scroll distance is the
+    // trigger currency, so the boss lock freezing scroll also freezes
+    // spawns and water-anchored drift below (scrollDt), while airborne
+    // craft, projectiles, and timers keep running on real dt.
+    UpdateStageScript(state, dt);
+    float scrollDt = state->bossLock ? 0.0f : dt;
+
     // World scrolls right-to-left under the player. Kept bounded by
     // the tile width since REPEAT wrap only needs a modulo tile offset.
-    state->oceanScroll = AdvanceOceanScroll(state->oceanScroll, dt, (float)assets->oceanTex.width);
+    state->oceanScroll = AdvanceOceanScroll(state->oceanScroll, scrollDt, (float)assets->oceanTex.width);
     state->oceanOverlayScroll = AdvanceOceanScroll(
-        state->oceanOverlayScroll, dt * OCEAN_OVERLAY_SPEED_SCALE, (float)assets->oceanOverlayTex.width
+        state->oceanOverlayScroll, scrollDt * OCEAN_OVERLAY_SPEED_SCALE, (float)assets->oceanOverlayTex.width
     );
 
     UpdateWakeParticles(state->wake, MAX_WAKE_PARTICLES, dt);
     if (state->torpedoImpactTimer > 0.0f) state->torpedoImpactTimer -= dt;
     UpdateBullets(state->bullets, MAX_BULLETS, dt);
 
-    // Enemies spawn off the right edge and fly left to meet the player,
-    // opposite the bullets, since the world scrolls the other way under them.
-    state->airTargetSpawnTimer += dt;
-    while (state->airTargetSpawnTimer >= SKIMMER_DRONE_SPAWN_INTERVAL) {
-        state->airTargetSpawnTimer -= SKIMMER_DRONE_SPAWN_INTERVAL;
-        float margin = SKIMMER_DRONE_RADIUS + SKIMMER_DRONE_SINE_AMPLITUDE;
-        float baseY = (float)GetRandomValue((int)margin, (int)(PLAY_HEIGHT - margin));
-        TrySpawnSkimmerDrone(state->airTargets, MAX_AIR_TARGETS, baseY);
-    }
     UpdateAirTargets(state->airTargets, MAX_AIR_TARGETS, dt);
 
     // Gun-vs-air collision: brute-force O(bullets*targets) is fine at
@@ -113,20 +112,10 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     }
     TorpedoImpact torpedoImpact = UpdateTorpedo(&state->torpedo, dt);
 
-    // Surface threats spawn off the right edge and drift left with the water.
-    state->surfaceTargetSpawnTimer += dt;
-    while (state->surfaceTargetSpawnTimer >= SURFACE_TARGET_SPAWN_INTERVAL) {
-        state->surfaceTargetSpawnTimer -= SURFACE_TARGET_SPAWN_INTERVAL;
-        float y = (float)GetRandomValue(
-            (int)TRACKING_TURRET_RADIUS, (int)(PLAY_HEIGHT - TRACKING_TURRET_RADIUS)
-        );
-        if (GetRandomValue(0, 1) == 0) {
-            TrySpawnCasemate(state->surfaceTargets, MAX_SURFACE_TARGETS, y);
-        } else {
-            TrySpawnTrackingTurret(state->surfaceTargets, MAX_SURFACE_TARGETS, y);
-        }
-    }
-    UpdateSurfaceTargets(state->surfaceTargets, MAX_SURFACE_TARGETS, dt);
+    // Surface threats are world-anchored: they drift with the water, so
+    // their motion freezes with the scroll under the boss lock while
+    // their fire control below keeps running.
+    UpdateSurfaceTargets(state->surfaceTargets, MAX_SURFACE_TARGETS, scrollDt);
     UpdateSurfaceTargetFire(
         state->surfaceTargets, MAX_SURFACE_TARGETS, dt, state->player, playerVelocity,
         state->enemyBullets, MAX_ENEMY_BULLETS
@@ -157,7 +146,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     state->score += ScoreGameEvents(&state->gameEvents);
 
     UpdateExplosionEffects(state->explosions, dt);
-    UpdateSurfaceWrecks(state->wrecks, dt);
+    UpdateSurfaceWrecks(state->wrecks, scrollDt);
 
     bool enemyBulletHit = ResolveEnemyBulletPlayerCollision(
         state->enemyBullets, MAX_ENEMY_BULLETS, state->player, playerRadius

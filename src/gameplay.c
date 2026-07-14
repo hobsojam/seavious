@@ -171,7 +171,14 @@ void UpdateEnemyBullets(EnemyBullet bullets[], int count, float dt) {
     }
 }
 
-bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY) {
+static float ClampDroneBaseY(float baseY) {
+    float margin = SKIMMER_DRONE_RADIUS + SKIMMER_DRONE_SINE_AMPLITUDE;
+    if (baseY < margin) return margin;
+    if (baseY > PLAY_HEIGHT - margin) return PLAY_HEIGHT - margin;
+    return baseY;
+}
+
+bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) {
             targets[i].type = AIR_TARGET_SKIMMER_DRONE;
@@ -180,11 +187,42 @@ bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY) {
             targets[i].radius = SKIMMER_DRONE_RADIUS;
             targets[i].t = 0.0f;
             targets[i].baseY = baseY;
-            targets[i].pos = (Vector2){ GAME_WIDTH + SKIMMER_DRONE_RADIUS, baseY };
+            targets[i].pos = (Vector2){ GAME_WIDTH + SKIMMER_DRONE_RADIUS + spawnXOffset, baseY };
             return true;
         }
     }
     return false;
+}
+
+bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY) {
+    return TrySpawnSkimmerDroneAt(targets, count, baseY, 0.0f);
+}
+
+// Wave patterns for the stage script (see README "Stage authoring
+// format": map glyphs are pattern instances; the formation's internal
+// shape lives here). Members trail off the right edge so the formation
+// flies in as a shape rather than popping in at once.
+
+int SpawnSkimmerDroneLine(AirTarget targets[], int count, float baseY) {
+    int spawned = 0;
+    for (int i = 0; i < 3; i++) {
+        if (TrySpawnSkimmerDroneAt(targets, count, ClampDroneBaseY(baseY), 36.0f * i)) spawned++;
+    }
+    return spawned;
+}
+
+int SpawnSkimmerDroneV(AirTarget targets[], int count, float baseY) {
+    // Leader anchored at the glyph lane; wing pairs trail behind and
+    // outward, opening rightward like a V flying left.
+    int spawned = 0;
+    if (TrySpawnSkimmerDroneAt(targets, count, ClampDroneBaseY(baseY), 0.0f)) spawned++;
+    for (int rank = 1; rank <= 2; rank++) {
+        for (int side = -1; side <= 1; side += 2) {
+            float y = ClampDroneBaseY(baseY + side * 26.0f * rank);
+            if (TrySpawnSkimmerDroneAt(targets, count, y, 30.0f * rank)) spawned++;
+        }
+    }
+    return spawned;
 }
 
 void UpdateAirTargets(AirTarget targets[], int count, float dt) {

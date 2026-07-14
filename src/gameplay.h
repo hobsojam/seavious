@@ -23,7 +23,6 @@
 #define MAX_AIR_TARGETS          16
 #define SKIMMER_DRONE_RADIUS         6.0f
 #define SKIMMER_DRONE_SPEED          60.0f
-#define SKIMMER_DRONE_SPAWN_INTERVAL 1.2f
 #define SKIMMER_DRONE_SINE_AMPLITUDE 24.0f
 #define SKIMMER_DRONE_SINE_FREQUENCY 2.0f
 #define SKIMMER_DRONE_HP             1
@@ -52,8 +51,6 @@
 #define TRACKING_TURRET_LEAD_FACTOR     0.1f
 #define TRACKING_TURRET_HP              1
 #define SCORE_TRACKING_TURRET  400
-
-#define SURFACE_TARGET_SPAWN_INTERVAL  3.5f
 
 #define MAX_GAME_EVENTS 64
 
@@ -178,6 +175,9 @@ bool ResolvePlayerContactDamage(Vector2 playerPos, float playerRadius, const Air
     const SurfaceTarget surfaceTargets[], int surfaceCount);
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
+bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset);
+int SpawnSkimmerDroneLine(AirTarget targets[], int count, float baseY);
+int SpawnSkimmerDroneV(AirTarget targets[], int count, float baseY);
 void UpdateAirTargets(AirTarget targets[], int count, float dt);
 void ResolveBulletAirTargetCollisions(Bullet bullets[], int bulletCount, AirTarget targets[], int targetCount,
     GameEventQueue *events);

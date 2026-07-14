@@ -82,20 +82,50 @@ Air (magenta/purple, gun targets):
   or line formation, testing aim/positioning across a spread.
 - *Gunship* (heavier, less frequent) — bigger, tougher, fires a 3-way
   spread. Bulky twin-hull frame (like a small flying catamaran, echoing the
-  naval theme even airborne), three visible weapon-emitter nodes.
+  naval theme even airborne), three visible weapon-emitter nodes. Sprite
+  (first-pass programmatic, 32x24, noses left): two parallel gunmetal-violet
+  fuselages joined by a recessed deck, each hull carrying the family's
+  magenta spine stripe with the bright/dark split, and the three emitters
+  as pale cores — one at each hull nose plus a 2x2 block on the deck's
+  leading edge (the spread's center emitter). Behavior numbers (first
+  pass): 70 px/s straight flight along its spawn row (half the
+  Interceptor's speed — the bulk should read in motion), 3 HP to the gun
+  (the first multi-hit air target), fires a 3-way spread aimed at the
+  player (±16°) every 2.4s while fully on-screen, 500 points.
+  Implementation is part of the air-roster task.
 
 Ground/surface (amber/orange, torpedo targets):
 - *Casemate* — stationary, breaches the surface, and fires straight left
   across its own row. The baseline ground threat: a low hexagonal platform
-  with a fixed cannon and amber glow ring at the waterline.
+  with a fixed cannon and amber glow ring at the waterline. Sprite
+  (first-pass programmatic, 24x24, top-down): the shared ground-family
+  amber waterline ring, a dark warm hex plate lit from the upper-left,
+  the fixed barrel baked into the sprite crossing the waterline to the
+  left with a pale muzzle (it never rotates, so nothing stays
+  code-drawn), and a small pale emitter core at the hub.
 - *Tracking Turret* — stationary circular mount with a rotating cannon. It
   leads the player's current movement before firing, so changing direction
   after a shot is the reliable evasion response. The lead is deliberately
   soft: only a tenth of the player's velocity goes into the intercept
   solve (`TRACKING_TURRET_LEAD_FACTOR`), so the shot nudges toward the
   direction of travel. A perfect intercept was tried first and read as
-  psychic — while flying up it aimed at the top edge, where the player
-  *would* be seconds later.
+  psychic — while
+  flying up it aimed at the top edge, where the player *would* be seconds
+  later. Sprite (first-pass programmatic, 24x24, top-down): same amber
+  waterline ring, a rust-brown circular deck lit from the upper-left, a
+  bolt ring marking the rotation bearing (the "this rotates" cue
+  distinguishing it from the Casemate's fixed plate), and a dark pivot
+  hub — the aiming barrel stays code-drawn on top so it can lead the
+  player.
+
+Both are water designs on purpose. Land-based emplacements are *not*
+reskins of these: land blocks torpedoes, so an amber (torpedo-class)
+target on land would be unkillable — land emplacements belong to the
+green mortar-target class (Stage 2+, see Color palette) and will be
+designed as their own roster entries sharing the silhouette family.
+Boat-hulled variants were also considered and rejected: boats imply
+drift, breaking the ground-family "stationary bulk" silhouette rule, and
+the drifting-vessel niche already belongs to the Mobile Platform.
 - *Relay Node* — stationary, doesn't attack directly but periodically
   launches Skimmer Drones — high priority since destroying it cuts off
   reinforcements. Spire/tower with a pulsing beacon top instead of a gun
@@ -121,7 +151,18 @@ Ground/surface (amber/orange, torpedo targets):
   on player contact. Implementation is blocked on the lives/damage system.
 - *Mobile Platform* (heavier, less frequent) — slowly drifts across the
   water, higher HP, wider shot spread. Wider, flatter barge/raft shape,
-  several small weapon emitters along its edge, trailing wake.
+  several small weapon emitters along its edge, trailing wake. Sprite
+  (first-pass programmatic, 36x18, bow left): the one ground unit that
+  moves, so its amber waterline hugs the hull outline like a vessel
+  instead of sitting as the anchored units' detached ring — pointed bow
+  in the drift direction, dark warm deck lit upper-left, raised rust
+  deckhouse, and three pale emitters (bow tip + two along the deck
+  edges). Wake trails from the stern at runtime (code VFX, like the
+  player's). Behavior numbers (first pass): self-propelled at 60 px/s
+  leftward (1.5x scroll speed, visibly moving relative to the water),
+  2 HP to torpedoes (the first multi-torpedo surface target), fires a
+  3-shot fan aimed at the player (±14°) every 3.0s while on-screen,
+  500 points. Implementation is part of the ground-roster task.
 
 Stage 1 boss: *Leviathan-class dreadnought*, partially breaching the
 surface, with separate gun-weak pods and torpedo-weak hull sections as
@@ -132,8 +173,75 @@ landing) throughout the fight, shaping the dodging as persistent pressure
 — and teaching the mortar's visual language as an enemy weapon before the
 player owns it. When the boss core dies the turret powers down intact, and
 the end-of-stage sequence has the skimmer salvage it: from Stage 2 onward
-it's fitted to the player as the third weapon (see Core mechanic). Visual
-design deferred to a separate pass (see `TODO.md`).
+it's fitted to the player as the third weapon (see Core mechanic).
+
+**Stage 1 boss design (Leviathan)**:
+
+*Body & layout* — a long broadside hull, bow left (toward the player),
+parked on the right ~40% of the screen once the boss lock stops the
+scroll; the player owns the left side of the arena. Overall footprint
+~200x120 on the 512x352 play area, drawn as one dark breached-hull base
+sprite (the "wreck-to-be") with the five interactive parts as separate
+sprites layered on top, each with its own hitbox and HP, following the
+weapon-class colors exactly:
+
+- 2x *AA pods* (magenta, gun-weak, ~20x20): raised turret bulbs on the
+  hull spine, fore and aft. Same air-family visual language as the drone
+  swarms — gunmetal-violet housings with magenta energy lines — because
+  magenta = "shoot it." 12 gun hits each; 1,000 points. Each fires
+  turret-style aimed red shots every ~2.0s.
+- 2x *hull sections* (amber, torpedo-weak, ~40x24): armored casemate
+  plates at the waterline, fore and aft, with the ground-family amber
+  waterline glow. 2 torpedoes each; 1,000 points. Each fires straight
+  lane shots (casemate-style) every ~2.5s.
+- 1x *mortar turret* (indestructible, ~24x24): armored dome aft-center,
+  deliberately *colorless* in weapon-class terms — bare dark steel with
+  no amber/magenta glow, the visual grammar for "no weapon works on
+  this." Lobs an arcing shell every ~4.0s at the player's position: a
+  launch puff, a shrinking-then-growing shadow at the landing point
+  (~1.2s of air time — the dodge window), then an area blast. Red
+  accents only on the shell/blast (universal "this kills you").
+- 1x *core* (initially hidden): amidships beneath a breach in the base
+  hull, revealed once both hull sections are destroyed — a white-hot
+  pale opening with escaping glow (the same white-hot palette as
+  explosion centers, reading as "the inside of the machine"). Weak to
+  *both* weapons once exposed (4 torpedoes or ~24 gun hits; mixing
+  works), so the endgame rewards whichever weapon the player has left
+  free. 2,000 points + stage-clear bonus later.
+
+*Fight flow* — no scripted phases; the structure emerges from the parts:
+pods and hull sections all fire from the start (staggered timers so
+volleys interleave rather than wall), the mortar lobs throughout, and
+every destroyed part permanently silences its gun — the fight naturally
+decays from "bullet storm + mortar" to "just the mortar's rhythm" as the
+player dismantles the ship. Destroying a part leaves a burnt socket on
+the base sprite (the wreck look assembling in place). The mortar's
+cadence quickens slightly (~4.0s → ~2.8s) once the core is exposed, so
+the final push stays under pressure. Boss HP bar (reserved HUD slot)
+shows the sum of remaining destructible-part HP.
+
+*Sprites* — first-pass programmatic set at `assets/sprites/leviathan_*.png`
+(generated by `tools/gen-leviathan.py`, five sprites: the 200x120
+breached hull base with plate seams, spine ridge, and the jagged breach;
+the AA pod dome with its magenta energy ring; the amber-edged hull
+section plate with two dark gun ports facing the player; the bare-steel
+mortar dome — verified faction-colorless by the asset test; and the
+white-hot core opening). Mortar shell/shadow/blast are code-drawn VFX
+per the game's convention, not sprites, and destroyed-part scorch marks
+reuse the existing code-drawn wreck treatment rather than baked socket
+states. Refining in LibreSprite still outstanding, same as the roster.
+
+*Entrance & defeat* — the boss slides in from the right over ~3s under
+the boss-lock (scroll stopped, spawns stopped, "hammer" theme
+hard-cut in). On core death: chain of part-explosions along the hull
+(white-hot → orange, biggest VFX in the game), the wreck settles a few
+pixels lower in the water, music hard-cuts back to the stage theme, and
+the mortar turret's red accents fade to dark — powered down, intact.
+The salvage beat is deliberately simple: the skimmer auto-pilots
+alongside, the turret dome lifts off the wreck and docks onto the
+skimmer's spine (a few seconds of sprite animation, no input), a pickup
+jingle plays, and the stage-clear flow takes over. Stage 2 then opens
+with the mortar equipped.
 
 **Color palette**: No sky rendered — open water scrolls underneath the
 top-down camera. Environment is classic flat arcade water in the
@@ -370,10 +478,16 @@ beat 3 taught the torpedo: a land target the other weapons visibly can't
 touch. Boss-yields-an-upgrade is a candidate pattern for later stages'
 progression spine, not yet a commitment beyond Stage 1.
 
-**Current scope (bare mechanical proof)**: Player movement, gun, bomb, one
-air enemy type, two ground target types. No full stage or boss yet; the
-remaining work is the checkpoint/failure flow around the implemented
-contact-damage loop, then stage content on top of it.
+**Current scope**: Player movement, gun, torpedo, lives/game-over loop,
+music + SFX, and the Stage 1 script driving all spawning: the committed
+map (`assets/stages/stage1.txt`) compiles to a C event table
+(`src/stage1_data.c`) that the engine walks by scroll distance — the
+implemented enemies (Skimmer Drone solo/line/V formations, Casemate,
+Tracking Turret) spawn at their authored beats, the not-yet-implemented
+roster glyphs are skipped until each enemy lands, and the boss lock at
+map end freezes the scroll (raising the boss music as a placeholder for
+the future fight). Remaining for a completable Stage 1: the rest of the
+roster, the terrain system, and the boss fight itself.
 
 ## Building on Windows (MSVC + vcpkg)
 

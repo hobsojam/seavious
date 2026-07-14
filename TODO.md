@@ -53,16 +53,20 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] Destruction effects: air targets burst briefly then disappear; destroyed
       surface targets leave inert burnt-out wrecks that drift with the water
 - [ ] Boss fight structure (post-MVP, end of each stage)
-- [ ] Stage/wave definition + sequencing — design decided (see README
-      Level & stage design): deterministic scripted timeline of
-      scroll-distance-triggered events referencing reusable parameterized
-      wave patterns; script keeps running through death pauses; boss lock
-      stops scroll and therefore spawns. Authoring format also decided:
-      per-stage ASCII map (1 char = 32 px, 11 rows x 16 cols/screen,
-      per-beat `@offset` blocks, glyphs = pattern instances, `#` = land)
-      compiled by a `tools/` script into a committed C spawn table with a
-      regenerate-and-compare drift test, like the XM assets. To implement:
-      map compiler, pattern functions, spawn-event runner, drift test
+- [x] Stage/wave definition + sequencing — implemented:
+      `tools/gen-stage-table.py` compiles `assets/stages/stage1.txt` into
+      the committed `src/stage1_data.c` event table (drift-tested by
+      `tests/test_stage_table.py`); `src/stage.c` walks the sorted table
+      with a cursor as scroll distance accumulates, fires wave patterns
+      (lone drone / line of 3 / V of 5 live in `gameplay.c`), raises the
+      boss lock at map end (freezes scroll, water-anchored drift, and
+      spawns; raises `bossActive` as a placeholder until the boss fight
+      owns it), and replaces the old random spawn timers. Unimplemented
+      roster glyphs (i/G/R/m/P) compile into the table and are skipped
+      until each enemy lands; terrain footprints (`#`) compile in for
+      the future terrain system. Restart rewinds the script. Unit-tested
+      in `tests/stage_tests.c`; needs a Windows playtest for beat
+      pacing/feel
 - [ ] Terrain system: stage-data land footprints drifting at scroll speed —
       non-colliding for ship/gun, blocks torpedoes (armed = detonate at
       land edge, unarmed = fizzle), reticle clamps to the first land edge
@@ -88,8 +92,16 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       attacks directly, so it doesn't need the lives system) and is the
       natural next enemy to wire in; Mine contact damage is blocked on
       lives/damage
-- [ ] Design Stage 1 boss visuals (Leviathan-class dreadnought) — deferred
-      as its own task, separate from the roster above; now includes the
+- [x] Design Stage 1 boss visuals (Leviathan-class dreadnought) — fight
+      design done (see README "Stage 1 boss design": part layout with 2
+      AA pods + 2 hull sections + indestructible mortar turret + hidden
+      core, HP/scoring numbers, emergent fight decay, entrance/defeat/
+      salvage sequence) and first-pass sprite set generated at
+      `assets/sprites/leviathan_*.png` by `tools/gen-leviathan.py`
+      (breached hull base, pod, hull section, faction-colorless mortar
+      dome, white-hot core); mortar shell/shadow/blast stay code-drawn
+      VFX and part-death scorch reuses the wreck treatment; refining in
+      LibreSprite still outstanding; now includes the
       armored (indestructible) mortar turret that lobs arcing shells during
       the fight and is salvaged intact afterward (see README boss entry)
 - [ ] Implement Stage 1 boss: Leviathan-class dreadnought (gun-weak pods +
@@ -110,14 +122,16 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       see README Level & stage design) and its first map draft committed
       at `assets/stages/stage1.txt`; expect placement/density tuning once
       the wave-script system makes it playable
+- [x] Ground target sprites (alien platforms/installations) — Relay Node,
+      Mine, Casemate, Tracking Turret, and Mobile Platform first passes
+      all done (see Art below). Land-based emplacement variants
+      deliberately deferred to the Stage 2 mortar-target class (see
+      README roster note) rather than reskins of the water designs
 - [ ] Island/islet terrain art (Stage 1: sparse islets on open ocean) —
       needs the terrain-footprint system from Mechanics before it's more
       than scenery
-- [ ] Ground target sprites (alien platforms/installations) — Relay Node
-      and Mine first passes done (see Art below); Casemate and Tracking Turret (still a
-      placeholder hexagon in-game) and Mobile Platform still to design
-- [ ] Air enemy sprites (drone swarms) — Skimmer Drone and Interceptor
-      first passes done (see Art below); Gunship still to design
+- [x] Air enemy sprites (drone swarms) — Skimmer Drone, Interceptor, and
+      Gunship first passes all done (see Art below)
 
 ## Art
 
@@ -167,6 +181,33 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       programmatic version at `assets/sprites/mine.png` (14x14), generated
       by `tools/gen-mine.ps1`; not yet wired into the game; refining in
       LibreSprite still outstanding
+- [x] Casemate sprite — hex plate with baked fixed left barrel, amber
+      waterline ring, pale muzzle + emitter core, first-pass programmatic
+      version at `assets/sprites/casemate.png` (24x24, top-down),
+      generated by `tools/gen-casemate.py` and wired into the game
+      (replaces the placeholder hexagon entirely — nothing code-drawn);
+      refining in LibreSprite still outstanding
+- [x] Tracking Turret sprite — circular deck with bearing bolt ring and
+      pivot hub, same waterline ring, first-pass programmatic version at
+      `assets/sprites/tracking_turret.png` (24x24, top-down), generated
+      by `tools/gen-tracking-turret.py` and wired into the game (the
+      aiming barrel stays code-drawn so it can lead the player);
+      refining in LibreSprite still outstanding
+- [x] Mobile Platform sprite — vessel-style barge with hull-hugging amber
+      waterline, pointed bow left, rust deckhouse, three pale edge
+      emitters, first-pass programmatic version at
+      `assets/sprites/mobile_platform.png` (36x18), generated by
+      `tools/gen-mobile-platform.py`; behavior numbers designed (see
+      README roster); not yet wired into the game (part of the
+      ground-roster implementation task); refining in LibreSprite still
+      outstanding
+- [x] Gunship sprite — twin-hull catamaran frame with per-hull magenta
+      spine stripes and three pale emitter cores (hull noses + deck
+      leading edge), first-pass programmatic version at
+      `assets/sprites/gunship.png` (32x24, noses left), generated by
+      `tools/gen-gunship.py`; behavior numbers designed (see README
+      roster); not yet wired into the game (part of the air-roster
+      implementation task); refining in LibreSprite still outstanding
 - [x] Wake effect — first-pass particle trail: foam-colored puffs emitted
       from the two rear ski-points, anchored to the water (drift left at
       scroll speed), fade/shrink out over ~1.1s; spray and any bloom/glow
