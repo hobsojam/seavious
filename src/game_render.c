@@ -74,7 +74,6 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     const Color bulletColor = (Color){ 76, 224, 232, 255 };
     const Color enemyBulletColor = (Color){ 232, 72, 72, 255 };
     const Color airTargetColor = (Color){ 216, 72, 192, 255 };
-    const Color surfaceTargetColor = (Color){ 232, 148, 44, 255 };
     const Color torpedoColor = (Color){ 232, 248, 248, 255 };
 
     float halfW = assets->playerTex.width / 2.0f;
@@ -162,21 +161,31 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     // Surface layer: ground targets draw under everything airborne.
     for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
         if (!state->surfaceTargets[i].active) continue;
-        DrawCircleLines((int)state->surfaceTargets[i].pos.x, (int)state->surfaceTargets[i].pos.y,
-            state->surfaceTargets[i].radius + 2.0f, (Color){ 232, 148, 44, 110 });
         if (state->surfaceTargets[i].type == SURFACE_TARGET_CASEMATE) {
-            DrawPoly(state->surfaceTargets[i].pos, 6, state->surfaceTargets[i].radius, 0.0f, surfaceTargetColor);
+            // Sprite bakes the waterline ring, hull, fixed left barrel,
+            // and emitter core - nothing code-drawn on top.
+            DrawTexture(
+                assets->casemateTex,
+                (int)(state->surfaceTargets[i].pos.x - assets->casemateTex.width / 2.0f),
+                (int)(state->surfaceTargets[i].pos.y - assets->casemateTex.height / 2.0f),
+                WHITE
+            );
         } else {
-            DrawCircleV(state->surfaceTargets[i].pos, state->surfaceTargets[i].radius, (Color){ 126, 78, 34, 255 });
-            DrawCircleLines((int)state->surfaceTargets[i].pos.x, (int)state->surfaceTargets[i].pos.y,
-                state->surfaceTargets[i].radius - 3.0f, surfaceTargetColor);
+            // Sprite bakes the ring and rotating mount; only the aiming
+            // barrel stays code-drawn so it can lead the player.
+            DrawTexture(
+                assets->trackingTurretTex,
+                (int)(state->surfaceTargets[i].pos.x - assets->trackingTurretTex.width / 2.0f),
+                (int)(state->surfaceTargets[i].pos.y - assets->trackingTurretTex.height / 2.0f),
+                WHITE
+            );
+            Vector2 barrelEnd = {
+                state->surfaceTargets[i].pos.x + state->surfaceTargets[i].aimDirection.x * (state->surfaceTargets[i].radius + 4.0f),
+                state->surfaceTargets[i].pos.y + state->surfaceTargets[i].aimDirection.y * (state->surfaceTargets[i].radius + 4.0f)
+            };
+            DrawLineEx(state->surfaceTargets[i].pos, barrelEnd, 3.0f, (Color){ 168, 100, 24, 255 });
+            DrawCircleV(state->surfaceTargets[i].pos, 3.0f, (Color){ 255, 200, 120, 255 });
         }
-        Vector2 barrelEnd = {
-            state->surfaceTargets[i].pos.x + state->surfaceTargets[i].aimDirection.x * (state->surfaceTargets[i].radius + 4.0f),
-            state->surfaceTargets[i].pos.y + state->surfaceTargets[i].aimDirection.y * (state->surfaceTargets[i].radius + 4.0f)
-        };
-        DrawLineEx(state->surfaceTargets[i].pos, barrelEnd, 3.0f, (Color){ 168, 100, 24, 255 });
-        DrawCircleV(state->surfaceTargets[i].pos, 3.0f, (Color){ 255, 200, 120, 255 });
     }
 
     // Ship points right (direction of travel / forward fire). It is

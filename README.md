@@ -87,10 +87,29 @@ Air (magenta/purple, gun targets):
 Ground/surface (amber/orange, torpedo targets):
 - *Casemate* — stationary, breaches the surface, and fires straight left
   across its own row. The baseline ground threat: a low hexagonal platform
-  with a fixed cannon and amber glow ring at the waterline.
+  with a fixed cannon and amber glow ring at the waterline. Sprite
+  (first-pass programmatic, 24x24, top-down): the shared ground-family
+  amber waterline ring, a dark warm hex plate lit from the upper-left,
+  the fixed barrel baked into the sprite crossing the waterline to the
+  left with a pale muzzle (it never rotates, so nothing stays
+  code-drawn), and a small pale emitter core at the hub.
 - *Tracking Turret* — stationary circular mount with a rotating cannon. It
   leads the player's current movement before firing, so changing direction
-  after a shot is the reliable evasion response.
+  after a shot is the reliable evasion response. Sprite (first-pass
+  programmatic, 24x24, top-down): same amber waterline ring, a rust-brown
+  circular deck lit from the upper-left, a bolt ring marking the rotation
+  bearing (the "this rotates" cue distinguishing it from the Casemate's
+  fixed plate), and a dark pivot hub — the aiming barrel stays code-drawn
+  on top so it can lead the player.
+
+Both are water designs on purpose. Land-based emplacements are *not*
+reskins of these: land blocks torpedoes, so an amber (torpedo-class)
+target on land would be unkillable — land emplacements belong to the
+green mortar-target class (Stage 2+, see Color palette) and will be
+designed as their own roster entries sharing the silhouette family.
+Boat-hulled variants were also considered and rejected: boats imply
+drift, breaking the ground-family "stationary bulk" silhouette rule, and
+the drifting-vessel niche already belongs to the Mobile Platform.
 - *Relay Node* — stationary, doesn't attack directly but periodically
   launches Skimmer Drones — high priority since destroying it cuts off
   reinforcements. Spire/tower with a pulsing beacon top instead of a gun
