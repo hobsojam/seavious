@@ -22,13 +22,24 @@ ASSET_DIR = os.path.join(REPO, 'assets', 'sprites')
 
 AMBER = (232, 148, 44)      # ground family
 MAGENTA = (216, 72, 192)    # air family
+WHITE_HOT = (255, 246, 216) # explosion-center palette (boss core)
+# family color None = deliberately faction-less (the boss mortar: bare
+# steel means "no weapon works on this", so both faction colors must be
+# absent, not merely unrequired)
 
-# generator script -> (output file, width, height, family color)
+# generator script -> [(output file, width, height, family color), ...]
 GENERATORS = {
-    'gen-casemate.py': ('casemate.png', 24, 24, AMBER),
-    'gen-tracking-turret.py': ('tracking_turret.png', 24, 24, AMBER),
-    'gen-mobile-platform.py': ('mobile_platform.png', 36, 18, AMBER),
-    'gen-gunship.py': ('gunship.png', 32, 24, MAGENTA),
+    'gen-casemate.py': [('casemate.png', 24, 24, AMBER)],
+    'gen-tracking-turret.py': [('tracking_turret.png', 24, 24, AMBER)],
+    'gen-mobile-platform.py': [('mobile_platform.png', 36, 18, AMBER)],
+    'gen-gunship.py': [('gunship.png', 32, 24, MAGENTA)],
+    'gen-leviathan.py': [
+        ('leviathan_hull.png', 200, 120, AMBER),
+        ('leviathan_pod.png', 20, 20, MAGENTA),
+        ('leviathan_hull_section.png', 40, 24, AMBER),
+        ('leviathan_mortar.png', 24, 24, None),
+        ('leviathan_core.png', 32, 24, WHITE_HOT),
+    ],
 }
 
 failures = []
@@ -93,40 +104,48 @@ def validate_sprite(name, data, exp_w, exp_h, family_color):
     opaque = [p for p in flat if p[3] == 255]
     check(len(opaque) > len(flat) * 0.3,
           f'{name}: only {len(opaque)} opaque pixels - sprite mostly empty?')
-    check(any(p[:3] == family_color for p in opaque),
-          f'{name}: family color {family_color} missing')
+    if family_color is None:
+        for banned in (AMBER, MAGENTA):
+            check(not any(p[:3] == banned for p in opaque),
+                  f'{name}: faction-less sprite contains faction color {banned}')
+    else:
+        check(any(p[:3] == family_color for p in opaque),
+              f'{name}: family color {family_color} missing')
     for cx, cy in ((0, 0), (exp_w - 1, 0), (0, exp_h - 1), (exp_w - 1, exp_h - 1)):
         check(pixels[cy][cx][3] == 0,
               f'{name}: corner ({cx},{cy}) not transparent')
 
 
 def main():
-    for script, (out_name, exp_w, exp_h, family_color) in GENERATORS.items():
+    total = 0
+    for script, outputs in GENERATORS.items():
         gen = load_tool(script)
         with tempfile.TemporaryDirectory() as tmp:
             gen.main(tmp)
-            path = os.path.join(tmp, out_name)
-            check(os.path.exists(path), f'{script} did not write {out_name}')
-            if not os.path.exists(path):
-                continue
-            with open(path, 'rb') as f:
-                data = f.read()
-            validate_sprite(out_name, data, exp_w, exp_h, family_color)
+            for out_name, exp_w, exp_h, family_color in outputs:
+                total += 1
+                path = os.path.join(tmp, out_name)
+                check(os.path.exists(path), f'{script} did not write {out_name}')
+                if not os.path.exists(path):
+                    continue
+                with open(path, 'rb') as f:
+                    data = f.read()
+                validate_sprite(out_name, data, exp_w, exp_h, family_color)
 
-            committed_path = os.path.join(ASSET_DIR, out_name)
-            check(os.path.exists(committed_path),
-                  f'{out_name}: missing from assets/sprites')
-            if os.path.exists(committed_path):
-                with open(committed_path, 'rb') as f:
-                    committed = f.read()
-                check(committed == data,
-                      f'{out_name}: committed asset differs from generator '
-                      f'output - rerun tools/{script} and commit the result')
+                committed_path = os.path.join(ASSET_DIR, out_name)
+                check(os.path.exists(committed_path),
+                      f'{out_name}: missing from assets/sprites')
+                if os.path.exists(committed_path):
+                    with open(committed_path, 'rb') as f:
+                        committed = f.read()
+                    check(committed == data,
+                          f'{out_name}: committed asset differs from generator '
+                          f'output - rerun tools/{script} and commit the result')
 
     if failures:
         print(f'\n{len(failures)} failure(s)')
         return 1
-    print(f'OK: {len(GENERATORS)} sprite assets validated')
+    print(f'OK: {total} sprite assets validated')
     return 0
 
 
