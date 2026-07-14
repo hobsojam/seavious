@@ -66,10 +66,11 @@ jobs:
           gcovr --root "$GITHUB_WORKSPACE" --filter "$GITHUB_WORKSPACE/src" \
             --sonarqube coverage.xml build
 
-      - name: Validate audio assets and generate Python coverage
+      - name: Validate generated assets and generate Python coverage
         run: |
           python3 -m coverage run --include='tools/*' tests/test_xm_assets.py
           python3 -m coverage run -a --include='tools/*' tests/test_sfx_assets.py
+          python3 -m coverage run -a --include='tools/*' tests/test_sprite_assets.py
           python3 -m coverage xml -o coverage-python.xml
 
       - name: Scan with SonarCloud
