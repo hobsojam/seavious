@@ -329,10 +329,9 @@ Items found in the current prototype review:
   tile width once.
 - Normalize player movement input so diagonal movement is not faster than
   horizontal or vertical movement.
-- Split `src/main.c` before adding the next feature wave. The current
-  single-loop prototype is still readable, but lives, enemy projectiles,
-  wave sequencing, HUD state, and boss parts will be easier to add if setup,
-  update, collision, and draw code are separated first.
+- ~~Split `src/main.c` before adding the next feature wave.~~ Done: state,
+  update, render, assets, and audio now live in their own modules (see
+  `CLAUDE.md` Structure); `main.c` is the init + frame-loop shell.
 
 ## Testing Notes
 
