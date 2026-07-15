@@ -443,16 +443,15 @@ destroyed surface targets leave inert, scrolling burnt-out wrecks. Checkpoints
 still come later with the stage system. No roguelike meta-progression between
 runs.
 
-Open question, deliberately deferred to the terrain system build: should
-wrecks block torpedoes the way land will? A live surface target already
-blocks its lane (the torpedo hits it), so killing it either opens the lane
-(wrecks inert, current behavior) or leaves debris blocking it (wrecks act
-like drifting land: armed shots detonate on the wreck — whose splash can
-still reach a target tucked behind it, an emergent detonator trick —
-unarmed shots fizzle, and the reticle clamps to the first wreck in the
-lane). Both are coherent; blocking wrecks would preview the terrain rules
-before islands appear and share their implementation, which is why the
-call belongs with that task rather than now.
+Wrecks stay inert — they do **not** block torpedoes (decided with the
+terrain system build, where the question had been deferred). Killing a
+surface target opens its lane; leaving debris that blocks it would punish
+the player for succeeding, and a flat scorch mark doesn't read as a
+blocker the way a land mass does — the rule that blocked lanes must read
+before firing (the reticle clamp) would look like a bug on a wreck.
+Randomly accumulating blockers would also erode the deterministic,
+memorizable stage layout. The emergent "detonate against a blocker to
+splash a target behind it" trick still exists — via land edges.
 
 **Level & stage design**: Stages are scripted timelines — a flat,
 deterministic table of spawn events triggered by scroll distance traveled,
@@ -501,7 +500,8 @@ is compiled by a `tools/` script into a committed C spawn-event table the
 engine consumes directly — no text parsing at runtime — with a drift test
 that regenerates and compares, same as `tests/test_xm_assets.py`.
 
-**Terrain**: Non-colliding for flight — the skimmer and its gun ignore land
+**Terrain** (implemented): Non-colliding for flight — the skimmer and its
+gun ignore land
 entirely (reaffirming the "not Scramble, no terrain crashes" stance) — but
 land **blocks torpedoes**: an armed torpedo detonates against the first
 land edge in its lane (splash can still catch shoreline targets — a
@@ -516,7 +516,16 @@ beyond it (deliberately risky), catch the target with edge-splash if it
 hugs the shoreline, or detonate a max-range shot in an adjacent clear
 lane and let splash reach. Terrain is therefore
 stage data (blocking footprints drifting at scroll speed in the timeline),
-not just background art. Stage 1 is open ocean with sparse islets; heavier
+not just background art. At runtime the footprints need no entity pool:
+each one's screen rectangle derives purely from the run's scroll distance
+(the same clock the ground glyphs spawn on), so the boss lock freezing the
+scroll freezes land with the rest of the water for free, and restart
+rewinds it with the script. Rendering is a first-pass code-drawn look
+until the islet art task: a sand fill over a pale foam surf rim, drawn
+above the water layer (wake, wrecks) and below all targets so shoreline
+installations sit on their islets — the rim is drawn for every footprint
+before any fill, so multi-rectangle islands keep one clean shoreline
+with no interior seams. Stage 1 is open ocean with sparse islets; heavier
 terrain flavor (storms, archipelagos) is per-stage variety for later
 stages. From Stage 2, land also *holds* destructible targets — green
 mortar-class installations built on terrain (see Core mechanic) — so
@@ -531,10 +540,13 @@ map (`assets/stages/stage1.txt`) compiles to a C event table
 (`src/stage1_data.c`) that the engine walks by scroll distance — the
 full Stage 1 roster (Skimmer Drone solo/line/V formations, Interceptor,
 Gunship, Casemate, Tracking Turret, Relay Node, Mine, Mobile Platform)
-spawns at its authored beats, and the boss lock at
+spawns at its authored beats, terrain footprints from the map block
+torpedoes and clamp the reticle (beat 7's islet set-piece works: the
+Casemate behind the island is permanently shielded in its lane), and the
+boss lock at
 map end freezes the scroll (raising the boss music as a placeholder for
-the future fight). Remaining for a completable Stage 1: the terrain
-system and the boss fight itself.
+the future fight). Remaining for a completable Stage 1: the boss fight
+itself.
 
 ## Building on Windows (MSVC + vcpkg)
 
@@ -580,6 +592,10 @@ screen. Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.
 Hits before arming do only small direct impact damage, with no splash.
+Land (sand islets drifting with the water) never collides with the ship
+or gun, but blocks torpedoes: the reticle clamps to a land edge in the
+lane, armed torpedoes detonate against it (splash can still catch
+shoreline targets), and unarmed ones fizzle.
 Casemates fire straight red lane shots; rotating turrets gently lead the
 player's current movement before firing.
 Enemy contact costs one life, triggers a brief ship explosion, then respawns

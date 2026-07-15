@@ -195,6 +195,27 @@ static void TestRelayWreckRadius(void) {
     CHECK(wrecks[0].radius == RELAY_NODE_RADIUS);
 }
 
+static void TestStage1IsletSetPiece(void) {
+    // Stage 1 ships terrain (beat 7's islet), and the map keeps its
+    // permanent-shield puzzle: at least one Casemate sits east of an
+    // islet in its own lane, so its row approach is blocked for good
+    // (terrain and targets drift together) and the counter-play is
+    // positional - fly past the island and fire from beyond it.
+    CHECK(STAGE1_TERRAIN_COUNT > 0);
+
+    bool shielded = false;
+    for (int e = 0; e < STAGE1_EVENT_COUNT && !shielded; e++) {
+        if (STAGE1_EVENTS[e].kind != STAGE_SPAWN_CASEMATE) continue;
+        for (int t = 0; t < STAGE1_TERRAIN_COUNT; t++) {
+            const StageTerrainFootprint *land = &STAGE1_TERRAIN[t];
+            bool laneOverlaps = STAGE1_EVENTS[e].laneY > (float)land->y
+                && STAGE1_EVENTS[e].laneY < (float)(land->y + land->heightPx);
+            if (laneOverlaps && land->px + land->widthPx <= STAGE1_EVENTS[e].px) shielded = true;
+        }
+    }
+    CHECK(shielded);
+}
+
 static void TestBossLockFreezesScript(void) {
     GameState state;
     ResetRunState(&state);
@@ -245,6 +266,7 @@ int main(void) {
     TestAirRosterGlyphsSpawn();
     TestMineLeavesNoWreck();
     TestRelayWreckRadius();
+    TestStage1IsletSetPiece();
     TestBossLockFreezesScript();
     TestFormationPatterns();
 

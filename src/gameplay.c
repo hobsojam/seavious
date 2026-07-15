@@ -365,10 +365,38 @@ void ResolveBulletAirTargetCollisions(Bullet bullets[], int bulletCount, AirTarg
 
 }
 
-Vector2 CalculateTorpedoReticle(Vector2 spawn) {
+Rectangle TerrainScreenRect(StageTerrainFootprint footprint, float scrollDistance) {
+    // Same clock as the ground glyphs: a footprint's left edge reaches the
+    // right screen edge exactly when scrollDistance reaches its px, then
+    // drifts left with the water.
+    return (Rectangle){
+        (float)footprint.px - scrollDistance + GAME_WIDTH,
+        (float)footprint.y,
+        (float)footprint.widthPx,
+        (float)footprint.heightPx
+    };
+}
+
+// True when a torpedo travelling on laneY overlaps the footprint's rows.
+static bool TerrainOverlapsLane(Rectangle rect, float laneY) {
+    float hh = TORPEDO_HEIGHT / 2.0f;
+    return laneY + hh > rect.y && laneY - hh < rect.y + rect.height;
+}
+
+Vector2 CalculateTorpedoReticle(Vector2 spawn, const StageTerrainFootprint terrain[], int terrainCount,
+    float scrollDistance) {
     float clampedX = spawn.x + TORPEDO_MAX_RANGE;
     float screenMaxX = GAME_WIDTH - TORPEDO_RETICLE_SCREEN_MARGIN;
     if (clampedX > screenMaxX) clampedX = screenMaxX;
+    // A blocked lane reads before firing: clamp to the first land edge
+    // ahead of the nose (land fully behind the spawn point is ignored -
+    // flying past an island to fire from beyond it is the counter-play).
+    for (int i = 0; i < terrainCount; i++) {
+        Rectangle rect = TerrainScreenRect(terrain[i], scrollDistance);
+        if (!TerrainOverlapsLane(rect, spawn.y)) continue;
+        if (rect.x + rect.width <= spawn.x) continue;
+        if (rect.x < clampedX) clampedX = rect.x;
+    }
     if (clampedX < spawn.x) clampedX = spawn.x;
     return (Vector2){ clampedX, spawn.y };
 }
@@ -402,10 +430,11 @@ Vector2 CalculateLeadTorpedoVelocity(Vector2 spawn, const SurfaceTarget targets[
     return aim;
 }
 
-void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn) {
+void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn, const StageTerrainFootprint terrain[], int terrainCount,
+    float scrollDistance) {
     torpedo->active = true;
     torpedo->pos = spawn;
-    torpedo->target = CalculateTorpedoReticle(spawn);
+    torpedo->target = CalculateTorpedoReticle(spawn, terrain, terrainCount, scrollDistance);
     torpedo->vel = (Vector2){ TORPEDO_SPEED, 0.0f };
     torpedo->distanceTravelled = 0.0f;
     torpedo->armed = false;
@@ -446,6 +475,34 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt) {
     if (torpedo->distanceTravelled >= TORPEDO_ARMING_DISTANCE) torpedo->armed = true;
 
     return NoTorpedoImpact();
+}
+
+TorpedoImpact ResolveTorpedoTerrainCollision(Torpedo *torpedo, const StageTerrainFootprint terrain[],
+    int terrainCount, float scrollDistance) {
+    if (!torpedo->active) return NoTorpedoImpact();
+
+    float hw = TORPEDO_WIDTH / 2.0f;
+    float bestEdgeX = 0.0f;
+    bool hit = false;
+    for (int i = 0; i < terrainCount; i++) {
+        Rectangle rect = TerrainScreenRect(terrain[i], scrollDistance);
+        if (!TerrainOverlapsLane(rect, torpedo->pos.y)) continue;
+        if (torpedo->pos.x + hw < rect.x || torpedo->pos.x - hw > rect.x + rect.width) continue;
+        // Impact sits at the land edge the nose crossed; a torpedo fired
+        // while already over land (the ship flies above it) dies in place.
+        float edgeX = torpedo->pos.x < rect.x ? rect.x : torpedo->pos.x;
+        if (!hit || edgeX < bestEdgeX) {
+            bestEdgeX = edgeX;
+            hit = true;
+        }
+    }
+    if (!hit) return NoTorpedoImpact();
+
+    Vector2 impactPos = { bestEdgeX, torpedo->pos.y };
+    torpedo->active = false;
+    // Armed = detonate at the edge (the caller resolves splash, which can
+    // still catch shoreline targets); unarmed = fizzle, no splash at all.
+    return TorpedoImpactAt(torpedo->armed ? TORPEDO_IMPACT_EXPLOSION : TORPEDO_IMPACT_DIRECT, impactPos);
 }
 
 static bool TrySpawnSurfaceTarget(SurfaceTarget targets[], int count, SurfaceTargetType type, float radius, int hp,

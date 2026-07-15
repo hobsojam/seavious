@@ -2,6 +2,7 @@
 #define SEAVIOUS_GAMEPLAY_H
 
 #include "raylib.h"
+#include "stage_data.h"
 
 #define GAME_WIDTH    512
 #define GAME_HEIGHT   384
@@ -252,11 +253,24 @@ void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playe
 void ResolveBulletAirTargetCollisions(Bullet bullets[], int bulletCount, AirTarget targets[], int targetCount,
     GameEventQueue *events);
 
-Vector2 CalculateTorpedoReticle(Vector2 spawn);
+// Terrain: stage-data land footprints drifting with the scroll. Land never
+// collides with the ship or gun (not Scramble - no terrain crashes); it
+// only interacts with the torpedo lane: armed torpedoes detonate at the
+// first land edge, unarmed ones fizzle, and the reticle clamps to that
+// edge so a blocked lane reads before firing. Footprints live in world
+// scroll-distance coordinates, so screen position derives purely from
+// scrollDistance - no entity pool, and the boss lock freezes land with
+// the rest of the water for free.
+Rectangle TerrainScreenRect(StageTerrainFootprint footprint, float scrollDistance);
+Vector2 CalculateTorpedoReticle(Vector2 spawn, const StageTerrainFootprint terrain[], int terrainCount,
+    float scrollDistance);
 Vector2 CalculateLeadTorpedoVelocity(Vector2 spawn, const SurfaceTarget targets[], int targetCount);
-void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn);
+void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn, const StageTerrainFootprint terrain[], int terrainCount,
+    float scrollDistance);
 void FireLeadTorpedo(Torpedo *torpedo, Vector2 spawn, const SurfaceTarget targets[], int targetCount);
 TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt);
+TorpedoImpact ResolveTorpedoTerrainCollision(Torpedo *torpedo, const StageTerrainFootprint terrain[],
+    int terrainCount, float scrollDistance);
 
 bool TrySpawnCasemate(SurfaceTarget targets[], int count, float y);
 bool TrySpawnTrackingTurret(SurfaceTarget targets[], int count, float y);
