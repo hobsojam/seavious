@@ -77,6 +77,9 @@ void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect
             TrySpawnExplosion(explosions, event->pos,
                 pod ? EXPLOSION_AIR_TARGET : EXPLOSION_SURFACE_TARGET,
                 core ? 22.0f : 16.0f, core ? 0.55f : 0.45f);
+        } else if (event->type == GAME_EVENT_BOSS_MISSILE_DOWNED) {
+            // A missile shot out of the air: small airborne pop, no wreck.
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_AIR_TARGET, 7.0f, 0.22f);
         } else if (event->type == GAME_EVENT_BOSS_DEFEATED) {
             // Capstone of the death chain: the biggest single burst in
             // the game, at the hull center.

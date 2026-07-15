@@ -160,8 +160,14 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       and the ship patrols vertically with a 180° turn at each end, so
       each heading exposes exactly one broadside hull section and
       killing both takes at least one full turn; blowing both tears
-      the breach open as the sole torpedo lane to the core. Needs
-      another Windows playtest for pacing (sail speed, turn time).
+      the breach open as the sole torpedo lane to the core. Second
+      revision: the hull sections are SAM batteries (the player is a
+      flyer, so surface-to-air is the right class, and open launch
+      cells are the literal gaps in the armor) — the facing battery
+      launches gun-shootable homing missiles (130 px/s, 140°/s turn
+      cap, 4s fuel, 50 pts for a shootdown) instead of straight lane
+      shots. Needs another Windows playtest for pacing (sail speed,
+      turn time, missile turn rate/fuel).
       Placeholder SFX: mortar lob
       reuses torpedo-launch, salvage jingle reuses the UI blip (see
       Audio tasks)
@@ -322,10 +328,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       already names the Interceptor shot as the first candidate; decide
       whether one shared shot sound covers all enemies (matching the
       shared projectile) or the Gunship spread earns its own. The boss
-      added three placeholders to replace here too: the mortar lob
-      (reuses torpedo-launch, which a player torpedo impact can cut
-      short), the mortar blast (reuses the explosion boom), and the
-      salvage pickup jingle (reuses the UI blip)
+      added placeholders to replace here too: the mortar lob (reuses
+      torpedo-launch, which a player torpedo impact can cut short), the
+      mortar blast (reuses the explosion boom), the salvage pickup
+      jingle (reuses the UI blip), and the SAM launch (currently silent
+      like all enemy fire; the shootdown reuses the air pop)
 - [x] Define sound effects — nine for the current game: gun shot,
       torpedo launch, torpedo splash (unarmed hit), explosion (armed
       boom), air pop (drone kill), player death, relay drone launch

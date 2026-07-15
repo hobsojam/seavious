@@ -31,8 +31,11 @@ bool BossSequenceOwnsPlayer(const GameState *state);
 
 // Player hazards. Contact with the hull is lethal only while the boss
 // lives (ENTERING/FIGHTING) - the settled wreck is inert like any wreck.
+// A SAM is absorbed on player contact (like an enemy bullet) whether or
+// not invulnerability makes it free.
 bool ResolveBossContactDamage(const BossState *boss, Vector2 playerPos, float playerRadius);
 bool ResolveMortarBlastPlayerHit(const BossState *boss, Vector2 playerPos, float playerRadius);
+bool ResolveBossMissilePlayerCollision(BossState *boss, Vector2 playerPos, float playerRadius);
 
 // Torpedo-vs-part: mirrors the surface-target rules - an armed hit
 // returns EXPLOSION and leaves the damage to the splash pass, an unarmed

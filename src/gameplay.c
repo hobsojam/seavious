@@ -76,6 +76,8 @@ int ScoreGameEvents(const GameEventQueue *events) {
             else if (event->target.bossPart == BOSS_PART_POD_FORE
                 || event->target.bossPart == BOSS_PART_POD_AFT) score += SCORE_BOSS_POD;
             else score += SCORE_BOSS_HULL_SECTION;
+        } else if (event->type == GAME_EVENT_BOSS_MISSILE_DOWNED) {
+            score += SCORE_BOSS_MISSILE;
         }
     }
     return score;

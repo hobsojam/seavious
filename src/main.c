@@ -123,6 +123,13 @@ int main(void) {
                 .landed = true,
                 .active = true
             };
+            // A SAM already in flight covers the homing + render paths
+            // (and likely the shootdown, crossing the gun stream).
+            state.boss.missiles[0] = (BossMissile){
+                .pos = { 320.0f, 176.0f },
+                .vel = { -BOSS_MISSILE_SPEED, 0.0f },
+                .active = true
+            };
         }
         if (smokeFrames > 0 && framesRun == 450 && state.boss.phase == BOSS_PHASE_FIGHTING) {
             state.boss.phase = BOSS_PHASE_SALVAGE_DOCK;

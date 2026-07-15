@@ -207,6 +207,9 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     bool enemyBulletHit = ResolveEnemyBulletPlayerCollision(
         state->enemyBullets, MAX_ENEMY_BULLETS, state->player, playerRadius
     );
+    // SAMs are absorbed on contact like enemy bullets, kill only when
+    // the player is vulnerable.
+    bool missileHit = ResolveBossMissilePlayerCollision(&state->boss, state->player, playerRadius);
     // Once the core dies the run is won: nothing can kill the player
     // through the death chain and salvage beat.
     bool bossVictory = state->boss.phase >= BOSS_PHASE_DYING;
@@ -221,7 +224,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
         ResolveBossContactDamage(&state->boss, state->player, playerRadius)
         || ResolveMortarBlastPlayerHit(&state->boss, state->player, playerRadius)
     );
-    if (playerVulnerable && (enemyBulletHit || contactHit || bossHit)) {
+    if (playerVulnerable && (enemyBulletHit || missileHit || contactHit || bossHit)) {
         TrySpawnExplosion(state->explosions, state->player, EXPLOSION_PLAYER, 20.0f, PLAYER_DEATH_DURATION);
         BeginPlayerDeath(state);
     }

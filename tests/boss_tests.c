@@ -152,9 +152,9 @@ static void TestBossGunsFireStaggered(void) {
     GameState state;
     SetUpFightingBoss(&state);
 
-    // Within ~3.2s every armed part has opened fire (the latest opening
-    // shot lands at 2.6s), and the shots arrive staggered rather than as
-    // one volley.
+    // Within ~3.2s every armed part on the player's side has opened
+    // fire - pod bullets plus the facing SAM battery's missile - and
+    // the openings arrive staggered rather than as one volley.
     int lastCount = 0;
     bool sawStagger = false;
     for (int i = 0; i < 64; i++) {
@@ -162,6 +162,9 @@ static void TestBossGunsFireStaggered(void) {
         int count = 0;
         for (int b = 0; b < MAX_ENEMY_BULLETS; b++) {
             if (state.enemyBullets[b].active) count++;
+        }
+        for (int m = 0; m < MAX_BOSS_MISSILES; m++) {
+            if (state.boss.missiles[m].active) count++;
         }
         if (count > lastCount && lastCount > 0) sawStagger = true;
         lastCount = count;
@@ -275,6 +278,63 @@ static void TestSolidHullShieldsFarSection(void) {
     CHECK(state.boss.partHp[BOSS_PART_CORE] == BOSS_CORE_HP - BOSS_CORE_TORPEDO_DAMAGE);
 }
 
+static void TestSamBattery(void) {
+    GameState state;
+    SetUpFightingBoss(&state);
+    state.player = (Vector2){ 80.0f, 176.0f };
+
+    // The facing battery's first launch comes at its stagger delay; the
+    // missile leaves the cell flying west.
+    int alive = 0;
+    for (int i = 0; i < 40 && alive == 0; i++) {
+        UpdateBossFight(&state, 0.05f);
+        for (int m = 0; m < MAX_BOSS_MISSILES; m++) {
+            if (state.boss.missiles[m].active) alive++;
+        }
+    }
+    CHECK(alive == 1);
+    CHECK(state.boss.missiles[0].vel.x < 0.0f);
+
+    // Homing: with the player due north, the heading bends toward it
+    // but never faster than the turn cap.
+    BossMissile *missile = &state.boss.missiles[0];
+    missile->pos = (Vector2){ 200.0f, 200.0f };
+    missile->vel = (Vector2){ -BOSS_MISSILE_SPEED, 0.0f };
+    state.player = (Vector2){ 200.0f, 60.0f };
+    float before = atan2f(missile->vel.y, missile->vel.x);
+    UpdateBossFight(&state, 0.05f);
+    float after = atan2f(missile->vel.y, missile->vel.x);
+    float turned = fabsf(after - before);
+    if (turned > PI) turned = 2.0f * PI - turned;
+    CHECK(turned > 0.01f);
+    CHECK(turned <= BOSS_MISSILE_TURN_RATE * DEG2RAD * 0.05f + 0.001f);
+
+    // The gun knocks it down for a small score (air-class rule).
+    state.gameEvents.count = 0;
+    state.bullets[0] = (Bullet){ .pos = missile->pos, .active = true };
+    UpdateBossFight(&state, 0.0001f);
+    CHECK(!missile->active && !state.bullets[0].active);
+    CHECK(ScoreGameEvents(&state.gameEvents) == SCORE_BOSS_MISSILE);
+
+    // Player contact absorbs the missile (the kill gating lives in the
+    // update loop, like enemy bullets).
+    state.boss.missiles[1] = (BossMissile){
+        .pos = state.player, .vel = { -BOSS_MISSILE_SPEED, 0.0f }, .active = true
+    };
+    CHECK(ResolveBossMissilePlayerCollision(&state.boss, state.player, PLAYER_HIT_RADIUS));
+    CHECK(!state.boss.missiles[1].active);
+
+    // Out of fuel: fizzles harmlessly, no downed event, no score.
+    state.boss.missiles[2] = (BossMissile){
+        .pos = { 200.0f, 100.0f }, .vel = { -BOSS_MISSILE_SPEED, 0.0f },
+        .age = BOSS_MISSILE_LIFETIME - 0.01f, .active = true
+    };
+    state.gameEvents.count = 0;
+    UpdateBossFight(&state, 0.05f);
+    CHECK(!state.boss.missiles[2].active);
+    CHECK(state.gameEvents.count == 0);
+}
+
 static void TestPatrolTurnSwapsExposedSide(void) {
     GameState state;
     SetUpFightingBoss(&state);
@@ -304,13 +364,18 @@ static void TestDefeatAndSalvageFlow(void) {
     state.boss.partHp[BOSS_PART_CORE] = 1;
     state.bullets[0] = (Bullet){ .pos = BossPartPosition(&state.boss, BOSS_PART_CORE), .active = true };
     state.enemyBullets[0] = (EnemyBullet){ .pos = { 10.0f, 10.0f }, .vel = { -1.0f, 0.0f }, .active = true };
+    state.boss.missiles[0] = (BossMissile){
+        .pos = { 200.0f, 100.0f }, .vel = { -BOSS_MISSILE_SPEED, 0.0f }, .active = true
+    };
     UpdateBossFight(&state, 0.0001f);
     CHECK(state.boss.phase == BOSS_PHASE_DYING);
     CHECK(state.bossActive);
 
-    // The chain clears surviving enemy fire and walks the hull.
+    // The chain clears surviving enemy fire - bullets and SAMs both -
+    // and walks the hull.
     UpdateBossFight(&state, 0.1f);
     CHECK(!state.enemyBullets[0].active);
+    CHECK(!state.boss.missiles[0].active);
     for (int i = 0; i < 100 && state.boss.phase == BOSS_PHASE_DYING; i++) {
         UpdateBossFight(&state, 0.05f);
     }
@@ -355,6 +420,7 @@ int main(void) {
     TestMortarCadenceAndBlast();
     TestBossContactWindow();
     TestSolidHullShieldsFarSection();
+    TestSamBattery();
     TestPatrolTurnSwapsExposedSide();
     TestDefeatAndSalvageFlow();
 

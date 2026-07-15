@@ -110,6 +110,12 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
             case GAME_EVENT_MORTAR_BLAST:
                 PlayIfValid(audio->explosion);
                 break;
+            case GAME_EVENT_BOSS_MISSILE_DOWNED:
+                // A downed SAM pops like any small air kill; the launch
+                // itself stays silent with the rest of the enemy fire
+                // (see the enemy-fire SFX task).
+                PlayIfValid(audio->airPop);
+                break;
             case GAME_EVENT_MORTAR_FIRED:
                 // Placeholder lob sound until the enemy-fire SFX task:
                 // reuses the torpedo-launch whoosh, which a simultaneous

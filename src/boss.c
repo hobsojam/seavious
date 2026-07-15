@@ -197,6 +197,95 @@ static void StartBossFight(GameState *state) {
     state->bossActive = true;
 }
 
+static void LaunchBossMissile(GameState *state, Vector2 from) {
+    BossState *boss = &state->boss;
+    for (int i = 0; i < MAX_BOSS_MISSILES; i++) {
+        if (boss->missiles[i].active) continue;
+        boss->missiles[i] = (BossMissile){
+            .pos = from,
+            .vel = { -BOSS_MISSILE_SPEED, 0.0f },
+            .age = 0.0f,
+            .active = true
+        };
+        TrySpawnExplosion(state->explosions, from, EXPLOSION_SURFACE_TARGET, 5.0f, 0.15f);
+        return;
+    }
+}
+
+// Missiles steer toward the player at a capped turn rate, so a hard
+// juke beats them; equal-ish speed means a straight run merely outlasts
+// their fuel. They keep flying in every phase (the death chain clears
+// them with the rest of the enemy fire).
+static void UpdateBossMissiles(GameState *state, float dt) {
+    BossState *boss = &state->boss;
+    for (int i = 0; i < MAX_BOSS_MISSILES; i++) {
+        BossMissile *missile = &boss->missiles[i];
+        if (!missile->active) continue;
+
+        missile->age += dt;
+        if (missile->age >= BOSS_MISSILE_LIFETIME) {
+            // Out of fuel: fizzles with a small pop, no hazard.
+            missile->active = false;
+            TrySpawnExplosion(state->explosions, missile->pos, EXPLOSION_AIR_TARGET, 5.0f, 0.18f);
+            continue;
+        }
+
+        float heading = atan2f(missile->vel.y, missile->vel.x);
+        float desired = atan2f(state->player.y - missile->pos.y, state->player.x - missile->pos.x);
+        float turn = desired - heading;
+        while (turn > PI) turn -= 2.0f * PI;
+        while (turn < -PI) turn += 2.0f * PI;
+        float maxTurn = BOSS_MISSILE_TURN_RATE * DEG2RAD * dt;
+        if (turn > maxTurn) turn = maxTurn;
+        if (turn < -maxTurn) turn = -maxTurn;
+        heading += turn;
+        missile->vel = (Vector2){ cosf(heading) * BOSS_MISSILE_SPEED, sinf(heading) * BOSS_MISSILE_SPEED };
+        missile->pos.x += missile->vel.x * dt;
+        missile->pos.y += missile->vel.y * dt;
+
+        if (missile->pos.x < -24.0f || missile->pos.x > (float)GAME_WIDTH + 24.0f
+            || missile->pos.y < -24.0f || missile->pos.y > (float)PLAY_HEIGHT + 24.0f) {
+            missile->active = false;
+        }
+    }
+}
+
+// The missile is airborne, so the gun's air-class rule applies: bullets
+// knock it down (for a small score via the downed event).
+static void ResolveBulletBossMissileCollisions(GameState *state) {
+    BossState *boss = &state->boss;
+    for (int b = 0; b < MAX_BULLETS; b++) {
+        if (!state->bullets[b].active) continue;
+        for (int i = 0; i < MAX_BOSS_MISSILES; i++) {
+            if (!boss->missiles[i].active) continue;
+            float hitDist = BULLET_RADIUS + BOSS_MISSILE_RADIUS;
+            if (DistanceSquared(state->bullets[b].pos, boss->missiles[i].pos) <= hitDist * hitDist) {
+                state->bullets[b].active = false;
+                boss->missiles[i].active = false;
+                PushGameEvent(&state->gameEvents, (GameEvent){
+                    .type = GAME_EVENT_BOSS_MISSILE_DOWNED, .pos = boss->missiles[i].pos
+                });
+                break;
+            }
+        }
+    }
+}
+
+bool ResolveBossMissilePlayerCollision(BossState *boss, Vector2 playerPos, float playerRadius) {
+    bool hit = false;
+    for (int i = 0; i < MAX_BOSS_MISSILES; i++) {
+        if (!boss->missiles[i].active) continue;
+        float hitDist = BOSS_MISSILE_RADIUS + playerRadius;
+        if (DistanceSquared(playerPos, boss->missiles[i].pos) <= hitDist * hitDist) {
+            // Absorbed on contact either way (like enemy bullets), even
+            // if invulnerability means it costs nothing.
+            boss->missiles[i].active = false;
+            hit = true;
+        }
+    }
+    return hit;
+}
+
 // The patrol: sail a leg, then turn 180 in place at the lane end - the
 // bow sweeps over the right screen edge, away from the player - and
 // sail back. Each turn swaps which broadside (and hull section) faces
@@ -245,16 +334,24 @@ static void FireBossGuns(GameState *state, float dt) {
         while (boss->partFireTimer[part] >= interval) {
             boss->partFireTimer[part] -= interval;
             Vector2 from = BossPartPosition(boss, (BossPartId)part);
-            // Pods fire turret-style aimed shots; hull sections fire
-            // straight lane shots, casemate-style.
-            Vector2 dir = pod ? AimAt(from, state->player) : (Vector2){ -1.0f, 0.0f };
             float muzzle = BOSS_PART_GEOMETRY[part].radius + 3.0f;
-            TrySpawnEnemyBullet(
-                state->enemyBullets,
-                MAX_ENEMY_BULLETS,
-                (Vector2){ from.x + dir.x * muzzle, from.y + dir.y * muzzle },
-                (Vector2){ dir.x * ENEMY_BULLET_SPEED, dir.y * ENEMY_BULLET_SPEED }
-            );
+            if (pod) {
+                // Pods fire turret-style aimed shots.
+                Vector2 dir = AimAt(from, state->player);
+                TrySpawnEnemyBullet(
+                    state->enemyBullets,
+                    MAX_ENEMY_BULLETS,
+                    (Vector2){ from.x + dir.x * muzzle, from.y + dir.y * muzzle },
+                    (Vector2){ dir.x * ENEMY_BULLET_SPEED, dir.y * ENEMY_BULLET_SPEED }
+                );
+            } else {
+                // Hull sections are SAM batteries: the missile leaves the
+                // cell westward (out the player-facing door), then its
+                // own steering takes over. A cell-door flash marks the
+                // launch; like all enemy fire it is silent until the
+                // enemy-fire SFX task.
+                LaunchBossMissile(state, (Vector2){ from.x - muzzle, from.y });
+            }
         }
     }
 }
@@ -430,6 +527,7 @@ void UpdateBossFight(GameState *state, float dt) {
             // The remaining guns died with the core: their shots vanish
             // into the spectacle, and the chain walks the hull.
             for (int i = 0; i < MAX_ENEMY_BULLETS; i++) state->enemyBullets[i].active = false;
+            for (int i = 0; i < MAX_BOSS_MISSILES; i++) boss->missiles[i].active = false;
             while (boss->deathExplosionsSpawned < BOSS_DEATH_EXPLOSION_COUNT
                    && boss->phaseTimer >= BOSS_DEATH_EXPLOSION_INTERVAL * (float)(boss->deathExplosionsSpawned + 1)) {
                 TrySpawnExplosion(
@@ -486,5 +584,7 @@ void UpdateBossFight(GameState *state, float dt) {
             break;
     }
 
+    UpdateBossMissiles(state, dt);
+    ResolveBulletBossMissileCollisions(state);
     UpdateMortarShells(boss, &state->gameEvents, dt);
 }

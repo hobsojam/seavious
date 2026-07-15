@@ -75,6 +75,15 @@ typedef struct {
     bool active;
 } MortarShell;
 
+// One SAM off a hull-section battery: steers toward the player at a
+// capped turn rate until its fuel runs out; the gun can shoot it down.
+typedef struct {
+    Vector2 pos;
+    Vector2 vel;
+    float age;
+    bool active;
+} BossMissile;
+
 typedef struct {
     BossPhase phase;
     float phaseTimer;
@@ -89,6 +98,7 @@ typedef struct {
     bool coreExposed;
     float mortarTimer;
     MortarShell shells[MAX_MORTAR_SHELLS];
+    BossMissile missiles[MAX_BOSS_MISSILES];
     int deathExplosionsSpawned;
     Vector2 salvageStart;   // player position when the autopilot takes over
     Vector2 salvageDomePos; // mortar dome while lifting/docking

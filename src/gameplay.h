@@ -127,7 +127,20 @@ typedef enum {
 #define BOSS_CORE_TORPEDO_DAMAGE 6
 #define BOSS_HULL_SECTION_TORPEDO_WORTH 6
 #define BOSS_POD_FIRE_INTERVAL 2.0f
-#define BOSS_HULL_SECTION_FIRE_INTERVAL 2.5f
+// The hull sections are SAM batteries: launch cells through the armor
+// belt (their open doors are exactly the gap a torpedo fits into - the
+// weak-point fiction). The player-facing battery launches one homing
+// missile per interval; the missile is airborne, so the gun can shoot
+// it down (strict class mapping holds), it flies slightly faster than
+// the skimmer with a capped turn rate so it can be out-turned, and it
+// fizzles when its fuel runs out.
+#define BOSS_SAM_INTERVAL 3.0f
+#define MAX_BOSS_MISSILES 4
+#define BOSS_MISSILE_SPEED 130.0f
+#define BOSS_MISSILE_TURN_RATE 140.0f
+#define BOSS_MISSILE_LIFETIME 4.0f
+#define BOSS_MISSILE_RADIUS 4.0f
+#define SCORE_BOSS_MISSILE 50
 #define BOSS_MORTAR_INTERVAL 4.0f
 #define BOSS_MORTAR_INTERVAL_CORE_EXPOSED 2.8f
 #define BOSS_MORTAR_AIR_TIME 1.2f
@@ -240,6 +253,7 @@ typedef enum {
     GAME_EVENT_DRONE_LAUNCHED,
     GAME_EVENT_MINE_DETONATED,
     GAME_EVENT_BOSS_PART_DESTROYED,
+    GAME_EVENT_BOSS_MISSILE_DOWNED,
     GAME_EVENT_BOSS_DEFEATED,
     GAME_EVENT_MORTAR_FIRED,
     GAME_EVENT_MORTAR_BLAST,

@@ -196,6 +196,30 @@ static void DrawBossAirborne(const GameState *state, const GameAssets *assets) {
         }
     }
 
+    // SAMs: red dart with an exhaust trail, rotated to heading - enemy
+    // ordnance is always red, and the dart shape plus trail separates
+    // "homing missile" from the diamond bullets at a glance.
+    for (int i = 0; i < MAX_BOSS_MISSILES; i++) {
+        const BossMissile *missile = &state->boss.missiles[i];
+        if (!missile->active) continue;
+        rlPushMatrix();
+        rlTranslatef(missile->pos.x, missile->pos.y, 0.0f);
+        rlRotatef(atan2f(missile->vel.y, missile->vel.x) * RAD2DEG, 0.0f, 0.0f, 1.0f);
+        for (int puff = 0; puff < 3; puff++) {
+            DrawCircle(-7 - 4 * puff, 0, 1.6f - 0.3f * (float)puff,
+                (Color){ 255, 140, 60, (unsigned char)(150 - 40 * puff) });
+        }
+        DrawRectangle(-5, -2, 9, 4, (Color){ 232, 60, 60, 255 });
+        DrawTriangle(
+            (Vector2){ 8.0f, 0.0f },
+            (Vector2){ 4.0f, -2.0f },
+            (Vector2){ 4.0f, 2.0f },
+            (Color){ 232, 60, 60, 255 }
+        );
+        DrawRectangle(-1, -1, 2, 2, (Color){ 255, 250, 240, 255 });
+        rlPopMatrix();
+    }
+
     // Salvage: the dome lifts off the wreck, shrinks slightly as it
     // docks onto the skimmer's spine, and rides there from then on.
     if (boss->phase >= BOSS_PHASE_SALVAGE_DOCK) {
