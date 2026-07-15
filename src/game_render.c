@@ -428,7 +428,11 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         );
     }
 
-    DrawTerrain(state, assets);
+    // The modular tiles remain the data foundation for future continuous
+    // land, but their first visual pass is intentionally not shipped: the
+    // standalone art has the better coastline until a hand-authored atlas
+    // can provide real corners and coves instead of visible grid seams.
+    DrawStandaloneTerrain(state, assets);
 
     // Reticle marks maximum torpedo range, not a target lock. It stands
     // down with the rest of the weapons once the salvage autopilot flies.
