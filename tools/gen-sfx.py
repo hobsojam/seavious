@@ -17,6 +17,8 @@ music: refine in ChipTone later if a sound needs more character.
   relay_launch.wav    Relay Node drone launch: broadcast-y double warble
   mine_detonation.wav contact-mine blast: sharp bright crack + metal ring
   ui_blip.wav         clean rising square, run-restart confirmation
+  mortar_fire.wav     short low thump and arc, distinct from player torpedo
+  mortar_salvage.wav  two-note bright pickup for salvaged mortar upgrade
 
 Run from anywhere:  python3 tools/gen-sfx.py [out_dir]
 """
@@ -173,6 +175,33 @@ def gen_ui_blip():
     return out
 
 
+def gen_mortar_fire():
+    # A compact low thump with a rising arc, deliberately drier and shorter
+    # than the player's sustained torpedo propulsion sound.
+    duration = 0.20
+    n = int(SR * duration)
+    rnd = random.Random(17)
+    out = [0.0] * n
+    for i, t, phase in sweep_phase(n, lambda t: 105.0 + 190.0 * min(t / 0.12, 1.0)):
+        thump = math.sin(2.0 * math.pi * 72.0 * t) * math.exp(-t * 22.0)
+        arc = 0.55 * square(phase, duty=0.35) * math.exp(-t * 13.0)
+        grit = rnd.uniform(-1.0, 1.0) * math.exp(-t * 32.0) * 0.28
+        out[i] = envelope(t, duration, 8.0) * (thump + arc + grit)
+    return out
+
+
+def gen_mortar_salvage():
+    # A compact two-note square pickup that reads as an equipment gain, not
+    # a generic menu click or a relay transmission.
+    duration = 0.30
+    n = int(SR * duration)
+    out = [0.0] * n
+    for i, t, phase in sweep_phase(n, lambda t: 660.0 if t < 0.13 else 990.0):
+        note_attack = min((t % 0.13) / 0.018, 1.0)
+        out[i] = 0.62 * note_attack * envelope(t, duration, 6.0) * square(phase, duty=0.25)
+    return out
+
+
 SOUNDS = {
     'gun_shot.wav': gen_gun_shot,
     'torpedo_launch.wav': gen_torpedo_launch,
@@ -183,6 +212,8 @@ SOUNDS = {
     'relay_launch.wav': gen_relay_launch,
     'mine_detonation.wav': gen_mine_detonation,
     'ui_blip.wav': gen_ui_blip,
+    'mortar_fire.wav': gen_mortar_fire,
+    'mortar_salvage.wav': gen_mortar_salvage,
 }
 
 

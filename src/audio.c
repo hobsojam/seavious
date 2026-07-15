@@ -43,6 +43,8 @@ void LoadGameAudio(GameAudio *audio) {
     // always costs the ship), so it sits a step below that 0.80.
     audio->mineDetonation = LoadSfx("assets/audio/sfx/mine_detonation.wav", 0.60f);
     audio->uiBlip = LoadSfx("assets/audio/sfx/ui_blip.wav", 0.45f);
+    audio->mortarFire = LoadSfx("assets/audio/sfx/mortar_fire.wav", 0.45f);
+    audio->mortarSalvage = LoadSfx("assets/audio/sfx/mortar_salvage.wav", 0.50f);
 }
 
 void UpdateGameMusic(GameAudio *audio, const GameState *state) {
@@ -123,20 +125,18 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
                 PlayIfValid(audio->airPop);
                 break;
             case GAME_EVENT_MORTAR_FIRED:
-                // Placeholder lob sound until the enemy-fire SFX task:
-                // reuses the torpedo-launch whoosh, which a simultaneous
-                // player torpedo impact may cut short (acceptable for now).
-                PlayIfValid(audio->torpedoLaunch);
+                PlayIfValid(audio->mortarFire);
                 break;
             case GAME_EVENT_MORTAR_SALVAGED:
-                // Pickup jingle stand-in until a dedicated SFX exists.
-                PlayIfValid(audio->uiBlip);
+                PlayIfValid(audio->mortarSalvage);
                 break;
         }
     }
 }
 
 void UnloadGameAudio(GameAudio *audio) {
+    UnloadSound(audio->mortarSalvage);
+    UnloadSound(audio->mortarFire);
     UnloadSound(audio->uiBlip);
     UnloadSound(audio->mineDetonation);
     UnloadSound(audio->relayLaunch);
