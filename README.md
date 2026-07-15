@@ -639,7 +639,9 @@ reload) — the only weapon that can destroy the amber surface threats
 drifting with the water; gun bullets pass right over them (the
 dual-targeting rule). The torpedo reticle sits far ahead on the current
 surface lane and marks maximum range, clamped before the right edge of the
-screen. Firing launches a straight torpedo down that lane: after a short
+screen and against terrain or armored boss hull. Press P to pause the
+simulation and music for inspection or screenshots; press P again to resume.
+Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.
 Hits before arming do only small direct impact damage, with no splash.

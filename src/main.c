@@ -41,6 +41,10 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        if (IsKeyPressed(KEY_P)) {
+            state.paused = !state.paused;
+            SetGameAudioPaused(&audio, state.paused);
+        }
         UpdateGameMusic(&audio, &state);
 
         if (smokeFrames > 0 && framesRun == 0) {

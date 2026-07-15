@@ -113,6 +113,7 @@ typedef struct {
     int score;
     int lives;
     bool gameOver;
+    bool paused;
     // Music trigger only for now: the boss fight structure (see TODO) will
     // own setting/clearing this when it exists.
     bool bossActive;

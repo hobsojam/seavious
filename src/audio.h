@@ -26,6 +26,8 @@ typedef struct {
 // rather than returned by value.
 void LoadGameAudio(GameAudio *audio);
 void UpdateGameMusic(GameAudio *audio, const GameState *state);
+// Pauses or resumes the current music stream with the simulation.
+void SetGameAudioPaused(GameAudio *audio, bool paused);
 // Plays one-shot SFX for this frame's game events (fired weapons, impacts,
 // destroyed targets, player death, run restart).
 void PlayGameSfx(GameAudio *audio, const GameEventQueue *events);

@@ -611,5 +611,11 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         DrawText("RESPAWNING", 180, 150, 12, (Color){ 76, 224, 232, blink });
     }
 
+    if (state->paused) {
+        DrawRectangle(0, 0, GAME_WIDTH, PLAY_HEIGHT, (Color){ 0, 0, 0, 115 });
+        DrawText("PAUSED", 220, 150, 18, (Color){ 232, 248, 248, 255 });
+        DrawText("PRESS P TO RESUME", 185, 176, 10, (Color){ 76, 224, 232, 255 });
+    }
+
     DrawHud(state);
 }
