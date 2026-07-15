@@ -52,6 +52,13 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       stage system
 - [x] Destruction effects: air targets burst briefly then disappear; destroyed
       surface targets leave inert burnt-out wrecks that drift with the water
+- [x] Shared enemy activation line: every acting enemy (Casemate, Tracking
+      Turret, Relay Node, Mobile Platform, Gunship) approaches fully
+      pre-armed and takes its first action right at 10% into the play
+      area (`ENEMY_ACTIVATION_X`) — playtest found the old "fully
+      on-screen plus a first full interval" gating let enemies get far
+      too deep before reacting; the Interceptor's mid-screen sniper
+      trigger stays the deliberate exception
 - [ ] Boss fight structure (post-MVP, end of each stage)
 - [x] Stage/wave definition + sequencing — implemented:
       `tools/gen-stage-table.py` compiles `assets/stages/stage1.txt` into
@@ -94,16 +101,16 @@ Milestone — scrolling background + player sprite + 4-directional controls:
         200 points
       - Gunship: 70 px/s straight lane flight, 3 gun HP (first multi-hit
         air target), 3-way spread aimed at the player (±16°) every 2.4s
-        while fully on-screen (first spread one interval after entry),
+        (first spread at the shared activation line),
         500 points, bigger destruction burst
       - the shared enemy shot now draws as the designed red diamond with
         a white-hot center (was a placeholder circle), kept at 160 px/s
         (README roster note)
 - [x] Implement remaining ground roster — all three done:
       - Relay Node: spawns from its stage glyph, drifts with the water,
-        launches a Skimmer Drone from its own position every 2.5s while
-        fully on-screen (capped at 3 of its drones alive; a freed slot
-        refills immediately), never attacks directly, dies to one torpedo
+        launches a Skimmer Drone from its own position every 2.5s once
+        past the activation line (capped at 3 of its drones alive; a freed
+        slot refills immediately), never attacks directly, dies to one torpedo
         for 400 points leaving its drones alive, code-driven beacon flash
         + broadcast-warble SFX on launch
       - Mine: water-anchored, never shoots, dies to one torpedo for 100;
@@ -112,8 +119,8 @@ Milestone — scrolling background + player sprite + 4-directional controls:
         respawning (invulnerable) player passes over mines harmlessly
       - Mobile Platform: self-propelled at 60 px/s (frozen by the boss
         lock with the rest of the water), 2 torpedo HP, 3-shot fan aimed
-        at the player (±14°) every 3.0s — the timer only runs while fully
-        on-screen, so the first fan comes one interval after entry — 500
+        at the player (±14°) every 3.0s — first fan at the shared
+        activation line — 500
         points, stern wake reusing the player's wake pool
 - [x] Design Stage 1 boss visuals (Leviathan-class dreadnought) — fight
       design done (see README "Stage 1 boss design": part layout with 2

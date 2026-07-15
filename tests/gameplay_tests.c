@@ -128,15 +128,15 @@ static void TestGunship(void) {
     NEAR(startX - targets[0].pos.x, GUNSHIP_SPEED);
     NEAR(targets[0].pos.y, 150.0f);
 
-    // Not fully on-screen: the volley timer doesn't run.
+    // Right of the activation line: held pre-armed, no volley.
     targets[0].pos.x = (float)GAME_WIDTH + 2.0f;
     UpdateAirTargetFire(targets, 1, GUNSHIP_FIRE_INTERVAL + 1.0f, (Vector2){ 100, 150 }, bullets, 8);
     for (int i = 0; i < 8; i++) CHECK(!bullets[i].active);
 
-    // Fully on-screen: a 3-way spread aimed at the player.
+    // Crossing the line releases the 3-way spread aimed at the player
+    // immediately (pre-armed), not one interval later.
     targets[0].pos.x = 400.0f;
-    targets[0].fireTimer = 0.0f;
-    UpdateAirTargetFire(targets, 1, GUNSHIP_FIRE_INTERVAL, (Vector2){ 100, 150 }, bullets, 8);
+    UpdateAirTargetFire(targets, 1, 0.01f, (Vector2){ 100, 150 }, bullets, 8);
     int fired = 0;
     for (int i = 0; i < 8; i++) {
         if (bullets[i].active) fired++;
@@ -181,6 +181,9 @@ static void TestSurfaceTargets(void) {
     CHECK(targets[1].type == SURFACE_TARGET_TRACKING_TURRET);
 
     EnemyBullet bullets[4] = { 0 };
+    // Past the activation line, one interval of dt fires both.
+    targets[0].pos.x = 200.0f;
+    targets[1].pos.x = 200.0f;
     UpdateSurfaceTargetFire(targets, 2, 2, (Vector2){ 100, 50 }, (Vector2){ 2, 0 }, bullets, 4);
     CHECK(bullets[0].active);
     UpdateSurfaceTargets(targets, 2, 1);
@@ -202,12 +205,13 @@ static void TestRelayNode(void) {
     CHECK(TrySpawnRelayNode(surface, MAX_SURFACE_TARGETS, 100.0f));
     CHECK(surface[0].type == SURFACE_TARGET_RELAY_NODE);
 
-    // Off-screen (spawns beyond the right edge): interval elapses, no launch.
+    // Right of the activation line (spawns beyond the right edge):
+    // interval elapses, no launch.
     UpdateRelayNodeLaunches(surface, MAX_SURFACE_TARGETS, RELAY_NODE_LAUNCH_INTERVAL + 0.1f,
         air, MAX_AIR_TARGETS, &events);
     CHECK(air[0].active == false && events.count == 0);
 
-    // Fully on-screen: the held timer launches immediately.
+    // Past the activation line: the held timer launches immediately.
     surface[0].pos.x = 200.0f;
     UpdateRelayNodeLaunches(surface, MAX_SURFACE_TARGETS, 0.01f, air, MAX_AIR_TARGETS, &events);
     CHECK(air[0].active && air[0].ownerId == 1 && events.count == 1);
@@ -296,16 +300,16 @@ static void TestMobilePlatform(void) {
     NEAR(platformX - targets[0].pos.x, MOBILE_PLATFORM_SPEED);
     NEAR(casemateX - targets[1].pos.x, OCEAN_SCROLL_SPEED);
 
-    // Not fully on-screen: the fire timer doesn't run.
+    // Right of the activation line: held pre-armed, no fan.
     targets[0].pos = (Vector2){ (float)GAME_WIDTH + 5.0f, 200.0f };
     UpdateSurfaceTargetFire(targets, 1, MOBILE_PLATFORM_FIRE_INTERVAL + 1.0f, (Vector2){ 100, 200 },
         (Vector2){ 0, 0 }, bullets, 8);
     for (int i = 0; i < 8; i++) CHECK(!bullets[i].active);
 
-    // Fully on-screen: a 3-shot fan aimed at the player, spread vertically.
+    // Crossing the line releases the pre-armed 3-shot fan aimed at the
+    // player immediately, spread vertically.
     targets[0].pos = (Vector2){ 400.0f, 200.0f };
-    targets[0].fireTimer = 0.0f;
-    UpdateSurfaceTargetFire(targets, 1, MOBILE_PLATFORM_FIRE_INTERVAL, (Vector2){ 100, 200 },
+    UpdateSurfaceTargetFire(targets, 1, 0.01f, (Vector2){ 100, 200 },
         (Vector2){ 0, 0 }, bullets, 8);
     int fired = 0;
     for (int i = 0; i < 8; i++) {
@@ -333,6 +337,26 @@ static void TestMobilePlatform(void) {
     CHECK(wake[0].active);
     NEAR(wake[0].pos.x, 300.0f + MOBILE_PLATFORM_STERN_OFFSET);
     NEAR(wake[0].pos.y, 150.0f);
+}
+
+static void TestEnemyActivationLine(void) {
+    SurfaceTarget casemate[1] = { 0 };
+    EnemyBullet bullets[2] = { 0 };
+    CHECK(TrySpawnCasemate(casemate, 1, 60.0f));
+
+    // Right of the line: intervals elapse but every shot is held.
+    casemate[0].pos.x = ENEMY_ACTIVATION_X + 1.0f;
+    UpdateSurfaceTargetFire(casemate, 1, CASEMATE_FIRE_INTERVAL * 3.0f, (Vector2){ 100, 60 },
+        (Vector2){ 0, 0 }, bullets, 2);
+    CHECK(!bullets[0].active);
+
+    // Crossing the line releases exactly one pre-armed shot immediately
+    // (held at one interval, never a burst of banked shots).
+    casemate[0].pos.x = ENEMY_ACTIVATION_X - 1.0f;
+    UpdateSurfaceTargetFire(casemate, 1, 0.01f, (Vector2){ 100, 60 },
+        (Vector2){ 0, 0 }, bullets, 2);
+    CHECK(bullets[0].active);
+    CHECK(!bullets[1].active);
 }
 
 static void TestTurretLeadIsSoft(void) {
@@ -382,6 +406,7 @@ int main(void) {
     TestRelayNode();
     TestMine();
     TestMobilePlatform();
+    TestEnemyActivationLine();
     TestTurretLeadIsSoft();
     TestTurretAimClampedToPlayArea();
     return failures != 0;
