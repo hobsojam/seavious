@@ -2,35 +2,44 @@
 
 #include <math.h>
 
-// Part layout on the 200x120 hull sprite (content spans x 6..196,
-// y 24..96; the breach void is centered near 115,60 - the core sits in
-// it). Pods ride the spine fore and aft, hull sections sit on the top
-// and bottom waterline edges so their straight lane shots threaten two
-// different rows, and the mortar dome is aft-center on the spine.
+// Part layout in hull sprite space, relative to the content center (the
+// 200x120 sprite's content spans x 6..196, y 24..96, center 100,60; the
+// breach void sits near 115,60 - the core lives in it). Offsets rotate
+// with the ship: pods and the mortar dome ride the centerline spine, and
+// the two hull sections sit on opposite broadsides (sprite bottom/top),
+// so with the ship sailing vertically one section faces the player and
+// the armor shields the other until the ship turns.
 static const struct {
     Vector2 offset;
     float radius;
 } BOSS_PART_GEOMETRY[BOSS_PART_COUNT] = {
-    [BOSS_PART_POD_FORE]  = { { 56.0f, 60.0f }, 10.0f },
-    [BOSS_PART_POD_AFT]   = { { 148.0f, 60.0f }, 10.0f },
-    [BOSS_PART_HULL_FORE] = { { 72.0f, 88.0f }, 14.0f },
-    [BOSS_PART_HULL_AFT]  = { { 152.0f, 32.0f }, 14.0f },
-    [BOSS_PART_CORE]      = { { 115.0f, 60.0f }, 12.0f },
+    [BOSS_PART_POD_FORE]  = { { -44.0f, 0.0f }, 10.0f },
+    [BOSS_PART_POD_AFT]   = { { 48.0f, 0.0f }, 10.0f },
+    [BOSS_PART_HULL_FORE] = { { -28.0f, 28.0f }, 14.0f },
+    [BOSS_PART_HULL_AFT]  = { { 52.0f, -28.0f }, 14.0f },
+    [BOSS_PART_CORE]      = { { 15.0f, 0.0f }, 12.0f },
 };
 
-static const Vector2 BOSS_MORTAR_OFFSET = { 178.0f, 60.0f };
+static const Vector2 BOSS_MORTAR_OFFSET = { 78.0f, 0.0f };
+
+// Hull content half-extents in sprite space: 190 long (bow-stern), 72
+// wide. Sailing vertically the armor blocker is 72 wide by 190 tall.
+#define BOSS_HULL_HALF_LENGTH 95.0f
+#define BOSS_HULL_HALF_WIDTH 36.0f
+// The breach gap that opens in the armor once the core is exposed.
+#define BOSS_BREACH_HALF_GAP 20.0f
 
 // Staggered opening shots so the volleys interleave into a stream
 // rather than arriving as one wall (the fight-flow design note).
 static const float BOSS_PART_FIRST_SHOT_DELAY[BOSS_PART_COUNT] = { 0.8f, 1.8f, 1.4f, 2.6f, 0.0f };
 #define BOSS_MORTAR_FIRST_SHOT_DELAY 2.2f
 
-// The death chain walks these hull-relative bursts bow-to-stern-ish,
-// ending big at the breach.
+// The death chain walks these center-relative bursts bow-to-stern-ish
+// (rotated with the ship's final heading), ending big at the breach.
 #define BOSS_DEATH_EXPLOSION_INTERVAL 0.28f
 static const Vector2 BOSS_DEATH_EXPLOSION_OFFSETS[] = {
-    { 40.0f, 66.0f }, { 70.0f, 44.0f }, { 96.0f, 78.0f }, { 130.0f, 50.0f },
-    { 60.0f, 84.0f }, { 152.0f, 38.0f }, { 174.0f, 64.0f }, { 115.0f, 60.0f },
+    { -60.0f, 6.0f }, { -30.0f, -16.0f }, { -4.0f, 18.0f }, { 30.0f, -10.0f },
+    { -40.0f, 24.0f }, { 52.0f, -22.0f }, { 74.0f, 4.0f }, { 15.0f, 0.0f },
 };
 #define BOSS_DEATH_EXPLOSION_COUNT \
     ((int)(sizeof(BOSS_DEATH_EXPLOSION_OFFSETS) / sizeof(BOSS_DEATH_EXPLOSION_OFFSETS[0])))
@@ -62,18 +71,57 @@ static Vector2 AimAt(Vector2 from, Vector2 to) {
     return (Vector2){ d.x / length, d.y / length };
 }
 
-Vector2 BossPartPosition(const BossState *boss, BossPartId part) {
+// Screen-clockwise rotation (raylib's convention with y-down).
+static Vector2 RotateOffset(Vector2 v, float degrees) {
+    float r = degrees * DEG2RAD;
+    float c = cosf(r);
+    float s = sinf(r);
+    return (Vector2){ v.x * c - v.y * s, v.x * s + v.y * c };
+}
+
+static Vector2 BossOffsetPosition(const BossState *boss, Vector2 offset) {
+    Vector2 rotated = RotateOffset(offset, boss->rotation);
     return (Vector2){
-        boss->hullPos.x + BOSS_PART_GEOMETRY[part].offset.x,
-        boss->hullPos.y + boss->settleOffset + BOSS_PART_GEOMETRY[part].offset.y
+        boss->hullCenter.x + rotated.x,
+        boss->hullCenter.y + boss->settleOffset + rotated.y
     };
 }
 
+Vector2 BossPartPosition(const BossState *boss, BossPartId part) {
+    return BossOffsetPosition(boss, BOSS_PART_GEOMETRY[part].offset);
+}
+
 Vector2 BossMortarPosition(const BossState *boss) {
-    return (Vector2){
-        boss->hullPos.x + BOSS_MORTAR_OFFSET.x,
-        boss->hullPos.y + boss->settleOffset + BOSS_MORTAR_OFFSET.y
-    };
+    return BossOffsetPosition(boss, BOSS_MORTAR_OFFSET);
+}
+
+// A broadside section is only a real target while it faces the player;
+// on the far side the armor shields it (and it holds fire).
+bool BossSectionFacesPlayer(const BossState *boss, BossPartId part) {
+    return BossPartPosition(boss, part).x < boss->hullCenter.x - 2.0f;
+}
+
+// The armored hull blocks torpedoes under the same rules as land. One
+// solid blocker while the armor holds; once the core is exposed the
+// breach splits it in two, opening the single torpedo lane to the core.
+// Empty from the death chain on - the settled wreck is inert like every
+// wreck. The blocker stays the sailing footprint during the brief
+// in-place turn (the sweeping bow/stern are an accepted approximation).
+int BossHullBlockers(const BossState *boss, Rectangle out[2]) {
+    if (boss->phase != BOSS_PHASE_ENTERING && boss->phase != BOSS_PHASE_FIGHTING) return 0;
+
+    float left = boss->hullCenter.x - BOSS_HULL_HALF_WIDTH;
+    float top = boss->hullCenter.y - BOSS_HULL_HALF_LENGTH;
+    float bottom = boss->hullCenter.y + BOSS_HULL_HALF_LENGTH;
+    if (!boss->coreExposed) {
+        out[0] = (Rectangle){ left, top, 2.0f * BOSS_HULL_HALF_WIDTH, bottom - top };
+        return 1;
+    }
+    float coreY = BossPartPosition(boss, BOSS_PART_CORE).y;
+    out[0] = (Rectangle){ left, top, 2.0f * BOSS_HULL_HALF_WIDTH, (coreY - BOSS_BREACH_HALF_GAP) - top };
+    out[1] = (Rectangle){ left, coreY + BOSS_BREACH_HALF_GAP,
+        2.0f * BOSS_HULL_HALF_WIDTH, bottom - (coreY + BOSS_BREACH_HALF_GAP) };
+    return 2;
 }
 
 bool BossPartAlive(const BossState *boss, BossPartId part) {
@@ -124,8 +172,13 @@ static void StartBossFight(GameState *state) {
     BossState *boss = &state->boss;
     boss->phase = BOSS_PHASE_ENTERING;
     boss->phaseTimer = 0.0f;
-    // Hull content starts at sprite x 6, so this keeps it fully offscreen.
-    boss->hullPos = (Vector2){ (float)GAME_WIDTH + 8.0f, BOSS_HULL_TOP_Y };
+    // Sails into view from below the arena, bow up, already on its
+    // patrol column.
+    boss->hullCenter = (Vector2){ BOSS_PATROL_X, (float)PLAY_HEIGHT + BOSS_HULL_HALF_LENGTH + 15.0f };
+    boss->rotation = 90.0f;
+    boss->sailDirection = -1;
+    boss->turning = false;
+    boss->turnTimer = 0.0f;
     boss->settleOffset = 0.0f;
     boss->coreExposed = false;
     boss->partHp[BOSS_PART_POD_FORE] = BOSS_POD_HP;
@@ -144,12 +197,50 @@ static void StartBossFight(GameState *state) {
     state->bossActive = true;
 }
 
+// The patrol: sail a leg, then turn 180 in place at the lane end - the
+// bow sweeps over the right screen edge, away from the player - and
+// sail back. Each turn swaps which broadside (and hull section) faces
+// the player.
+static void UpdateBossPatrol(BossState *boss, float dt) {
+    if (boss->turning) {
+        boss->turnTimer += dt;
+        float u = SmoothStep01(boss->turnTimer / BOSS_TURN_DURATION);
+        // Rotate through 0 (bow east): up->down runs 90 -> -90, down->up
+        // runs -90 -> 90, keyed on the pre-flip heading.
+        boss->rotation = boss->sailDirection < 0 ? 90.0f - 180.0f * u : -90.0f + 180.0f * u;
+        if (boss->turnTimer >= BOSS_TURN_DURATION) {
+            boss->turning = false;
+            boss->sailDirection = -boss->sailDirection;
+            boss->rotation = boss->sailDirection < 0 ? 90.0f : -90.0f;
+        }
+        return;
+    }
+
+    boss->hullCenter.y += (float)boss->sailDirection * BOSS_SAIL_SPEED * dt;
+    if (boss->sailDirection < 0 && boss->hullCenter.y <= BOSS_PATROL_TOP_Y) {
+        boss->hullCenter.y = BOSS_PATROL_TOP_Y;
+        boss->turning = true;
+        boss->turnTimer = 0.0f;
+    } else if (boss->sailDirection > 0 && boss->hullCenter.y >= BOSS_PATROL_BOTTOM_Y) {
+        boss->hullCenter.y = BOSS_PATROL_BOTTOM_Y;
+        boss->turning = true;
+        boss->turnTimer = 0.0f;
+    }
+}
+
 static void FireBossGuns(GameState *state, float dt) {
     BossState *boss = &state->boss;
     for (int part = BOSS_PART_POD_FORE; part <= BOSS_PART_HULL_AFT; part++) {
         if (!BossPartAlive(boss, (BossPartId)part)) continue;
         bool pod = part <= BOSS_PART_POD_AFT;
         float interval = pod ? BOSS_POD_FIRE_INTERVAL : BOSS_HULL_SECTION_FIRE_INTERVAL;
+        // A shielded (far-side) section holds pre-armed, like enemies at
+        // the activation line: its first shot comes right as the turn
+        // swings it around to face the player.
+        if (!pod && !BossSectionFacesPlayer(boss, (BossPartId)part)) {
+            boss->partFireTimer[part] = interval;
+            continue;
+        }
         boss->partFireTimer[part] += dt;
         while (boss->partFireTimer[part] >= interval) {
             boss->partFireTimer[part] -= interval;
@@ -283,16 +374,16 @@ void ResolveBossSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *event
 }
 
 bool ResolveBossContactDamage(const BossState *boss, Vector2 playerPos, float playerRadius) {
-    if (boss->phase != BOSS_PHASE_ENTERING && boss->phase != BOSS_PHASE_FIGHTING) return false;
-
-    // Hull content rect inside the 200x120 sprite canvas.
-    float left = boss->hullPos.x + 6.0f;
-    float top = boss->hullPos.y + 24.0f;
-    float right = left + 190.0f;
-    float bottom = top + 72.0f;
-    float cx = playerPos.x < left ? left : (playerPos.x > right ? right : playerPos.x);
-    float cy = playerPos.y < top ? top : (playerPos.y > bottom ? bottom : playerPos.y);
-    return DistanceSquared(playerPos, (Vector2){ cx, cy }) <= playerRadius * playerRadius;
+    Rectangle blockers[2];
+    int count = BossHullBlockers(boss, blockers);
+    for (int i = 0; i < count; i++) {
+        float right = blockers[i].x + blockers[i].width;
+        float bottom = blockers[i].y + blockers[i].height;
+        float cx = playerPos.x < blockers[i].x ? blockers[i].x : (playerPos.x > right ? right : playerPos.x);
+        float cy = playerPos.y < blockers[i].y ? blockers[i].y : (playerPos.y > bottom ? bottom : playerPos.y);
+        if (DistanceSquared(playerPos, (Vector2){ cx, cy }) <= playerRadius * playerRadius) return true;
+    }
+    return false;
 }
 
 bool ResolveMortarBlastPlayerHit(const BossState *boss, Vector2 playerPos, float playerRadius) {
@@ -317,18 +408,20 @@ void UpdateBossFight(GameState *state, float dt) {
 
     switch (boss->phase) {
         case BOSS_PHASE_ENTERING: {
-            // Slide in from offscreen right and park; guns stay quiet
-            // until parked.
+            // Sails up into view from below the arena to the bottom of
+            // its patrol lane; guns stay quiet until the patrol starts.
+            float startY = (float)PLAY_HEIGHT + BOSS_HULL_HALF_LENGTH + 15.0f;
             float u = SmoothStep01(boss->phaseTimer / BOSS_ENTRANCE_DURATION);
-            boss->hullPos.x = (float)GAME_WIDTH + 8.0f - ((float)GAME_WIDTH + 8.0f - BOSS_PARKED_X) * u;
+            boss->hullCenter.y = startY - (startY - BOSS_PATROL_BOTTOM_Y) * u;
             if (boss->phaseTimer >= BOSS_ENTRANCE_DURATION) {
-                boss->hullPos.x = BOSS_PARKED_X;
+                boss->hullCenter.y = BOSS_PATROL_BOTTOM_Y;
                 boss->phase = BOSS_PHASE_FIGHTING;
                 boss->phaseTimer = 0.0f;
             }
             break;
         }
         case BOSS_PHASE_FIGHTING:
+            UpdateBossPatrol(boss, dt);
             FireBossGuns(state, dt);
             FireBossMortar(state, dt);
             ResolveBulletBossPartCollisions(state);
@@ -339,10 +432,9 @@ void UpdateBossFight(GameState *state, float dt) {
             for (int i = 0; i < MAX_ENEMY_BULLETS; i++) state->enemyBullets[i].active = false;
             while (boss->deathExplosionsSpawned < BOSS_DEATH_EXPLOSION_COUNT
                    && boss->phaseTimer >= BOSS_DEATH_EXPLOSION_INTERVAL * (float)(boss->deathExplosionsSpawned + 1)) {
-                Vector2 offset = BOSS_DEATH_EXPLOSION_OFFSETS[boss->deathExplosionsSpawned];
                 TrySpawnExplosion(
                     state->explosions,
-                    (Vector2){ boss->hullPos.x + offset.x, boss->hullPos.y + offset.y },
+                    BossOffsetPosition(boss, BOSS_DEATH_EXPLOSION_OFFSETS[boss->deathExplosionsSpawned]),
                     EXPLOSION_SURFACE_TARGET,
                     12.0f + 1.5f * (float)boss->deathExplosionsSpawned,
                     0.5f
@@ -355,8 +447,7 @@ void UpdateBossFight(GameState *state, float dt) {
                 boss->settleOffset = 3.0f;
                 state->bossActive = false;
                 PushGameEvent(&state->gameEvents, (GameEvent){
-                    .type = GAME_EVENT_BOSS_DEFEATED,
-                    .pos = { boss->hullPos.x + 100.0f, boss->hullPos.y + 60.0f }
+                    .type = GAME_EVENT_BOSS_DEFEATED, .pos = boss->hullCenter
                 });
                 boss->salvageStart = state->player;
                 boss->phase = BOSS_PHASE_SALVAGE_APPROACH;

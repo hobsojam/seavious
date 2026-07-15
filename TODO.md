@@ -153,8 +153,16 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       mortar shells with shadow dodge-windows (cadence 4.0s→2.8s once
       the core shows), lethal hull contact while the boss lives, boss
       HP bar in the reserved HUD slot, death chain → wreck settle →
-      autopilot salvage → STAGE 1 CLEAR overlay. Needs a Windows
-      playtest for difficulty/pacing. Placeholder SFX: mortar lob
+      autopilot salvage → STAGE 1 CLEAR overlay. Playtest revision
+      (2026-07-15): the parked broadside let torpedoes fly through the
+      ship to reach far-side parts — the hull is now solid armor
+      (blocks torpedoes under the land rules, reticle clamps to it)
+      and the ship patrols vertically with a 180° turn at each end, so
+      each heading exposes exactly one broadside hull section and
+      killing both takes at least one full turn; blowing both tears
+      the breach open as the sole torpedo lane to the core. Needs
+      another Windows playtest for pacing (sail speed, turn time).
+      Placeholder SFX: mortar lob
       reuses torpedo-launch, salvage jingle reuses the UI blip (see
       Audio tasks)
 - [ ] Scavenged mortar weapon (Stage 2+, see README Core mechanic): lobbed

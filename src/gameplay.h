@@ -304,6 +304,10 @@ void ResolveBulletAirTargetCollisions(Bullet bullets[], int bulletCount, AirTarg
 Rectangle TerrainScreenRect(StageTerrainFootprint footprint, float scrollDistance);
 Vector2 CalculateTorpedoReticle(Vector2 spawn, const StageTerrainFootprint terrain[], int terrainCount,
     float scrollDistance);
+// Generic screen-space blockers under the same rules as land, for solid
+// obstacles that aren't stage terrain (the boss's armored hull).
+Vector2 ClampReticleToRects(Vector2 spawn, Vector2 reticle, const Rectangle rects[], int rectCount);
+TorpedoImpact ResolveTorpedoRectCollision(Torpedo *torpedo, const Rectangle rects[], int rectCount);
 Vector2 CalculateLeadTorpedoVelocity(Vector2 spawn, const SurfaceTarget targets[], int targetCount);
 void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn, const StageTerrainFootprint terrain[], int terrainCount,
     float scrollDistance);

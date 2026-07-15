@@ -82,8 +82,17 @@ static void DrawHud(const GameState *state) {
     }
 }
 
-static void DrawTextureCenteredAt(Texture2D tex, Vector2 center) {
-    DrawTexture(tex, (int)(center.x - tex.width / 2.0f), (int)(center.y - tex.height / 2.0f), WHITE);
+// Boss sprites rotate with the ship's heading (the hull sails vertical
+// legs with 180-degree turns between them).
+static void DrawTextureRotatedAt(Texture2D tex, Vector2 center, float rotation) {
+    DrawTexturePro(
+        tex,
+        (Rectangle){ 0, 0, (float)tex.width, (float)tex.height },
+        (Rectangle){ center.x, center.y, (float)tex.width, (float)tex.height },
+        (Vector2){ tex.width / 2.0f, tex.height / 2.0f },
+        rotation,
+        WHITE
+    );
 }
 
 // The boss's water-level body: hull base, shell shadows, live parts,
@@ -93,8 +102,11 @@ static void DrawBoss(const GameState *state, const GameAssets *assets) {
     const BossState *boss = &state->boss;
     if (boss->phase == BOSS_PHASE_INACTIVE) return;
 
-    DrawTexture(assets->leviathanHullTex, (int)boss->hullPos.x,
-        (int)(boss->hullPos.y + boss->settleOffset), WHITE);
+    DrawTextureRotatedAt(
+        assets->leviathanHullTex,
+        (Vector2){ boss->hullCenter.x, boss->hullCenter.y + boss->settleOffset },
+        boss->rotation
+    );
 
     // Burnt sockets where parts used to be: the wreck look assembling in
     // place on the base sprite, one scorch per destroyed pod/section.
@@ -121,26 +133,30 @@ static void DrawBoss(const GameState *state, const GameAssets *assets) {
     }
 
     if (BossPartAlive(boss, BOSS_PART_HULL_FORE)) {
-        DrawTextureCenteredAt(assets->leviathanHullSectionTex, BossPartPosition(boss, BOSS_PART_HULL_FORE));
+        DrawTextureRotatedAt(assets->leviathanHullSectionTex,
+            BossPartPosition(boss, BOSS_PART_HULL_FORE), boss->rotation);
     }
     if (BossPartAlive(boss, BOSS_PART_HULL_AFT)) {
-        DrawTextureCenteredAt(assets->leviathanHullSectionTex, BossPartPosition(boss, BOSS_PART_HULL_AFT));
+        DrawTextureRotatedAt(assets->leviathanHullSectionTex,
+            BossPartPosition(boss, BOSS_PART_HULL_AFT), boss->rotation);
     }
     if (BossPartAlive(boss, BOSS_PART_POD_FORE)) {
-        DrawTextureCenteredAt(assets->leviathanPodTex, BossPartPosition(boss, BOSS_PART_POD_FORE));
+        DrawTextureRotatedAt(assets->leviathanPodTex,
+            BossPartPosition(boss, BOSS_PART_POD_FORE), boss->rotation);
     }
     if (BossPartAlive(boss, BOSS_PART_POD_AFT)) {
-        DrawTextureCenteredAt(assets->leviathanPodTex, BossPartPosition(boss, BOSS_PART_POD_AFT));
+        DrawTextureRotatedAt(assets->leviathanPodTex,
+            BossPartPosition(boss, BOSS_PART_POD_AFT), boss->rotation);
     }
     if (boss->coreExposed && BossPartAlive(boss, BOSS_PART_CORE)) {
         Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
-        DrawTextureCenteredAt(assets->leviathanCoreTex, core);
+        DrawTextureRotatedAt(assets->leviathanCoreTex, core, boss->rotation);
         // Escaping glow: the white-hot inside of the machine, breathing.
         unsigned char pulse = (unsigned char)(110 + 70.0f * sinf((float)GetTime() * 9.0f));
         DrawCircleV(core, 5.0f, (Color){ 255, 246, 216, pulse });
     }
     if (boss->phase < BOSS_PHASE_SALVAGE_DOCK) {
-        DrawTextureCenteredAt(assets->leviathanMortarTex, BossMortarPosition(boss));
+        DrawTextureRotatedAt(assets->leviathanMortarTex, BossMortarPosition(boss), boss->rotation);
     }
 }
 
@@ -210,6 +226,11 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     Vector2 torpedoReticle = CalculateTorpedoReticle(
         torpedoSpawn, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT, state->scrollDistance
     );
+    // The boss's armored hull clamps the reticle like a land edge, so a
+    // shielded lane reads before firing.
+    Rectangle bossBlockers[2];
+    int bossBlockerCount = BossHullBlockers(&state->boss, bossBlockers);
+    torpedoReticle = ClampReticleToRects(torpedoSpawn, torpedoReticle, bossBlockers, bossBlockerCount);
 
     ClearBackground(BLACK);
 

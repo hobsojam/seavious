@@ -46,14 +46,18 @@ static void TestBossStartsOnLockAndParks(void) {
     UpdateBossFight(&state, 0.001f);
     CHECK(state.boss.phase == BOSS_PHASE_ENTERING);
     CHECK(state.bossActive);
-    CHECK(state.boss.hullPos.x > (float)GAME_WIDTH);
+    // Sails in from below the arena, bow up, on its patrol column.
+    CHECK(state.boss.hullCenter.y > (float)PLAY_HEIGHT);
+    NEAR(state.boss.hullCenter.x, BOSS_PATROL_X);
+    NEAR(state.boss.rotation, 90.0f);
 
-    // The entrance slides the hull in and parks it.
+    // The entrance sails the hull up to the bottom of the patrol lane.
     for (int i = 0; i < 400 && state.boss.phase == BOSS_PHASE_ENTERING; i++) {
         UpdateBossFight(&state, 0.05f);
     }
     CHECK(state.boss.phase == BOSS_PHASE_FIGHTING);
-    NEAR(state.boss.hullPos.x, BOSS_PARKED_X);
+    NEAR(state.boss.hullCenter.x, BOSS_PATROL_X);
+    NEAR(state.boss.hullCenter.y, BOSS_PATROL_BOTTOM_Y);
     CHECK(BossRemainingHp(&state.boss) == BossTotalHp());
     CHECK(BossTotalHp() == 2 * BOSS_POD_HP
         + 2 * BOSS_HULL_SECTION_TORPEDO_WORTH * BOSS_HULL_SECTION_HP + BOSS_CORE_HP);
@@ -205,8 +209,8 @@ static void TestMortarCadenceAndBlast(void) {
 static void TestBossContactWindow(void) {
     GameState state;
     SetUpFightingBoss(&state);
-    Vector2 onHull = { state.boss.hullPos.x + 100.0f, state.boss.hullPos.y + 60.0f };
-    Vector2 leftOfHull = { state.boss.hullPos.x - 40.0f, state.boss.hullPos.y + 60.0f };
+    Vector2 onHull = state.boss.hullCenter;
+    Vector2 leftOfHull = { state.boss.hullCenter.x - 60.0f, state.boss.hullCenter.y };
 
     CHECK(ResolveBossContactDamage(&state.boss, onHull, PLAYER_HIT_RADIUS));
     CHECK(!ResolveBossContactDamage(&state.boss, leftOfHull, PLAYER_HIT_RADIUS));
@@ -214,6 +218,78 @@ static void TestBossContactWindow(void) {
     // The settled wreck is inert, like every wreck.
     state.boss.phase = BOSS_PHASE_DYING;
     CHECK(!ResolveBossContactDamage(&state.boss, onHull, PLAYER_HIT_RADIUS));
+}
+
+static void TestSolidHullShieldsFarSection(void) {
+    GameState state;
+    SetUpFightingBoss(&state);
+
+    // Sailing up (first leg): the sprite-bottom section swings to the
+    // player's side; the other broadside is shielded behind the armor.
+    CHECK(BossSectionFacesPlayer(&state.boss, BOSS_PART_HULL_FORE));
+    CHECK(!BossSectionFacesPlayer(&state.boss, BOSS_PART_HULL_AFT));
+
+    Rectangle blockers[2];
+    CHECK(BossHullBlockers(&state.boss, blockers) == 1);
+    NEAR(blockers[0].x, BOSS_PATROL_X - 36.0f);
+
+    // The reticle clamps at the armor in the far section's lane.
+    Vector2 aft = BossPartPosition(&state.boss, BOSS_PART_HULL_AFT);
+    Vector2 spawn = { 100.0f, aft.y };
+    Vector2 reticle = ClampReticleToRects(spawn, (Vector2){ 500.0f, aft.y }, blockers, 1);
+    NEAR(reticle.x, blockers[0].x);
+
+    // A torpedo down that lane detonates on the armor: no part is close
+    // enough to hit first, the armor eats the shot, and the splash can't
+    // reach across the deck to the shielded section.
+    state.torpedo = (Torpedo){ .pos = { blockers[0].x - 3.0f, aft.y }, .armed = true, .active = true };
+    TorpedoImpact impact = ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents);
+    CHECK(impact.type == TORPEDO_IMPACT_NONE);
+    impact = ResolveTorpedoRectCollision(&state.torpedo, blockers, 1);
+    CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION && !state.torpedo.active);
+    NEAR(impact.pos.x, blockers[0].x);
+    ResolveBossSplashDamage(&state.boss, impact.pos, &state.gameEvents);
+    CHECK(state.boss.partHp[BOSS_PART_HULL_AFT] == BOSS_HULL_SECTION_HP);
+
+    // Unarmed shots fizzle on the armor, land-style.
+    state.torpedo = (Torpedo){ .pos = { blockers[0].x - 3.0f, aft.y }, .armed = false, .active = true };
+    impact = ResolveTorpedoRectCollision(&state.torpedo, blockers, 1);
+    CHECK(impact.type == TORPEDO_IMPACT_DIRECT && !state.torpedo.active);
+
+    // Blowing both sections tears the breach open: the armor splits in
+    // two and the core's lane becomes the one torpedo path through.
+    state.boss.partHp[BOSS_PART_HULL_FORE] = 0;
+    state.boss.partHp[BOSS_PART_HULL_AFT] = 0;
+    state.boss.coreExposed = true;
+    CHECK(BossHullBlockers(&state.boss, blockers) == 2);
+    Vector2 core = BossPartPosition(&state.boss, BOSS_PART_CORE);
+    CHECK(blockers[0].y + blockers[0].height < core.y);
+    CHECK(blockers[1].y > core.y);
+
+    state.torpedo = (Torpedo){ .pos = { core.x - 30.0f, core.y }, .armed = false, .active = true };
+    impact = ResolveTorpedoRectCollision(&state.torpedo, blockers, 2);
+    CHECK(impact.type == TORPEDO_IMPACT_NONE && state.torpedo.active);
+    state.torpedo.pos.x = core.x - 15.0f;
+    impact = ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents);
+    CHECK(impact.type == TORPEDO_IMPACT_DIRECT);
+    CHECK(state.boss.partHp[BOSS_PART_CORE] == BOSS_CORE_HP - BOSS_CORE_TORPEDO_DAMAGE);
+}
+
+static void TestPatrolTurnSwapsExposedSide(void) {
+    GameState state;
+    SetUpFightingBoss(&state);
+
+    // Sail the first (upward) leg and ride through the turn: the ship
+    // ends up bow-down with the other broadside facing the player.
+    for (int i = 0; i < 400 && state.boss.sailDirection < 0; i++) {
+        UpdateBossFight(&state, 0.05f);
+    }
+    CHECK(state.boss.sailDirection > 0);
+    CHECK(!state.boss.turning);
+    NEAR(state.boss.rotation, -90.0f);
+    NEAR(state.boss.hullCenter.y, BOSS_PATROL_TOP_Y);
+    CHECK(BossSectionFacesPlayer(&state.boss, BOSS_PART_HULL_AFT));
+    CHECK(!BossSectionFacesPlayer(&state.boss, BOSS_PART_HULL_FORE));
 }
 
 static void TestDefeatAndSalvageFlow(void) {
@@ -278,6 +354,8 @@ int main(void) {
     TestBossGunsFireStaggered();
     TestMortarCadenceAndBlast();
     TestBossContactWindow();
+    TestSolidHullShieldsFarSection();
+    TestPatrolTurnSwapsExposedSide();
     TestDefeatAndSalvageFlow();
 
     if (failures > 0) {

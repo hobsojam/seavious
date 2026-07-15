@@ -40,10 +40,18 @@ typedef struct {
 #define BOSS_DEATH_DURATION 2.4f
 #define BOSS_SALVAGE_APPROACH_DURATION 1.6f
 #define BOSS_SALVAGE_DOCK_DURATION 1.8f
-// Hull sprite (200x120) top-left when parked: content on the right ~40%
-// of the play area, vertically centered.
-#define BOSS_PARKED_X 312.0f
-#define BOSS_HULL_TOP_Y 116.0f
+// The Leviathan patrols vertically on the right side of the arena: it
+// sails up, turns in place (bow sweeping over the right edge, away from
+// the player), sails back down, and repeats. Its hull is solid armor -
+// it blocks torpedoes under the same rules as land - so each heading
+// exposes exactly one broadside hull section to the player while the
+// armor shields the other (playtest: the earlier parked broadside let
+// torpedoes fly through the ship to reach parts, which read wrong).
+#define BOSS_PATROL_X 432.0f
+#define BOSS_PATROL_TOP_Y 104.0f
+#define BOSS_PATROL_BOTTOM_Y 248.0f
+#define BOSS_SAIL_SPEED 36.0f
+#define BOSS_TURN_DURATION 1.2f
 
 typedef enum {
     BOSS_PHASE_INACTIVE,
@@ -70,7 +78,11 @@ typedef struct {
 typedef struct {
     BossPhase phase;
     float phaseTimer;
-    Vector2 hullPos;        // top-left of the 200x120 hull sprite
+    Vector2 hullCenter;     // center of the hull sprite's content
+    float rotation;         // degrees, screen-clockwise: 90 = bow up, -90 = bow down
+    int sailDirection;      // -1 sailing up, +1 sailing down
+    bool turning;           // rotating in place at a patrol end
+    float turnTimer;
     float settleOffset;     // wreck sits a few px lower after the core dies
     int partHp[BOSS_PART_COUNT];
     float partFireTimer[BOSS_PART_COUNT];

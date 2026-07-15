@@ -103,7 +103,9 @@ int main(void) {
         // dome, stage-clear overlay) all execute.
         if (smokeFrames > 0 && framesRun == 410 && state.boss.phase == BOSS_PHASE_ENTERING) {
             state.boss.phase = BOSS_PHASE_FIGHTING;
-            state.boss.hullPos.x = BOSS_PARKED_X;
+            state.boss.hullCenter = (Vector2){ BOSS_PATROL_X, 200.0f };
+            state.boss.rotation = 90.0f;
+            state.boss.sailDirection = -1;
             state.boss.partHp[BOSS_PART_POD_FORE] = 0;
             state.boss.partHp[BOSS_PART_HULL_FORE] = 0;
             state.boss.coreExposed = true;

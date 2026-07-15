@@ -91,6 +91,10 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     // The boss fight starts the frame the script raises the lock, and
     // from then on owns bossActive, the part fight, and the salvage flow.
     UpdateBossFight(state, dt);
+    // The boss's armored hull blocks torpedoes like land does; these are
+    // its screen-space blocker rects for this frame (0 when no boss).
+    Rectangle bossBlockers[2];
+    int bossBlockerCount = BossHullBlockers(&state->boss, bossBlockers);
     float scrollDt = state->bossLock ? 0.0f : dt;
 
     // World scrolls right-to-left under the player. Kept bounded by
@@ -125,6 +129,10 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
         Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
         FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT,
             state->scrollDistance);
+        // The boss's armor clamps the range like a land edge would.
+        state->torpedo.target = ClampReticleToRects(
+            torpedoSpawn, state->torpedo.target, bossBlockers, bossBlockerCount
+        );
         state->torpedoCooldown = TORPEDO_COOLDOWN;
         PushGameEvent(&state->gameEvents, (GameEvent){
             .type = GAME_EVENT_TORPEDO_FIRED, .pos = torpedoSpawn
@@ -165,6 +173,12 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     // surface targets and boss parts.
     if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
         torpedoImpact = ResolveTorpedoBossPartCollision(&state->torpedo, &state->boss, &state->gameEvents);
+    }
+    // The armored hull itself: parts are checked first because the
+    // player-facing section sits proud of the armor edge; a torpedo in
+    // any other lane detonates (or fizzles) on the hull like on land.
+    if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
+        torpedoImpact = ResolveTorpedoRectCollision(&state->torpedo, bossBlockers, bossBlockerCount);
     }
     if (torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION) {
         ResolveTorpedoExplosion(
