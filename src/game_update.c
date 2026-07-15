@@ -6,6 +6,7 @@
 
 void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool forceTorpedoFire) {
     state->gameEvents.count = 0;
+    if (state->paused) return;
     float halfW = assets->playerTex.width / 2.0f;
     float halfH = assets->playerTex.height / 2.0f;
     float playerRadius = PLAYER_HIT_RADIUS;

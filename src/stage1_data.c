@@ -77,6 +77,9 @@ const StageSpawnEvent STAGE1_EVENTS[] = {
 const int STAGE1_EVENT_COUNT = sizeof(STAGE1_EVENTS) / sizeof(STAGE1_EVENTS[0]);
 
 const StageTerrainFootprint STAGE1_TERRAIN[] = {
+    { 448, 32, 96, 32 },
+    { 480, 0, 64, 32 },
+    { 480, 64, 64, 32 },
     { 4416, 96, 96, 32 },
     { 4416, 128, 128, 32 },
     { 4416, 160, 96, 32 },

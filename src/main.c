@@ -41,6 +41,13 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        // The smoke run toggles pause just after it jumps to the islet,
+        // covering the real pause/resume path without input injection.
+        bool smokePauseToggle = smokeFrames > 0 && (framesRun == 210 || framesRun == 211);
+        if (IsKeyPressed(KEY_P) || smokePauseToggle) {
+            state.paused = !state.paused;
+            SetGameAudioPaused(&audio, state.paused);
+        }
         UpdateGameMusic(&audio, &state);
 
         if (smokeFrames > 0 && framesRun == 0) {
@@ -89,7 +96,7 @@ int main(void) {
             state.enemyBullets[0] = (EnemyBullet){ .pos = state.player, .active = true };
         }
         // Jump the scroll so beat 7's islet is on screen: the terrain
-        // rendering (rounded coastline, beach rings, grain) draws
+        // rendering (organic coastline, beach rings, grain) draws
         // headlessly for the rest of the run. The skipped-over stage
         // events all fire at once; the spawn pools just cap out.
         if (smokeFrames > 0 && framesRun == 200 && !state.bossLock) {

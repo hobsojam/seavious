@@ -57,6 +57,12 @@ void UpdateGameMusic(GameAudio *audio, const GameState *state) {
     if (IsMusicValid(*audio->current)) UpdateMusicStream(*audio->current);
 }
 
+void SetGameAudioPaused(GameAudio *audio, bool paused) {
+    if (!IsMusicValid(*audio->current)) return;
+    if (paused) PauseMusicStream(*audio->current);
+    else ResumeMusicStream(*audio->current);
+}
+
 static void PlayIfValid(Sound sound) {
     if (IsSoundValid(sound)) PlaySound(sound);
 }
