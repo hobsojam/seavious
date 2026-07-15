@@ -74,13 +74,17 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       the future terrain system. Restart rewinds the script. Unit-tested
       in `tests/stage_tests.c`; needs a Windows playtest for beat
       pacing/feel
-- [ ] Terrain system: stage-data land footprints drifting at scroll speed —
+- [x] Terrain system: stage-data land footprints drifting at scroll speed —
       non-colliding for ship/gun, blocks torpedoes (armed = detonate at
-      land edge, unarmed = fizzle), reticle clamps to the first land edge
-      in the lane; ground enemies can anchor to terrain features. Decide
-      here whether surface wrecks also block torpedoes under the same
-      rules (deferred design question — see README Structure section for
-      both options)
+      land edge with splash that can still catch shoreline targets,
+      unarmed = fizzle), reticle clamps to the first land edge in the
+      lane. No entity pool: footprint screen rects derive purely from
+      scroll distance, so the boss lock freezes land for free and ground
+      enemies anchored to islets (beat 7's Relay Node) just work by map
+      placement. Deferred wreck question decided: wrecks stay inert and
+      do NOT block torpedoes (see README Structure for the rationale).
+      First-pass code-drawn islet look (sand fill over a foam surf rim);
+      needs a Windows playtest for readability/colors
 - [x] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
       two reserve-life icons for the initial three-life count, score
       center-left, live torpedo ready/flight/reload status right, and space
@@ -158,8 +162,9 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       deliberately deferred to the Stage 2 mortar-target class (see
       README roster note) rather than reskins of the water designs
 - [ ] Island/islet terrain art (Stage 1: sparse islets on open ocean) —
-      needs the terrain-footprint system from Mechanics before it's more
-      than scenery
+      unblocked now that the terrain-footprint system is in; replaces the
+      first-pass code-drawn sand-and-foam rectangles in `game_render.c`
+      (probably edge-aware tiles or per-footprint generated sprites)
 - [x] Air enemy sprites (drone swarms) — Skimmer Drone, Interceptor, and
       Gunship first passes all done (see Art below)
 

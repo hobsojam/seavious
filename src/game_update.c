@@ -1,5 +1,6 @@
 #include "game_update.h"
 #include "stage.h"
+#include "stage_data.h"
 #include "raylib.h"
 
 void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool forceTorpedoFire) {
@@ -109,13 +110,23 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     bool fireTorpedo = IsKeyPressed(KEY_SPACE) || forceTorpedoFire;
     if (!state->playerDestroyed && fireTorpedo && !state->torpedo.active && state->torpedoCooldown <= 0.0f) {
         Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
-        FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn);
+        FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT,
+            state->scrollDistance);
         state->torpedoCooldown = TORPEDO_COOLDOWN;
         PushGameEvent(&state->gameEvents, (GameEvent){
             .type = GAME_EVENT_TORPEDO_FIRED, .pos = torpedoSpawn
         });
     }
     TorpedoImpact torpedoImpact = UpdateTorpedo(&state->torpedo, dt);
+    // Land blocks torpedoes (checked before target collision, so a target
+    // tucked behind a shoreline is genuinely shielded): armed shots
+    // detonate at the land edge - the explosion branch below still splashes
+    // shoreline targets - and unarmed shots fizzle as a splash-less DIRECT.
+    if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
+        torpedoImpact = ResolveTorpedoTerrainCollision(
+            &state->torpedo, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT, state->scrollDistance
+        );
+    }
 
     // Surface threats are world-anchored: they drift with the water, so
     // their motion freezes with the scroll under the boss lock while

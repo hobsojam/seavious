@@ -1,4 +1,5 @@
 #include "game_render.h"
+#include "stage_data.h"
 #include "raylib.h"
 #include "rlgl.h"
 #include <math.h>
@@ -78,7 +79,9 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
 
     float halfW = assets->playerTex.width / 2.0f;
     Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
-    Vector2 torpedoReticle = CalculateTorpedoReticle(torpedoSpawn);
+    Vector2 torpedoReticle = CalculateTorpedoReticle(
+        torpedoSpawn, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT, state->scrollDistance
+    );
 
     ClearBackground(BLACK);
 
@@ -131,6 +134,27 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
             state->wrecks[i].radius * 0.45f,
             (Color){ 10, 15, 17, 210 }
         );
+    }
+
+    // Land: stage-data footprints drifting with the scroll, drawn above
+    // everything that belongs to the water (wake, wrecks) and below all
+    // targets, so shoreline installations sit on their islets. First-pass
+    // code-drawn look until the islet art task: a foam surf rim then the
+    // sand fill - the rim pass runs for every footprint before any fill,
+    // so on multi-rect islands the fill overdraws interior rims and only
+    // the union's shoreline keeps its surf line.
+    for (int pass = 0; pass < 2; pass++) {
+        for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
+            Rectangle land = TerrainScreenRect(STAGE1_TERRAIN[i], state->scrollDistance);
+            if (land.x > (float)GAME_WIDTH + 2.0f || land.x + land.width < -2.0f) continue;
+            if (pass == 0) {
+                DrawRectangle((int)land.x - 2, (int)land.y - 2, (int)land.width + 4, (int)land.height + 4,
+                    (Color){ 207, 239, 240, 165 });
+            } else {
+                DrawRectangle((int)land.x, (int)land.y, (int)land.width, (int)land.height,
+                    (Color){ 184, 162, 110, 255 });
+            }
+        }
     }
 
     // Reticle marks maximum torpedo range, not a target lock.

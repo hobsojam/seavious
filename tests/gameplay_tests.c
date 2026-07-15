@@ -158,7 +158,7 @@ static void TestGunship(void) {
 static void TestTorpedoes(void) {
     Torpedo torpedo = { 0 };
     Vector2 spawn = { 10, 20 };
-    FireFixedRangeTorpedo(&torpedo, spawn);
+    FireFixedRangeTorpedo(&torpedo, spawn, NULL, 0, 0.0f);
     CHECK(torpedo.active && torpedo.target.x > spawn.x);
     TorpedoImpact impact = UpdateTorpedo(&torpedo, 1);
     CHECK(!torpedo.active && impact.type == TORPEDO_IMPACT_EXPLOSION);
@@ -171,6 +171,65 @@ static void TestTorpedoes(void) {
     GameEventQueue events = { 0 };
     impact = ResolveTorpedoSurfaceTargetCollision(&torpedo, &target, 1, &events);
     CHECK(impact.type == TORPEDO_IMPACT_DIRECT && !target.active && events.count == 1);
+}
+
+static void TestTerrain(void) {
+    // Screen mapping shares the ground-glyph clock: the footprint's left
+    // edge sits at the right screen edge when scroll reaches its px, and
+    // has drifted one full screen-width left one screen of scroll later.
+    StageTerrainFootprint land = { 1000, 96, 64, 32 };
+    Rectangle rect = TerrainScreenRect(land, 1000.0f);
+    NEAR(rect.x, (float)GAME_WIDTH);
+    NEAR(rect.y, 96.0f); NEAR(rect.width, 64.0f); NEAR(rect.height, 32.0f);
+    rect = TerrainScreenRect(land, 1000.0f + (float)GAME_WIDTH);
+    NEAR(rect.x, 0.0f);
+
+    // Land left edge on screen at x=200 for the checks below.
+    float scroll = 1000.0f + (float)GAME_WIDTH - 200.0f;
+
+    // Reticle clamps to the first land edge in the lane; an adjacent
+    // clear lane keeps full range; land fully behind the spawn point is
+    // ignored (firing from beyond the island is the counter-play); a
+    // spawn over land clamps to the spawn itself.
+    Vector2 blocked = CalculateTorpedoReticle((Vector2){ 100, 112 }, &land, 1, scroll);
+    NEAR(blocked.x, 200.0f);
+    Vector2 clearLane = CalculateTorpedoReticle((Vector2){ 100, 200 }, &land, 1, scroll);
+    NEAR(clearLane.x, 100.0f + TORPEDO_MAX_RANGE);
+    Vector2 pastLand = CalculateTorpedoReticle((Vector2){ 300, 112 }, &land, 1, scroll);
+    NEAR(pastLand.x, 300.0f + TORPEDO_MAX_RANGE);
+    Vector2 overLand = CalculateTorpedoReticle((Vector2){ 220, 112 }, &land, 1, scroll);
+    NEAR(overLand.x, 220.0f);
+
+    // A torpedo whose nose crosses the edge unarmed fizzles: splash-less
+    // DIRECT impact at the land edge, torpedo gone.
+    Torpedo torpedo = { 0 };
+    torpedo.active = true;
+    torpedo.pos = (Vector2){ 199.0f, 112.0f };
+    TorpedoImpact impact = ResolveTorpedoTerrainCollision(&torpedo, &land, 1, scroll);
+    CHECK(impact.type == TORPEDO_IMPACT_DIRECT && !torpedo.active);
+    NEAR(impact.pos.x, 200.0f);
+
+    // Armed, the same crossing detonates (the caller resolves splash).
+    torpedo.active = true;
+    torpedo.armed = true;
+    torpedo.pos = (Vector2){ 205.0f, 112.0f };
+    impact = ResolveTorpedoTerrainCollision(&torpedo, &land, 1, scroll);
+    CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION && !torpedo.active);
+    NEAR(impact.pos.x, 205.0f);
+
+    // A clear adjacent lane lets the torpedo run on untouched.
+    torpedo.active = true;
+    torpedo.pos = (Vector2){ 205.0f, 60.0f };
+    impact = ResolveTorpedoTerrainCollision(&torpedo, &land, 1, scroll);
+    CHECK(impact.type == TORPEDO_IMPACT_NONE && torpedo.active);
+
+    // Firing with the reticle clamped to the edge: the torpedo reaches
+    // its shortened target and detonates armed right at the land edge.
+    Torpedo fired = { 0 };
+    FireFixedRangeTorpedo(&fired, (Vector2){ 100, 112 }, &land, 1, scroll);
+    NEAR(fired.target.x, 200.0f);
+    impact = UpdateTorpedo(&fired, 1.0f);
+    CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION);
 }
 
 static void TestSurfaceTargets(void) {
@@ -402,6 +461,7 @@ int main(void) {
     TestInterceptor();
     TestGunship();
     TestTorpedoes();
+    TestTerrain();
     TestSurfaceTargets();
     TestRelayNode();
     TestMine();
