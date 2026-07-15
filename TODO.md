@@ -242,7 +242,9 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] Compose first stage lead tune (8 bars) over the template — two
       candidates generated and auditioned; Theme A ("anthem",
       `assets/audio/stage1_theme_a.xm`) picked as the stage 1 theme and
-      wired in. Theme B ("driver", `assets/audio/stage1_theme_b.xm`) is
+      wired in. Lead instrument level dropped 44→34 (XM 0–64 scale, all
+      four theme files) after the first Windows playtest found the tune
+      overpowering the drums+bass backing. Theme B ("driver", `assets/audio/stage1_theme_b.xm`) is
       kept in the repo, reserved for future modal screens (menus,
       high-score entry) — wire it when those screens exist
 - [x] Wire music into the game: Theme A loops during gameplay, hard-cut

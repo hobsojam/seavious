@@ -377,9 +377,11 @@ def main(out_dir=None):
         instrument_block('bass_pulse25',
                          sample_header(len(bass), 0, len(bass), 48, 0x01, 'bass_pulse25'), bass),
     ]
+    # Lead level: started at 44, dropped to 34 after the first Windows
+    # playtest found the tune overpowering the drums+bass backing.
     lead_instrument = instrument_block(
         'lead_square50',
-        sample_header(len(lead), 0, len(lead), 44, 0x01, 'lead_square50'), lead)
+        sample_header(len(lead), 0, len(lead), 34, 0x01, 'lead_square50'), lead)
 
     def write(filename, xm):
         path = os.path.join(out_dir, filename)
