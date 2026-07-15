@@ -254,8 +254,12 @@ static float TerrainShoreWobble(int footprint, int point) {
 static void DrawTerrainShore(Rectangle land, float grow, Color color, int footprint) {
     enum { SHORE_POINTS = 24 };
     Vector2 points[SHORE_POINTS + 2];
+    // Stage-table rows merge only when their widths match. Extending the
+    // visual contour vertically lets stepped rows join as one islet instead
+    // of reading as a stack of separate sandbars; collision stays unchanged.
+    const float shorelineJoin = 6.0f;
     const float halfW = land.width * 0.5f + grow;
-    const float halfH = land.height * 0.5f + grow;
+    const float halfH = land.height * 0.5f + grow + shorelineJoin;
     if (halfW <= 0.0f || halfH <= 0.0f) return;
 
     Vector2 center = { land.x + land.width * 0.5f, land.y + land.height * 0.5f };
