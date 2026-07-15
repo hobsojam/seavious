@@ -58,6 +58,22 @@
 #define RELAY_NODE_HP               1
 #define SCORE_RELAY_NODE  400
 
+#define MINE_RADIUS  7.0f
+#define MINE_HP      1
+#define SCORE_MINE  100
+
+#define MOBILE_PLATFORM_RADIUS          12.0f
+// Absolute leftward speed (1.5x the 40 px/s scroll): the one self-propelled
+// ground unit has to visibly move relative to the water.
+#define MOBILE_PLATFORM_SPEED           60.0f
+#define MOBILE_PLATFORM_FIRE_INTERVAL    3.0f
+#define MOBILE_PLATFORM_FAN_SPREAD_DEG  14.0f
+#define MOBILE_PLATFORM_HP               2
+// Stern (right edge) of the 36px-wide bow-left hull, where the wake trails.
+#define MOBILE_PLATFORM_STERN_OFFSET    16.0f
+#define MOBILE_PLATFORM_WAKE_INTERVAL    0.07f
+#define SCORE_MOBILE_PLATFORM 500
+
 #define MAX_GAME_EVENTS 64
 
 #define MAX_WAKE_PARTICLES   96
@@ -127,7 +143,9 @@ typedef struct {
 typedef enum {
     SURFACE_TARGET_CASEMATE,
     SURFACE_TARGET_TRACKING_TURRET,
-    SURFACE_TARGET_RELAY_NODE
+    SURFACE_TARGET_RELAY_NODE,
+    SURFACE_TARGET_MINE,
+    SURFACE_TARGET_MOBILE_PLATFORM
 } SurfaceTargetType;
 
 typedef struct {
@@ -136,6 +154,8 @@ typedef struct {
     float radius;
     int hp;
     float fireTimer;
+    // Cadence for the Mobile Platform's stern trail; unused by anchored types.
+    float wakeTimer;
     Vector2 aimDirection;
     bool active;
 } SurfaceTarget;
@@ -148,7 +168,8 @@ typedef enum {
     GAME_EVENT_TORPEDO_IMPACT,
     GAME_EVENT_PLAYER_DEATH,
     GAME_EVENT_RUN_RESTARTED,
-    GAME_EVENT_DRONE_LAUNCHED
+    GAME_EVENT_DRONE_LAUNCHED,
+    GAME_EVENT_MINE_DETONATED
 } GameEventType;
 
 typedef struct {
@@ -183,7 +204,7 @@ bool DamageAirTarget(AirTarget *target, int damage, GameEventQueue *events);
 bool DamageSurfaceTarget(SurfaceTarget *target, int damage, GameEventQueue *events);
 int ScoreGameEvents(const GameEventQueue *events);
 bool ResolvePlayerContactDamage(Vector2 playerPos, float playerRadius, const AirTarget airTargets[], int airCount,
-    const SurfaceTarget surfaceTargets[], int surfaceCount);
+    SurfaceTarget surfaceTargets[], int surfaceCount, GameEventQueue *events);
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
 bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset);
@@ -202,6 +223,9 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt);
 bool TrySpawnCasemate(SurfaceTarget targets[], int count, float y);
 bool TrySpawnTrackingTurret(SurfaceTarget targets[], int count, float y);
 bool TrySpawnRelayNode(SurfaceTarget targets[], int count, float y);
+bool TrySpawnMine(SurfaceTarget targets[], int count, float y);
+bool TrySpawnMobilePlatform(SurfaceTarget targets[], int count, float y);
+void EmitMobilePlatformWake(SurfaceTarget targets[], int count, WakeParticle wake[], int wakeCount, float dt);
 void UpdateRelayNodeLaunches(SurfaceTarget targets[], int count, float dt, AirTarget airTargets[], int airCount,
     GameEventQueue *events);
 void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt);

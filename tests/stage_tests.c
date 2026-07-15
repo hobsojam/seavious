@@ -98,6 +98,57 @@ static void TestRelayGlyphSpawns(void) {
     CHECK(relaySpawned);
 }
 
+static void TestGroundRosterGlyphsSpawn(void) {
+    // Mine and Mobile Platform map events spawn their enemies now that
+    // the ground roster is implemented (their glyphs were skipped before).
+    const StageSpawnKind kinds[] = { STAGE_SPAWN_MINE, STAGE_SPAWN_MOBILE_PLATFORM };
+    const SurfaceTargetType types[] = { SURFACE_TARGET_MINE, SURFACE_TARGET_MOBILE_PLATFORM };
+    for (int k = 0; k < 2; k++) {
+        int index = -1;
+        for (int i = 0; i < STAGE1_EVENT_COUNT; i++) {
+            if (STAGE1_EVENTS[i].kind == kinds[k]) {
+                index = i;
+                break;
+            }
+        }
+        CHECK(index >= 0);
+        if (index < 0) continue;
+
+        GameState state;
+        ResetRunState(&state);
+        state.stageCursor = index;
+        state.scrollDistance = (float)STAGE1_EVENTS[index].px - 0.5f;
+        UpdateStageScript(&state, 1.0f / OCEAN_SCROLL_SPEED);
+
+        bool spawned = false;
+        for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
+            if (state.surfaceTargets[i].active && state.surfaceTargets[i].type == types[k]) {
+                spawned = true;
+            }
+        }
+        CHECK(spawned);
+    }
+}
+
+static void TestMineLeavesNoWreck(void) {
+    // Mines detonate to nothing: neither death path leaves a wreck.
+    ExplosionEffect explosions[MAX_EXPLOSION_EFFECTS] = { 0 };
+    SurfaceWreck wrecks[MAX_SURFACE_WRECKS] = { 0 };
+    GameEventQueue events = { 0 };
+    PushGameEvent(&events, (GameEvent){
+        .type = GAME_EVENT_SURFACE_TARGET_DESTROYED,
+        .pos = { 80.0f, 80.0f },
+        .target.surfaceTarget = SURFACE_TARGET_MINE
+    });
+    PushGameEvent(&events, (GameEvent){
+        .type = GAME_EVENT_MINE_DETONATED,
+        .pos = { 120.0f, 120.0f }
+    });
+    SpawnTargetDestructionEffects(&events, explosions, wrecks);
+    CHECK(explosions[0].active && explosions[1].active);
+    for (int i = 0; i < MAX_SURFACE_WRECKS; i++) CHECK(!wrecks[i].active);
+}
+
 static void TestRelayWreckRadius(void) {
     ExplosionEffect explosions[MAX_EXPLOSION_EFFECTS] = { 0 };
     SurfaceWreck wrecks[MAX_SURFACE_WRECKS] = { 0 };
@@ -158,6 +209,8 @@ int main(void) {
     TestTableInvariants();
     TestEventsFireOnceInOrder();
     TestRelayGlyphSpawns();
+    TestGroundRosterGlyphsSpawn();
+    TestMineLeavesNoWreck();
     TestRelayWreckRadius();
     TestBossLockFreezesScript();
     TestFormationPatterns();

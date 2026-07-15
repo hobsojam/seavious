@@ -31,6 +31,9 @@ void LoadGameAudio(GameAudio *audio) {
     audio->airPop = LoadSfx("assets/audio/sfx/air_pop.wav", 0.50f);
     audio->playerDeath = LoadSfx("assets/audio/sfx/player_death.wav", 0.80f);
     audio->relayLaunch = LoadSfx("assets/audio/sfx/relay_launch.wav", 0.40f);
+    // Plays under the simultaneous player-death sound (contact detonation
+    // always costs the ship), so it sits a step below that 0.80.
+    audio->mineDetonation = LoadSfx("assets/audio/sfx/mine_detonation.wav", 0.60f);
     audio->uiBlip = LoadSfx("assets/audio/sfx/ui_blip.wav", 0.45f);
 }
 
@@ -91,12 +94,16 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
             case GAME_EVENT_DRONE_LAUNCHED:
                 PlayIfValid(audio->relayLaunch);
                 break;
+            case GAME_EVENT_MINE_DETONATED:
+                PlayIfValid(audio->mineDetonation);
+                break;
         }
     }
 }
 
 void UnloadGameAudio(GameAudio *audio) {
     UnloadSound(audio->uiBlip);
+    UnloadSound(audio->mineDetonation);
     UnloadSound(audio->relayLaunch);
     UnloadSound(audio->playerDeath);
     UnloadSound(audio->airPop);

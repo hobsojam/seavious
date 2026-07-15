@@ -67,8 +67,8 @@ static void TestAirTargets(void) {
     CHECK(!bullet.active && !targets[0].active && events.count == 1);
 
     AirTarget contact = { .pos = { 5, 5 }, .radius = 2, .active = true };
-    CHECK(ResolvePlayerContactDamage((Vector2){ 5, 5 }, 2, &contact, 1, NULL, 0));
-    CHECK(!ResolvePlayerContactDamage((Vector2){ 100, 100 }, 1, &contact, 1, NULL, 0));
+    CHECK(ResolvePlayerContactDamage((Vector2){ 5, 5 }, 2, &contact, 1, NULL, 0, NULL));
+    CHECK(!ResolvePlayerContactDamage((Vector2){ 100, 100 }, 1, &contact, 1, NULL, 0, NULL));
 }
 
 static void TestTorpedoes(void) {
@@ -169,6 +169,88 @@ static void TestRelayNode(void) {
     CHECK(owned == RELAY_NODE_MAX_DRONES);
 }
 
+static void TestMine(void) {
+    SurfaceTarget mines[2] = { 0 };
+    EnemyBullet bullets[4] = { 0 };
+    GameEventQueue events = { 0 };
+
+    CHECK(TrySpawnMine(mines, 2, 120.0f));
+    CHECK(mines[0].type == SURFACE_TARGET_MINE && mines[0].hp == MINE_HP);
+
+    // Mines never shoot.
+    UpdateSurfaceTargetFire(mines, 2, 10.0f, (Vector2){ 0, 0 }, (Vector2){ 0, 0 }, bullets, 4);
+    for (int i = 0; i < 4; i++) CHECK(!bullets[i].active);
+
+    // Contact detonates the mine: it dies with a detonation event, not a
+    // destroyed event, so the collision scores nothing.
+    mines[0].pos = (Vector2){ 50.0f, 120.0f };
+    CHECK(ResolvePlayerContactDamage((Vector2){ 50, 120 }, 2, NULL, 0, mines, 2, &events));
+    CHECK(!mines[0].active);
+    CHECK(events.count == 1 && events.items[0].type == GAME_EVENT_MINE_DETONATED);
+    CHECK(ScoreGameEvents(&events) == 0);
+
+    // A torpedoed mine scores like any other surface kill.
+    GameEventQueue killEvents = { 0 };
+    CHECK(TrySpawnMine(mines, 2, 60.0f));
+    CHECK(DamageSurfaceTarget(&mines[0], 1, &killEvents));
+    CHECK(ScoreGameEvents(&killEvents) == SCORE_MINE);
+}
+
+static void TestMobilePlatform(void) {
+    SurfaceTarget targets[2] = { 0 };
+    EnemyBullet bullets[8] = { 0 };
+    GameEventQueue events = { 0 };
+
+    CHECK(TrySpawnMobilePlatform(targets, 2, 200.0f));
+    CHECK(targets[0].type == SURFACE_TARGET_MOBILE_PLATFORM && targets[0].hp == MOBILE_PLATFORM_HP);
+
+    // Self-propelled: it outruns the water-anchored drift.
+    CHECK(TrySpawnCasemate(targets, 2, 100.0f));
+    float platformX = targets[0].pos.x;
+    float casemateX = targets[1].pos.x;
+    UpdateSurfaceTargets(targets, 2, 1.0f);
+    NEAR(platformX - targets[0].pos.x, MOBILE_PLATFORM_SPEED);
+    NEAR(casemateX - targets[1].pos.x, OCEAN_SCROLL_SPEED);
+
+    // Not fully on-screen: the fire timer doesn't run.
+    targets[0].pos = (Vector2){ (float)GAME_WIDTH + 5.0f, 200.0f };
+    UpdateSurfaceTargetFire(targets, 1, MOBILE_PLATFORM_FIRE_INTERVAL + 1.0f, (Vector2){ 100, 200 },
+        (Vector2){ 0, 0 }, bullets, 8);
+    for (int i = 0; i < 8; i++) CHECK(!bullets[i].active);
+
+    // Fully on-screen: a 3-shot fan aimed at the player, spread vertically.
+    targets[0].pos = (Vector2){ 400.0f, 200.0f };
+    targets[0].fireTimer = 0.0f;
+    UpdateSurfaceTargetFire(targets, 1, MOBILE_PLATFORM_FIRE_INTERVAL, (Vector2){ 100, 200 },
+        (Vector2){ 0, 0 }, bullets, 8);
+    int fired = 0;
+    for (int i = 0; i < 8; i++) {
+        if (bullets[i].active) fired++;
+    }
+    CHECK(fired == 3);
+    CHECK(bullets[0].vel.x < 0 && bullets[1].vel.x < 0 && bullets[2].vel.x < 0);
+    // Outer shots straddle the center shot, one to each side of the lane.
+    CHECK(bullets[0].vel.y * bullets[2].vel.y < -1.0f);
+    NEAR(bullets[1].vel.y, 0.0f);
+
+    // First multi-torpedo surface target: survives one hit, dies to the
+    // second, scoring only on the kill.
+    CHECK(!DamageSurfaceTarget(&targets[0], 1, &events));
+    CHECK(targets[0].active && events.count == 0);
+    CHECK(DamageSurfaceTarget(&targets[0], 1, &events));
+    CHECK(ScoreGameEvents(&events) == SCORE_MOBILE_PLATFORM);
+
+    // Stern wake: puffs drop behind the hull on a fixed cadence.
+    SurfaceTarget wakeSource[1] = { 0 };
+    CHECK(TrySpawnMobilePlatform(wakeSource, 1, 150.0f));
+    wakeSource[0].pos = (Vector2){ 300.0f, 150.0f };
+    WakeParticle wake[4] = { 0 };
+    EmitMobilePlatformWake(wakeSource, 1, wake, 4, MOBILE_PLATFORM_WAKE_INTERVAL);
+    CHECK(wake[0].active);
+    NEAR(wake[0].pos.x, 300.0f + MOBILE_PLATFORM_STERN_OFFSET);
+    NEAR(wake[0].pos.y, 150.0f);
+}
+
 static void TestTurretLeadIsSoft(void) {
     // A player moving straight up at full speed, turret dead ahead. A
     // perfect intercept would fire steeply upward (|vy| > |vx|, pinning the
@@ -212,6 +294,8 @@ int main(void) {
     TestTorpedoes();
     TestSurfaceTargets();
     TestRelayNode();
+    TestMine();
+    TestMobilePlatform();
     TestTurretLeadIsSoft();
     TestTurretAimClampedToPlayArea();
     return failures != 0;

@@ -152,7 +152,13 @@ the drifting-vessel niche already belongs to the Mobile Platform.
   around a dark warm body with a small dim amber core — deliberately the
   least luminous object on the water. Behavior numbers (first pass):
   anchored to the water, 1 HP to a torpedo (gun passes over it), detonates
-  on player contact. Implementation is blocked on the lives/damage system.
+  on player contact. Implemented: spawns from its stage glyph; a torpedo
+  kill scores 100 like any surface kill, while a contact detonation costs
+  the ship and deliberately scores nothing (hitting a mine is never worth
+  points); either death is a blast with no wreck — the one surface target
+  that detonates to nothing — with its own sharp-crack SFX on contact; an
+  invulnerable (respawning) player passes over mines without setting them
+  off.
 - *Mobile Platform* (heavier, less frequent) — slowly drifts across the
   water, higher HP, wider shot spread. Wider, flatter barge/raft shape,
   several small weapon emitters along its edge, trailing wake. Sprite
@@ -166,7 +172,13 @@ the drifting-vessel niche already belongs to the Mobile Platform.
   leftward (1.5x scroll speed, visibly moving relative to the water),
   2 HP to torpedoes (the first multi-torpedo surface target), fires a
   3-shot fan aimed at the player (±14°) every 3.0s while on-screen,
-  500 points. Implementation is part of the ground-roster task.
+  500 points. Implemented: spawns from its stage glyph; the fire timer
+  only runs while the hull is fully on-screen, so the first fan comes one
+  full interval after it appears instead of greeting the player at the
+  edge; the stern wake reuses the player's wake pool (puffs drop at the
+  stern and drift at water speed while the hull pulls away at 1.5x); its
+  self-propulsion shares the scroll clock, so the boss lock freezes it
+  with the rest of the water traffic.
 
 Stage 1 boss: *Leviathan-class dreadnought*, partially breaching the
 surface, with separate gun-weak pods and torpedo-weak hull sections as
@@ -317,9 +329,10 @@ future enemies.
 | Interceptor | 200 | Planned |
 | Casemate | 300 | Implemented |
 | Tracking Turret | 400 | Implemented |
-| Relay Node | 400 | Planned |
-| Gunship / Mobile Platform | 500 | Planned |
-| Mine | 100 | Planned |
+| Relay Node | 400 | Implemented |
+| Gunship | 500 | Planned |
+| Mobile Platform | 500 | Implemented |
+| Mine | 100 | Implemented (torpedo kill only; contact detonation scores nothing) |
 | Boss part | 1,000+ each | Planned; boss-clear bonus later |
 
 Basic filler targets are inexpensive, limited-torpedo surface threats pay
@@ -346,10 +359,12 @@ than the tracker for one-shot sounds, and WAV has no compatibility caveats
 the way XM/MOD does.
 
 First-pass SFX are programmatic (`tools/gen-sfx.py` → `assets/audio/sfx/`,
-seven square/sine/noise one-shots at 22050 Hz mono; refine in ChipTone
+nine square/sine/noise one-shots at 22050 Hz mono; refine in ChipTone
 later): gun shot (every auto-fire shot, deliberately tiny and quiet),
 torpedo launch, torpedo splash (unarmed direct hit), explosion (armed
-boom), air pop (drone kill), player death, and a UI blip on run restart.
+boom), air pop (drone kill), player death, relay drone launch
+(broadcast warble), mine detonation (sharp contact crack, distinct from
+the torpedo boom), and a UI blip on run restart.
 They're triggered through the `GameEventQueue`: the update code emits
 events (weapon fired, impact, death, restart) and `audio.c` maps events
 to sounds — the same pattern the destruction VFX already use, so gameplay
@@ -487,11 +502,12 @@ music + SFX, and the Stage 1 script driving all spawning: the committed
 map (`assets/stages/stage1.txt`) compiles to a C event table
 (`src/stage1_data.c`) that the engine walks by scroll distance — the
 implemented enemies (Skimmer Drone solo/line/V formations, Casemate,
-Tracking Turret) spawn at their authored beats, the not-yet-implemented
-roster glyphs are skipped until each enemy lands, and the boss lock at
+Tracking Turret, Relay Node, Mine, Mobile Platform) spawn at their
+authored beats, the not-yet-implemented air glyphs (Interceptor, Gunship)
+are skipped until each enemy lands, and the boss lock at
 map end freezes the scroll (raising the boss music as a placeholder for
 the future fight). Remaining for a completable Stage 1: the rest of the
-roster, the terrain system, and the boss fight itself.
+air roster, the terrain system, and the boss fight itself.
 
 ## Building on Windows (MSVC + vcpkg)
 

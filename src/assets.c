@@ -18,6 +18,12 @@ GameAssets LoadGameAssets(void) {
     assets.relayNodeTex = LoadTexture("assets/sprites/relay_node.png");
     SetTextureFilter(assets.relayNodeTex, TEXTURE_FILTER_POINT);
 
+    assets.mineTex = LoadTexture("assets/sprites/mine.png");
+    SetTextureFilter(assets.mineTex, TEXTURE_FILTER_POINT);
+
+    assets.mobilePlatformTex = LoadTexture("assets/sprites/mobile_platform.png");
+    SetTextureFilter(assets.mobilePlatformTex, TEXTURE_FILTER_POINT);
+
     assets.oceanTex = LoadTexture("assets/tiles/ocean.png");
     SetTextureFilter(assets.oceanTex, TEXTURE_FILTER_POINT);
     SetTextureWrap(assets.oceanTex, TEXTURE_WRAP_REPEAT);
@@ -36,6 +42,8 @@ GameAssets LoadGameAssets(void) {
 void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->oceanOverlayTex);
     UnloadTexture(assets->oceanTex);
+    UnloadTexture(assets->mobilePlatformTex);
+    UnloadTexture(assets->mineTex);
     UnloadTexture(assets->relayNodeTex);
     UnloadTexture(assets->trackingTurretTex);
     UnloadTexture(assets->casemateTex);

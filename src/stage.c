@@ -21,11 +21,16 @@ static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
         case STAGE_SPAWN_RELAY_NODE:
             TrySpawnRelayNode(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
             break;
+        case STAGE_SPAWN_MINE:
+            TrySpawnMine(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
+            break;
+        case STAGE_SPAWN_MOBILE_PLATFORM:
+            TrySpawnMobilePlatform(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
+            break;
         default:
-            // Interceptor, Gunship, Mine, Mobile Platform: their glyphs
-            // compile into the table so the map stays complete, and each
-            // starts spawning here as its enemy gets implemented (see
-            // TODO roster tasks).
+            // Interceptor and Gunship: their glyphs compile into the table
+            // so the map stays complete, and each starts spawning here as
+            // its enemy gets implemented (see TODO air-roster task).
             break;
     }
 }

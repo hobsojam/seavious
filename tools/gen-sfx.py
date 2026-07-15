@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate the first-pass SFX .wav files into assets/audio/sfx/.
 
-Seven 8-bit-style one-shots synthesized from squares, sines, and noise
+The game's 8-bit-style one-shots synthesized from squares, sines, and noise
 (22050 Hz, 16-bit mono PCM), matching the chiptune music. Deterministic
 (fixed noise seeds) so regenerating always produces identical bytes.
 First-pass programmatic versions, same convention as the sprites and
@@ -14,6 +14,8 @@ music: refine in ChipTone later if a sound needs more character.
   explosion.wav       the armed-torpedo boom: heavy noise + sub thump
   air_pop.wav         drone kill: quick square drop + noise burst
   player_death.wav    long dramatic square dive with a noise swell
+  relay_launch.wav    Relay Node drone launch: broadcast-y double warble
+  mine_detonation.wav contact-mine blast: sharp bright crack + metal ring
   ui_blip.wav         clean rising square, run-restart confirmation
 
 Run from anywhere:  python3 tools/gen-sfx.py [out_dir]
@@ -142,6 +144,26 @@ def gen_relay_launch():
     return out
 
 
+def gen_mine_detonation():
+    # Contact detonation: harder and shorter than the torpedo boom - a
+    # sharp bright crack with a metallic ring instead of a rolling
+    # explosion, so it reads as "you clipped a mine", not "torpedo hit".
+    duration = 0.32
+    n = int(SR * duration)
+    rnd = random.Random(16)
+    out = [0.0] * n
+    prev = 0.0
+    for i in range(n):
+        t = i / SR
+        # Lighter lowpass than the explosion keeps the noise bright.
+        prev += 0.45 * (rnd.uniform(-1.0, 1.0) - prev)
+        crack = 2.4 * prev * math.exp(-t * 16.0)
+        ring = 0.35 * math.sin(2.0 * math.pi * 720.0 * t) * math.exp(-t * 18.0)
+        thump = 0.5 * math.sin(2.0 * math.pi * 70.0 * t) * math.exp(-t * 20.0)
+        out[i] = envelope(t, duration, 8.0) * (crack + ring) + thump
+    return out
+
+
 def gen_ui_blip():
     duration = 0.09
     n = int(SR * duration)
@@ -159,6 +181,7 @@ SOUNDS = {
     'air_pop.wav': gen_air_pop,
     'player_death.wav': gen_player_death,
     'relay_launch.wav': gen_relay_launch,
+    'mine_detonation.wav': gen_mine_detonation,
     'ui_blip.wav': gen_ui_blip,
 }
 

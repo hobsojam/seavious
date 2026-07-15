@@ -67,6 +67,8 @@ int ScoreGameEvents(const GameEventQueue *events) {
             if (event->target.surfaceTarget == SURFACE_TARGET_CASEMATE) score += SCORE_CASEMATE;
             if (event->target.surfaceTarget == SURFACE_TARGET_TRACKING_TURRET) score += SCORE_TRACKING_TURRET;
             if (event->target.surfaceTarget == SURFACE_TARGET_RELAY_NODE) score += SCORE_RELAY_NODE;
+            if (event->target.surfaceTarget == SURFACE_TARGET_MINE) score += SCORE_MINE;
+            if (event->target.surfaceTarget == SURFACE_TARGET_MOBILE_PLATFORM) score += SCORE_MOBILE_PLATFORM;
         }
     }
     return score;
@@ -78,18 +80,30 @@ static bool CirclesOverlap(Vector2 a, float ar, Vector2 b, float br) {
 }
 
 bool ResolvePlayerContactDamage(Vector2 playerPos, float playerRadius, const AirTarget airTargets[], int airCount,
-    const SurfaceTarget surfaceTargets[], int surfaceCount) {
+    SurfaceTarget surfaceTargets[], int surfaceCount, GameEventQueue *events) {
+    bool hit = false;
+
     for (int i = 0; i < airCount; i++) {
         if (!airTargets[i].active) continue;
-        if (CirclesOverlap(playerPos, playerRadius, airTargets[i].pos, airTargets[i].radius)) return true;
+        if (CirclesOverlap(playerPos, playerRadius, airTargets[i].pos, airTargets[i].radius)) hit = true;
     }
 
     for (int i = 0; i < surfaceCount; i++) {
         if (!surfaceTargets[i].active) continue;
-        if (CirclesOverlap(playerPos, playerRadius, surfaceTargets[i].pos, surfaceTargets[i].radius)) return true;
+        if (!CirclesOverlap(playerPos, playerRadius, surfaceTargets[i].pos, surfaceTargets[i].radius)) continue;
+        hit = true;
+        // Contact consumes a mine: the detonation takes the player's ship
+        // but scores nothing and leaves no wreck (unlike a torpedo kill,
+        // which goes through the normal destroyed event).
+        if (surfaceTargets[i].type == SURFACE_TARGET_MINE) {
+            surfaceTargets[i].active = false;
+            PushGameEvent(events, (GameEvent){
+                .type = GAME_EVENT_MINE_DETONATED, .pos = surfaceTargets[i].pos
+            });
+        }
     }
 
-    return false;
+    return hit;
 }
 
 void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH) {
@@ -352,6 +366,7 @@ static bool TrySpawnSurfaceTarget(SurfaceTarget targets[], int count, SurfaceTar
             targets[i].hp = hp;
             targets[i].radius = radius;
             targets[i].fireTimer = 0.0f;
+            targets[i].wakeTimer = 0.0f;
             targets[i].aimDirection = aimDirection;
             targets[i].pos = (Vector2){ GAME_WIDTH + radius, y };
             return true;
@@ -373,6 +388,16 @@ bool TrySpawnTrackingTurret(SurfaceTarget targets[], int count, float y) {
 bool TrySpawnRelayNode(SurfaceTarget targets[], int count, float y) {
     return TrySpawnSurfaceTarget(targets, count, SURFACE_TARGET_RELAY_NODE, RELAY_NODE_RADIUS,
         RELAY_NODE_HP, (Vector2){ -1.0f, 0.0f }, y);
+}
+
+bool TrySpawnMine(SurfaceTarget targets[], int count, float y) {
+    return TrySpawnSurfaceTarget(targets, count, SURFACE_TARGET_MINE, MINE_RADIUS,
+        MINE_HP, (Vector2){ -1.0f, 0.0f }, y);
+}
+
+bool TrySpawnMobilePlatform(SurfaceTarget targets[], int count, float y) {
+    return TrySpawnSurfaceTarget(targets, count, SURFACE_TARGET_MOBILE_PLATFORM, MOBILE_PLATFORM_RADIUS,
+        MOBILE_PLATFORM_HP, (Vector2){ -1.0f, 0.0f }, y);
 }
 
 static int CountOwnedDrones(const AirTarget airTargets[], int airCount, int ownerId) {
@@ -410,8 +435,28 @@ void UpdateRelayNodeLaunches(SurfaceTarget targets[], int count, float dt, AirTa
 void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) continue;
-        targets[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
+        // The Mobile Platform is self-propelled past the anchored drift.
+        // It shares the scroll dt, so the boss lock freezes it with the
+        // rest of the water traffic.
+        float speed = targets[i].type == SURFACE_TARGET_MOBILE_PLATFORM
+            ? MOBILE_PLATFORM_SPEED : OCEAN_SCROLL_SPEED;
+        targets[i].pos.x -= speed * dt;
         if (targets[i].pos.x < -targets[i].radius) targets[i].active = false;
+    }
+}
+
+void EmitMobilePlatformWake(SurfaceTarget targets[], int count, WakeParticle wake[], int wakeCount, float dt) {
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active || targets[i].type != SURFACE_TARGET_MOBILE_PLATFORM) continue;
+        targets[i].wakeTimer += dt;
+        while (targets[i].wakeTimer >= MOBILE_PLATFORM_WAKE_INTERVAL) {
+            targets[i].wakeTimer -= MOBILE_PLATFORM_WAKE_INTERVAL;
+            // Puffs drop at the stern and drift at water speed while the
+            // hull pulls away at 1.5x, so the trail stretches out behind.
+            TryEmitWakeParticle(wake, wakeCount, (Vector2){
+                targets[i].pos.x + MOBILE_PLATFORM_STERN_OFFSET, targets[i].pos.y
+            });
+        }
     }
 }
 
@@ -454,9 +499,47 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
     EnemyBullet bullets[], int bulletCount) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) continue;
-        // Relay Nodes never attack directly; their launch behavior lives
-        // in UpdateRelayNodeLaunches.
-        if (targets[i].type == SURFACE_TARGET_RELAY_NODE) continue;
+        // Relay Nodes never attack directly (their launch behavior lives
+        // in UpdateRelayNodeLaunches); Mines carry no weapon at all.
+        if (targets[i].type == SURFACE_TARGET_RELAY_NODE || targets[i].type == SURFACE_TARGET_MINE) continue;
+
+        if (targets[i].type == SURFACE_TARGET_MOBILE_PLATFORM) {
+            Vector2 toPlayer = { playerPos.x - targets[i].pos.x, playerPos.y - targets[i].pos.y };
+            float distance = sqrtf(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
+            if (distance > 0.0001f) {
+                targets[i].aimDirection = (Vector2){ toPlayer.x / distance, toPlayer.y / distance };
+            }
+            // The timer only runs while the hull is fully on-screen, so the
+            // first fan comes one full interval after the platform appears
+            // instead of greeting the player the moment it enters.
+            bool fullyOnScreen = targets[i].pos.x >= targets[i].radius
+                              && targets[i].pos.x <= GAME_WIDTH - targets[i].radius;
+            if (!fullyOnScreen) continue;
+            targets[i].fireTimer += dt;
+            while (targets[i].fireTimer >= MOBILE_PLATFORM_FIRE_INTERVAL) {
+                targets[i].fireTimer -= MOBILE_PLATFORM_FIRE_INTERVAL;
+                for (int shot = -1; shot <= 1; shot++) {
+                    float angle = (float)shot * MOBILE_PLATFORM_FAN_SPREAD_DEG * DEG2RAD;
+                    float ca = cosf(angle);
+                    float sa = sinf(angle);
+                    Vector2 dir = {
+                        targets[i].aimDirection.x * ca - targets[i].aimDirection.y * sa,
+                        targets[i].aimDirection.x * sa + targets[i].aimDirection.y * ca
+                    };
+                    TrySpawnEnemyBullet(
+                        bullets,
+                        bulletCount,
+                        (Vector2){
+                            targets[i].pos.x + dir.x * (targets[i].radius + 3.0f),
+                            targets[i].pos.y + dir.y * (targets[i].radius + 3.0f)
+                        },
+                        (Vector2){ dir.x * ENEMY_BULLET_SPEED, dir.y * ENEMY_BULLET_SPEED }
+                    );
+                }
+            }
+            continue;
+        }
+
         float fireInterval = CASEMATE_FIRE_INTERVAL;
         Vector2 velocity = (Vector2){ -ENEMY_BULLET_SPEED, 0.0f };
         if (targets[i].type == SURFACE_TARGET_TRACKING_TURRET) {
