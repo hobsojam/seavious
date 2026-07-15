@@ -426,6 +426,17 @@ destroyed surface targets leave inert, scrolling burnt-out wrecks. Checkpoints
 still come later with the stage system. No roguelike meta-progression between
 runs.
 
+Open question, deliberately deferred to the terrain system build: should
+wrecks block torpedoes the way land will? A live surface target already
+blocks its lane (the torpedo hits it), so killing it either opens the lane
+(wrecks inert, current behavior) or leaves debris blocking it (wrecks act
+like drifting land: armed shots detonate on the wreck — whose splash can
+still reach a target tucked behind it, an emergent detonator trick —
+unarmed shots fizzle, and the reticle clamps to the first wreck in the
+lane). Both are coherent; blocking wrecks would preview the terrain rules
+before islands appear and share their implementation, which is why the
+call belongs with that task rather than now.
+
 **Level & stage design**: Stages are scripted timelines — a flat,
 deterministic table of spawn events triggered by scroll distance traveled,
 in the Gradius/R-Type tradition, not a procedural wave director. Events
