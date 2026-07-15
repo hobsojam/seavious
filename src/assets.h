@@ -9,6 +9,8 @@ typedef struct {
     Texture2D casemateTex;
     Texture2D trackingTurretTex;
     Texture2D relayNodeTex;
+    Texture2D mineTex;
+    Texture2D mobilePlatformTex;
     Texture2D oceanTex;
     Texture2D oceanOverlayTex;
 } GameAssets;

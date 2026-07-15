@@ -17,6 +17,7 @@ typedef struct {
     Sound airPop;
     Sound playerDeath;
     Sound relayLaunch;
+    Sound mineDetonation;
     Sound uiBlip;
 } GameAudio;
 

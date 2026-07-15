@@ -60,6 +60,28 @@ int main(void) {
                 .aimDirection = { -1.0f, 0.0f },
                 .active = true
             };
+            // A Mobile Platform on a lower lane runs the self-propelled
+            // drift, aimed-fan fire, and stern-wake paths.
+            state.surfaceTargets[2] = (SurfaceTarget){
+                .type = SURFACE_TARGET_MOBILE_PLATFORM,
+                .pos = { 420.0f, 300.0f },
+                .radius = MOBILE_PLATFORM_RADIUS,
+                .hp = MOBILE_PLATFORM_HP,
+                .aimDirection = { -1.0f, 0.0f },
+                .active = true
+            };
+        }
+        // A mine dropped onto the player exercises the contact-detonation
+        // path (blast + SFX + no score) before the forced bullet hits below.
+        if (smokeFrames > 0 && framesRun == 60) {
+            state.surfaceTargets[3] = (SurfaceTarget){
+                .type = SURFACE_TARGET_MINE,
+                .pos = state.player,
+                .radius = MINE_RADIUS,
+                .hp = MINE_HP,
+                .aimDirection = { -1.0f, 0.0f },
+                .active = true
+            };
         }
         if (smokeFrames > 0 && (framesRun == 120 || framesRun == 240 || framesRun == 360)) {
             state.enemyBullets[0] = (EnemyBullet){ .pos = state.player, .active = true };

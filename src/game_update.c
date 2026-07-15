@@ -116,6 +116,9 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     // their motion freezes with the scroll under the boss lock while
     // their fire control below keeps running.
     UpdateSurfaceTargets(state->surfaceTargets, MAX_SURFACE_TARGETS, scrollDt);
+    // Mobile Platform stern trails share the wake pool; scrollDt keeps the
+    // emission frozen with the hull under the boss lock.
+    EmitMobilePlatformWake(state->surfaceTargets, MAX_SURFACE_TARGETS, state->wake, MAX_WAKE_PARTICLES, scrollDt);
     UpdateSurfaceTargetFire(
         state->surfaceTargets, MAX_SURFACE_TARGETS, dt, state->player, playerVelocity,
         state->enemyBullets, MAX_ENEMY_BULLETS
@@ -146,21 +149,27 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
             .target.torpedoImpact = torpedoImpact.type
         });
     }
+    // Player hits resolve before the destruction-effects pass so a mine
+    // detonated by contact still gets its blast and SFX this same frame.
+    // Enemy bullets are absorbed even while invulnerable; contact is only
+    // resolved when it can kill, so a blinking (respawning) player passes
+    // over mines without setting them off.
+    bool enemyBulletHit = ResolveEnemyBulletPlayerCollision(
+        state->enemyBullets, MAX_ENEMY_BULLETS, state->player, playerRadius
+    );
+    bool playerVulnerable = !state->playerDestroyed && state->respawnInvulnerability <= 0.0f;
+    bool contactHit = playerVulnerable && ResolvePlayerContactDamage(
+        state->player, playerRadius, state->airTargets, MAX_AIR_TARGETS,
+        state->surfaceTargets, MAX_SURFACE_TARGETS, &state->gameEvents
+    );
+    if (playerVulnerable && (enemyBulletHit || contactHit)) {
+        TrySpawnExplosion(state->explosions, state->player, EXPLOSION_PLAYER, 20.0f, PLAYER_DEATH_DURATION);
+        BeginPlayerDeath(state);
+    }
+
     SpawnTargetDestructionEffects(&state->gameEvents, state->explosions, state->wrecks);
     state->score += ScoreGameEvents(&state->gameEvents);
 
     UpdateExplosionEffects(state->explosions, dt);
     UpdateSurfaceWrecks(state->wrecks, scrollDt);
-
-    bool enemyBulletHit = ResolveEnemyBulletPlayerCollision(
-        state->enemyBullets, MAX_ENEMY_BULLETS, state->player, playerRadius
-    );
-    bool contactHit = ResolvePlayerContactDamage(
-        state->player, playerRadius, state->airTargets, MAX_AIR_TARGETS,
-        state->surfaceTargets, MAX_SURFACE_TARGETS
-    );
-    if (!state->playerDestroyed && state->respawnInvulnerability <= 0.0f && (enemyBulletHit || contactHit)) {
-        TrySpawnExplosion(state->explosions, state->player, EXPLOSION_PLAYER, 20.0f, PLAYER_DEATH_DURATION);
-        BeginPlayerDeath(state);
-    }
 }

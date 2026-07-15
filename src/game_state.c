@@ -51,8 +51,18 @@ void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect
             float radius = TRACKING_TURRET_RADIUS;
             if (event->target.surfaceTarget == SURFACE_TARGET_CASEMATE) radius = CASEMATE_RADIUS;
             if (event->target.surfaceTarget == SURFACE_TARGET_RELAY_NODE) radius = RELAY_NODE_RADIUS;
+            if (event->target.surfaceTarget == SURFACE_TARGET_MINE) radius = MINE_RADIUS;
+            if (event->target.surfaceTarget == SURFACE_TARGET_MOBILE_PLATFORM) radius = MOBILE_PLATFORM_RADIUS;
             TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, radius + 5.0f, 0.38f);
-            TrySpawnSurfaceWreck(wrecks, event->pos, event->target.surfaceTarget, radius);
+            // Mines detonate to nothing - there is no burnt-out hull left
+            // to wreck, however they died.
+            if (event->target.surfaceTarget != SURFACE_TARGET_MINE) {
+                TrySpawnSurfaceWreck(wrecks, event->pos, event->target.surfaceTarget, radius);
+            }
+        } else if (event->type == GAME_EVENT_MINE_DETONATED) {
+            // Contact detonation: a blast clearly bigger than the mine
+            // itself, but no wreck and (via ScoreGameEvents) no score.
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, MINE_RADIUS + 8.0f, 0.38f);
         }
     }
 }

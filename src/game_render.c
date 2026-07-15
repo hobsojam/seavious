@@ -184,6 +184,24 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
                 DrawCircleV(state->surfaceTargets[i].pos, 4.0f,
                     (Color){ 255, 224, 168, (unsigned char)(200.0f * flash) });
             }
+        } else if (state->surfaceTargets[i].type == SURFACE_TARGET_MINE) {
+            // Deliberately the least luminous thing on the water: sprite
+            // only, nothing code-drawn to announce it.
+            DrawTexture(
+                assets->mineTex,
+                (int)(state->surfaceTargets[i].pos.x - assets->mineTex.width / 2.0f),
+                (int)(state->surfaceTargets[i].pos.y - assets->mineTex.height / 2.0f),
+                WHITE
+            );
+        } else if (state->surfaceTargets[i].type == SURFACE_TARGET_MOBILE_PLATFORM) {
+            // Sprite bakes the hull-hugging waterline and edge emitters;
+            // the stern wake is emitted into the shared pool at update time.
+            DrawTexture(
+                assets->mobilePlatformTex,
+                (int)(state->surfaceTargets[i].pos.x - assets->mobilePlatformTex.width / 2.0f),
+                (int)(state->surfaceTargets[i].pos.y - assets->mobilePlatformTex.height / 2.0f),
+                WHITE
+            );
         } else {
             // Sprite bakes the ring and rotating mount; only the aiming
             // barrel stays code-drawn so it can lead the player.
