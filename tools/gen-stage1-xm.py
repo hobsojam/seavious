@@ -367,21 +367,27 @@ def main(out_dir=None):
     kick = delta_encode(gen_kick())
     snare = delta_encode(gen_snare())
     hihat = delta_encode(gen_hihat())
-    bass = delta_encode(gen_pulse_cycle(0.25))
+    # Bass: was a 25% pulse at volume 48, but its thin fundamental vanished
+    # under the 50% square lead in playtests ("can't hear the bass at all")
+    # - a wider 40% pulse carries far more fundamental while staying
+    # distinct from the lead's timbre, and it runs at full volume.
+    bass = delta_encode(gen_pulse_cycle(0.40))
     lead = delta_encode(gen_pulse_cycle(0.50))
 
     backing_instruments = [
         instrument_block('kick', sample_header(len(kick), 0, 0, 56, 0x00, 'kick'), kick),
         instrument_block('snare', sample_header(len(snare), 0, 0, 52, 0x00, 'snare'), snare),
         instrument_block('hihat', sample_header(len(hihat), 0, 0, 32, 0x00, 'hihat'), hihat),
-        instrument_block('bass_pulse25',
-                         sample_header(len(bass), 0, len(bass), 48, 0x01, 'bass_pulse25'), bass),
+        instrument_block('bass_pulse40',
+                         sample_header(len(bass), 0, len(bass), 64, 0x01, 'bass_pulse40'), bass),
     ]
     # Lead level: started at 44, dropped to 34 after the first Windows
-    # playtest found the tune overpowering the drums+bass backing.
+    # playtest found the tune overpowering the drums+bass backing, then to
+    # 22 after the second still heard the tune dominating - a 50% square is
+    # perceptually much louder than its sample volume suggests.
     lead_instrument = instrument_block(
         'lead_square50',
-        sample_header(len(lead), 0, len(lead), 34, 0x01, 'lead_square50'), lead)
+        sample_header(len(lead), 0, len(lead), 22, 0x01, 'lead_square50'), lead)
 
     def write(filename, xm):
         path = os.path.join(out_dir, filename)
