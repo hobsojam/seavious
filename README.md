@@ -51,6 +51,15 @@ Silhouette rule, on top of the color coding: air units read as *aircraft*
 (flat-bottomed, sits at a visible waterline, implies stationary bulk) — so
 shape alone hints at which weapon to use, before color even registers.
 
+Shared activation rule: every enemy that acts (shoots or launches)
+approaches fully pre-armed and takes its first action right when it is
+10% of the way into the play area (`ENEMY_ACTIVATION_X`), then continues
+on its own interval. Enemies never act from the spawn edge, but they
+also never wander deep before becoming threats — the earlier
+"fully on-screen plus a full first interval" gating meant most enemies
+only opened fire a third of the way across the screen (playtest). The
+Interceptor's mid-screen single shot is the deliberate exception.
+
 Air (magenta/purple, gun targets):
 - *Skimmer Drone* — weakest, most common filler. Sine-wave flight, dies in
   1-2 hits. Tiny dart/diamond shape, one glowing core, minimal wing area —
@@ -97,9 +106,8 @@ Air (magenta/purple, gun targets):
   straight flight along its spawn row (half the
   Interceptor's speed — the bulk should read in motion), 3 HP to the gun
   (the first multi-hit air target), fires a 3-way spread aimed at the
-  player (±16°) every 2.4s while fully on-screen — the timer only runs
-  on-screen, so the first spread comes one interval after entry, same
-  courtesy as the Mobile Platform — 500 points, and a slightly larger
+  player (±16°) every 2.4s, first spread right at the shared activation
+  line, 500 points, and a slightly larger
   destruction burst than the darts to match its bulk.
 
 Ground/surface (amber/orange, torpedo targets):
@@ -145,8 +153,9 @@ the drifting-vessel niche already belongs to the Mobile Platform.
   three radial masts at 120° reading as broadcast structure rather than a
   gun, and a 2x2 pale beacon core whose launch flash is code-driven.
   Behavior numbers (first pass): anchored to the water (drifts at scroll
-  speed), 1 HP to a torpedo, launches a Skimmer Drone every 2.5s while
-  fully on-screen with at most 3 of its drones alive at once.
+  speed), 1 HP to a torpedo, launches a Skimmer Drone every 2.5s once
+  past the shared activation line (first launch right at the line) with
+  at most 3 of its drones alive at once.
   Implemented: spawns from its stage glyph, launched drones start at the
   relay itself (not the screen edge) and count against its cap so a
   freed slot refills immediately, destroying it scores 400 and strands
@@ -179,11 +188,11 @@ the drifting-vessel niche already belongs to the Mobile Platform.
   player's). Behavior numbers (first pass): self-propelled at 60 px/s
   leftward (1.5x scroll speed, visibly moving relative to the water),
   2 HP to torpedoes (the first multi-torpedo surface target), fires a
-  3-shot fan aimed at the player (±14°) every 3.0s while on-screen,
-  500 points. Implemented: spawns from its stage glyph; the fire timer
-  only runs while the hull is fully on-screen, so the first fan comes one
-  full interval after it appears instead of greeting the player at the
-  edge; the stern wake reuses the player's wake pool (puffs drop at the
+  3-shot fan aimed at the player (±14°) every 3.0s,
+  500 points. Implemented: spawns from its stage glyph; the first fan
+  comes right at the shared activation line (approaches pre-armed, never
+  greets the player from the spawn edge itself);
+  the stern wake reuses the player's wake pool (puffs drop at the
   stern and drift at water speed while the hull pulls away at 1.5x); its
   self-propulsion shares the scroll clock, so the boss lock freezes it
   with the rest of the water traffic.

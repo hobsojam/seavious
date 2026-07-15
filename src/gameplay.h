@@ -20,6 +20,14 @@
 #define ENEMY_BULLET_SPEED         160.0f
 #define ENEMY_BULLET_RADIUS          3.0f
 
+// Every acting enemy approaches fully pre-armed and takes its first
+// action (shot, launch) right when it is 10% of the way into the play
+// area (playtest: waiting for "fully on-screen" plus a full first
+// interval meant most enemies only became threats far too deep into
+// the screen). The Interceptor's mid-screen sniper trigger is the
+// deliberate exception.
+#define ENEMY_ACTIVATION_X (0.9f * GAME_WIDTH)
+
 #define MAX_AIR_TARGETS          16
 #define SKIMMER_DRONE_RADIUS         6.0f
 #define SKIMMER_DRONE_SPEED          60.0f

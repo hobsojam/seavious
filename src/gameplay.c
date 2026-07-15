@@ -318,12 +318,12 @@ void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playe
                 (Vector2){ aim.x * INTERCEPTOR_SHOT_SPEED, aim.y * INTERCEPTOR_SHOT_SPEED }
             );
         } else if (targets[i].type == AIR_TARGET_GUNSHIP) {
-            // Same courtesy as the Mobile Platform: the volley timer only
-            // runs while fully on-screen, so the first spread comes one
-            // interval after entry instead of greeting the player.
-            bool fullyOnScreen = targets[i].pos.x >= targets[i].radius
-                              && targets[i].pos.x <= GAME_WIDTH - targets[i].radius;
-            if (!fullyOnScreen) continue;
+            // Held fully pre-armed while approaching the activation line,
+            // so the first spread comes right at the line.
+            if (targets[i].pos.x > ENEMY_ACTIVATION_X) {
+                targets[i].fireTimer = GUNSHIP_FIRE_INTERVAL;
+                continue;
+            }
             targets[i].fireTimer += dt;
             while (targets[i].fireTimer >= GUNSHIP_FIRE_INTERVAL) {
                 targets[i].fireTimer -= GUNSHIP_FIRE_INTERVAL;
@@ -504,14 +504,16 @@ void UpdateRelayNodeLaunches(SurfaceTarget targets[], int count, float dt, AirTa
     for (int i = 0; i < count; i++) {
         if (!targets[i].active || targets[i].type != SURFACE_TARGET_RELAY_NODE) continue;
         targets[i].fireTimer += dt;
+        // Approaching the activation line the relay is held fully
+        // pre-armed, so its first launch comes right at the line.
+        if (targets[i].pos.x > ENEMY_ACTIVATION_X) targets[i].fireTimer = RELAY_NODE_LAUNCH_INTERVAL;
         if (targets[i].fireTimer < RELAY_NODE_LAUNCH_INTERVAL) continue;
-        // Hold at the interval while blocked (off-screen or at the drone
-        // cap), so a freed slot launches immediately - the relay reads as
-        // straining to reinforce, and killing its drones has urgency.
+        // Hold at the interval while blocked (before the line or at the
+        // drone cap), so a freed slot launches immediately - the relay
+        // reads as straining to reinforce, and killing its drones has
+        // urgency.
         targets[i].fireTimer = RELAY_NODE_LAUNCH_INTERVAL;
-        bool fullyOnScreen = targets[i].pos.x >= targets[i].radius
-                          && targets[i].pos.x <= GAME_WIDTH - targets[i].radius;
-        if (!fullyOnScreen) continue;
+        if (targets[i].pos.x > ENEMY_ACTIVATION_X) continue;
         int ownerId = i + 1;
         if (CountOwnedDrones(airTargets, airCount, ownerId) >= RELAY_NODE_MAX_DRONES) continue;
         if (TrySpawnSkimmerDroneFrom(airTargets, airCount, targets[i].pos, ownerId)) {
@@ -600,12 +602,12 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
             if (distance > 0.0001f) {
                 targets[i].aimDirection = (Vector2){ toPlayer.x / distance, toPlayer.y / distance };
             }
-            // The timer only runs while the hull is fully on-screen, so the
-            // first fan comes one full interval after the platform appears
-            // instead of greeting the player the moment it enters.
-            bool fullyOnScreen = targets[i].pos.x >= targets[i].radius
-                              && targets[i].pos.x <= GAME_WIDTH - targets[i].radius;
-            if (!fullyOnScreen) continue;
+            // Held fully pre-armed while approaching the activation line,
+            // so the first fan comes right at the line.
+            if (targets[i].pos.x > ENEMY_ACTIVATION_X) {
+                targets[i].fireTimer = MOBILE_PLATFORM_FIRE_INTERVAL;
+                continue;
+            }
             targets[i].fireTimer += dt;
             while (targets[i].fireTimer >= MOBILE_PLATFORM_FIRE_INTERVAL) {
                 targets[i].fireTimer -= MOBILE_PLATFORM_FIRE_INTERVAL;
@@ -643,6 +645,13 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
         }
         float speed = sqrtf(velocity.x * velocity.x + velocity.y * velocity.y);
         targets[i].aimDirection = (Vector2){ velocity.x / speed, velocity.y / speed };
+        // Aim tracks every frame (the turret barrel follows the player even
+        // while holding fire), but the shot itself is held fully pre-armed
+        // until the activation line.
+        if (targets[i].pos.x > ENEMY_ACTIVATION_X) {
+            targets[i].fireTimer = fireInterval;
+            continue;
+        }
         targets[i].fireTimer += dt;
         while (targets[i].fireTimer >= fireInterval) {
             targets[i].fireTimer -= fireInterval;
