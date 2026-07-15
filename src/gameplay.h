@@ -31,12 +31,12 @@
 #define INTERCEPTOR_RADIUS   8.0f
 #define INTERCEPTOR_SPEED  140.0f
 #define INTERCEPTOR_HP       1
-// Fires its single shot once it has crossed two-thirds of the screen
-// width (flying right-to-left, that line sits at x = width/3). The shot
-// is aimed at the player and travels at twice the shared projectile
+// Fires its single shot at mid-screen (playtest moved the trigger line
+// up from two-thirds crossed so the shot comes sooner). The shot is
+// aimed at the player and travels at twice the shared projectile
 // speed: at 1x it barely outran the 140 px/s craft that fired it and
 // read as meaningless in the playtest.
-#define INTERCEPTOR_FIRE_X (GAME_WIDTH / 3.0f)
+#define INTERCEPTOR_FIRE_X (GAME_WIDTH / 2.0f)
 #define INTERCEPTOR_SHOT_SPEED (2.0f * ENEMY_BULLET_SPEED)
 #define SCORE_INTERCEPTOR  200
 

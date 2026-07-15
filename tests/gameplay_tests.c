@@ -83,7 +83,7 @@ static void TestInterceptor(void) {
     NEAR(startX - targets[0].pos.x, INTERCEPTOR_SPEED);
     NEAR(targets[0].pos.y, 100.0f);
 
-    // Holds fire until it has crossed two-thirds of the screen...
+    // Holds fire until it reaches mid-screen...
     targets[0].pos.x = INTERCEPTOR_FIRE_X + 5.0f;
     UpdateAirTargetFire(targets, 1, 0.016f, (Vector2){ 48, 100 }, bullets, 2);
     CHECK(!bullets[0].active);

@@ -7,6 +7,11 @@
 // (CI smoke test) just plays nothing instead of crashing.
 #include "audio.h"
 
+// Whole-music level under the SFX: even after the in-file mix was
+// rebalanced (lead vs bass), the third playtest still found the music
+// too loud overall against the game.
+#define MUSIC_VOLUME 0.5f
+
 static Sound LoadSfx(const char *path, float volume) {
     Sound sound = LoadSound(path);
     if (IsSoundValid(sound)) SetSoundVolume(sound, volume);
@@ -18,6 +23,9 @@ void LoadGameAudio(GameAudio *audio) {
     audio->stage = LoadMusicStream("assets/audio/stage1_theme_a.xm");
     audio->boss = LoadMusicStream("assets/audio/boss1_theme_b.xm");
     audio->lament = LoadMusicStream("assets/audio/boss1_theme_a.xm");
+    if (IsMusicValid(audio->stage)) SetMusicVolume(audio->stage, MUSIC_VOLUME);
+    if (IsMusicValid(audio->boss)) SetMusicVolume(audio->boss, MUSIC_VOLUME);
+    if (IsMusicValid(audio->lament)) SetMusicVolume(audio->lament, MUSIC_VOLUME);
     audio->current = &audio->stage;
     if (IsMusicValid(audio->stage)) PlayMusicStream(audio->stage);
 

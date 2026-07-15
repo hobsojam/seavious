@@ -88,9 +88,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] Implement air roster: Interceptor, Gunship — both spawn from their
       stage glyphs (`i`/`G`) now:
       - Interceptor: 140 px/s straight lane flight, 1 HP, fires one shot
-        aimed at the player after crossing two-thirds of the screen at
+        aimed at the player at mid-screen at
         double the shared projectile speed (playtest: the original
-        straight 1x lane shot read as meaningless), 200 points
+        straight 1x lane shot at two-thirds crossed read as meaningless),
+        200 points
       - Gunship: 70 px/s straight lane flight, 3 gun HP (first multi-hit
         air target), 3-way spread aimed at the player (±16°) every 2.4s
         while fully on-screen (first spread one interval after entry),
@@ -264,7 +265,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       back to Theme A on restart, with the "hammer" boss theme loaded and
       selected whenever the future `bossActive` flag goes true; guarded so
       headless CI runs (no audio device) play nothing instead of crashing
-      — needs a Windows build/playtest to confirm audio comes through
+      — confirmed working on Windows; all music now plays at half volume
+      (`MUSIC_VOLUME` in `audio.c`) after the third playtest found the
+      whole music bed too loud against the game even with the in-file
+      mix fixed
 - [x] Build the boss variant: minor backing done
       (`assets/audio/boss1_drums_bass.xm`: identical drums and bass
       contour, only the color notes flattened to `i–VI–iv–v`); two boss

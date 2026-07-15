@@ -73,7 +73,8 @@ Air (magenta/purple, gun targets):
   spine stripe with a bright top and dark bottom half, wingtip glints, and a
   pale weapon core at the nose marking it as armed. Implemented: 140 px/s
   straight flight along its spawn row (vs the drone's 60 px/s sine), 1 HP,
-  fires once when it crosses two-thirds of the screen, 200 points.
+  fires once when it reaches mid-screen (playtest: moved up from
+  two-thirds crossed so the shot comes sooner), 200 points.
   The shot is aimed at the player and travels at double the shared
   projectile speed (320 px/s vs the standard 160) — the first pass fired
   straight down its own lane at 1x, where it barely outran the craft that
