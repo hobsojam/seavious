@@ -565,7 +565,7 @@ each one's screen rectangle derives purely from the run's scroll distance
 (the same clock the ground glyphs spawn on), so the boss lock freezing the
 scroll freezes land with the rest of the water for free, and restart
 rewinds it with the script. Rendering is a second-pass code-drawn look
-until dedicated islet art: concentric rounded coastline rings — tinted
+until dedicated islet art: concentric organic coastline rings — tinted
 shallows, surf foam, a wet-sand beach ringing every waterline, then a
 drier interior with a sparse near-invisible grain — drawn above the
 water layer (wake, wrecks) and below all targets so shoreline

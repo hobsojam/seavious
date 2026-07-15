@@ -89,7 +89,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       placement. Deferred wreck question decided: wrecks stay inert and
       do NOT block torpedoes (see README Structure for the rationale).
       Second-pass code-drawn islet look (playtest: the flat rectangles
-      read too square): rounded coastline with concentric rings —
+      read too square): organic coastline with concentric rings —
       shallows, surf foam, wet beach around every waterline, dry
       interior with sparse grain; footprint seams read as coves. Needs
       a Windows playtest for readability/colors

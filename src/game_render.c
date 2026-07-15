@@ -239,28 +239,57 @@ static void DrawBossAirborne(const GameState *state, const GameAssets *assets) {
     }
 }
 
+// A stable, small wobble makes each footprint's coast imperfect without
+// swimming as the stage scrolls. The same seed is used for every ring so
+// shallows, foam, and sand remain a clean, concentric shoreline.
+static float TerrainShoreWobble(int footprint, int point) {
+    unsigned int h = (unsigned int)footprint * 747796405u + (unsigned int)point * 2891336453u;
+    h = (h ^ (h >> 16)) * 2246822519u;
+    return ((float)(h & 0xffu) / 255.0f - 0.5f) * 0.10f;
+}
+
+// Draw a softly irregular superellipse rather than a rounded rectangle.
+// The wide, gently wobbled sides turn grid footprints into coastline lobes;
+// where adjacent footprints meet, their rings overlap into small coves.
+static void DrawTerrainShore(Rectangle land, float grow, Color color, int footprint) {
+    enum { SHORE_POINTS = 24 };
+    Vector2 points[SHORE_POINTS + 2];
+    const float halfW = land.width * 0.5f + grow;
+    const float halfH = land.height * 0.5f + grow;
+    if (halfW <= 0.0f || halfH <= 0.0f) return;
+
+    Vector2 center = { land.x + land.width * 0.5f, land.y + land.height * 0.5f };
+    points[0] = center;
+    for (int p = 0; p <= SHORE_POINTS; p++) {
+        int sample = p % SHORE_POINTS;
+        float angle = 2.0f * PI * (float)sample / (float)SHORE_POINTS;
+        float c = cosf(angle);
+        float s = sinf(angle);
+        // n=4 superellipse: much softer corners than a rectangle but it
+        // still respects the authored footprint's overall proportions.
+        float x = copysignf(sqrtf(fabsf(c)), c);
+        float y = copysignf(sqrtf(fabsf(s)), s);
+        float wobble = 1.0f + TerrainShoreWobble(footprint, sample);
+        points[p + 1] = (Vector2){ center.x + halfW * x * wobble, center.y + halfH * y * wobble };
+    }
+    DrawTriangleFan(points, SHORE_POINTS + 2, color);
+}
+
 // Land: stage-data footprints drifting with the scroll, drawn above
 // everything that belongs to the water (wake, wrecks) and below all
-// targets, so shoreline installations sit on their islets. Second-pass
-// code-drawn look until dedicated islet art: each ring pass draws a
-// rounded rectangle for EVERY footprint before the next pass starts, so
-// stacked footprints merge into one landmass per layer, and the rounded
-// corners meeting at footprint seams leave small ring-colored notches
-// that read as coves rather than grid seams. From the water inward:
-// tinted shallows, surf foam, wet beach sand (the beach ringing every
-// waterline), then a drier interior with a sparse grain. Collision is
-// unchanged - torpedoes still block on the square footprints; the
-// rounding is purely the coastline's look (corner mismatch is under the
-// surf/shallow rings, so it never reads as a dry-land hit).
+// targets, so shoreline installations sit on their islets. From the water
+// inward: tinted shallows, surf foam, wet beach sand, then a drier interior.
+// Collision remains on the square authored footprints; these organic rings
+// are visual dressing, deliberately extending over the collision corners.
 static void DrawTerrain(const GameState *state) {
     static const struct {
         float inflate;
         Color color;
     } coastRings[] = {
-        { 6.0f, (Color){ 32, 94, 128, 255 } },    // shallows tint
-        { 2.0f, (Color){ 207, 239, 240, 175 } },  // surf foam
-        { 0.0f, (Color){ 149, 128, 90, 255 } },   // wet beach sand
-        { -5.0f, (Color){ 183, 161, 108, 255 } }, // dry interior sand
+        { 6.0f, { 32, 94, 128, 255 } },    // shallows tint
+        { 2.0f, { 207, 239, 240, 175 } },  // surf foam
+        { 0.0f, { 149, 128, 90, 255 } },   // wet beach sand
+        { -5.0f, { 183, 161, 108, 255 } }, // dry interior sand
     };
     const int ringCount = (int)(sizeof(coastRings) / sizeof(coastRings[0]));
 
@@ -274,7 +303,7 @@ static void DrawTerrain(const GameState *state) {
             };
             if (ring.width <= 0.0f || ring.height <= 0.0f) continue;
             if (ring.x > (float)GAME_WIDTH + 8.0f || ring.x + ring.width < -8.0f) continue;
-            DrawRectangleRounded(ring, 0.6f, 8, coastRings[pass].color);
+            DrawTerrainShore(land, grow, coastRings[pass].color, i);
         }
     }
 
