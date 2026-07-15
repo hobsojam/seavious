@@ -236,23 +236,31 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         DrawCircleV(state->bullets[i].pos, BULLET_RADIUS, bulletColor);
     }
 
+    // Universal enemy projectile (see README roster): a red diamond with a
+    // white-hot single-pixel center, identical for every enemy that shoots.
     for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
         if (!state->enemyBullets[i].active) continue;
-        DrawCircleV(state->enemyBullets[i].pos, ENEMY_BULLET_RADIUS, enemyBulletColor);
+        DrawPoly(state->enemyBullets[i].pos, 4, ENEMY_BULLET_RADIUS, 0.0f, enemyBulletColor);
+        DrawPixelV(state->enemyBullets[i].pos, (Color){ 255, 250, 240, 255 });
     }
 
-    // Skimmer Drone: dark hull so the magenta glow carries the color
-    // read. The core pulse is code-driven (no extra frames), phased by
+    // Air roster: every sprite bakes its own energy detail (Interceptor
+    // spine stripe + nose core, Gunship emitters); only the Skimmer
+    // Drone's core pulse stays code-driven (no extra frames), phased by
     // each drone's flight time so swarms shimmer instead of strobing
     // in unison. Core sits 4px ahead of sprite center (see generator).
     for (int i = 0; i < MAX_AIR_TARGETS; i++) {
         if (!state->airTargets[i].active) continue;
+        Texture2D airTex = assets->droneTex;
+        if (state->airTargets[i].type == AIR_TARGET_INTERCEPTOR) airTex = assets->interceptorTex;
+        if (state->airTargets[i].type == AIR_TARGET_GUNSHIP) airTex = assets->gunshipTex;
         DrawTexture(
-            assets->droneTex,
-            (int)(state->airTargets[i].pos.x - assets->droneTex.width / 2.0f),
-            (int)(state->airTargets[i].pos.y - assets->droneTex.height / 2.0f),
+            airTex,
+            (int)(state->airTargets[i].pos.x - airTex.width / 2.0f),
+            (int)(state->airTargets[i].pos.y - airTex.height / 2.0f),
             WHITE
         );
+        if (state->airTargets[i].type != AIR_TARGET_SKIMMER_DRONE) continue;
         unsigned char corePulse = (unsigned char)(120 + 80.0f * sinf(state->airTargets[i].t * 6.0f));
         DrawCircleV(
             (Vector2){ state->airTargets[i].pos.x - 4.0f, state->airTargets[i].pos.y },

@@ -63,6 +63,8 @@ int ScoreGameEvents(const GameEventQueue *events) {
         const GameEvent *event = &events->items[i];
         if (event->type == GAME_EVENT_AIR_TARGET_DESTROYED) {
             if (event->target.airTarget == AIR_TARGET_SKIMMER_DRONE) score += SCORE_SKIMMER_DRONE;
+            if (event->target.airTarget == AIR_TARGET_INTERCEPTOR) score += SCORE_INTERCEPTOR;
+            if (event->target.airTarget == AIR_TARGET_GUNSHIP) score += SCORE_GUNSHIP;
         } else if (event->type == GAME_EVENT_SURFACE_TARGET_DESTROYED) {
             if (event->target.surfaceTarget == SURFACE_TARGET_CASEMATE) score += SCORE_CASEMATE;
             if (event->target.surfaceTarget == SURFACE_TARGET_TRACKING_TURRET) score += SCORE_TRACKING_TURRET;
@@ -186,28 +188,50 @@ void UpdateEnemyBullets(EnemyBullet bullets[], int count, float dt) {
     }
 }
 
-static float ClampDroneBaseY(float baseY) {
-    float margin = SKIMMER_DRONE_RADIUS + SKIMMER_DRONE_SINE_AMPLITUDE;
+static float ClampAirLaneY(float baseY, float margin) {
     if (baseY < margin) return margin;
     if (baseY > PLAY_HEIGHT - margin) return PLAY_HEIGHT - margin;
     return baseY;
 }
 
-static bool TrySpawnSkimmerDroneFrom(AirTarget targets[], int count, Vector2 pos, int ownerId) {
+static float ClampDroneBaseY(float baseY) {
+    return ClampAirLaneY(baseY, SKIMMER_DRONE_RADIUS + SKIMMER_DRONE_SINE_AMPLITUDE);
+}
+
+static bool TrySpawnAirTargetFrom(AirTarget targets[], int count, AirTargetType type, float radius, int hp,
+    Vector2 pos, int ownerId) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) {
-            targets[i].type = AIR_TARGET_SKIMMER_DRONE;
+            targets[i].type = type;
             targets[i].active = true;
-            targets[i].hp = SKIMMER_DRONE_HP;
-            targets[i].radius = SKIMMER_DRONE_RADIUS;
+            targets[i].hp = hp;
+            targets[i].radius = radius;
             targets[i].t = 0.0f;
             targets[i].baseY = pos.y;
             targets[i].ownerId = ownerId;
+            targets[i].fireTimer = 0.0f;
+            targets[i].hasFired = false;
             targets[i].pos = pos;
             return true;
         }
     }
     return false;
+}
+
+static bool TrySpawnSkimmerDroneFrom(AirTarget targets[], int count, Vector2 pos, int ownerId) {
+    return TrySpawnAirTargetFrom(targets, count, AIR_TARGET_SKIMMER_DRONE, SKIMMER_DRONE_RADIUS,
+        SKIMMER_DRONE_HP, pos, ownerId);
+}
+
+// Straight flyers only need their own radius as lane margin (no sine swing).
+bool TrySpawnInterceptor(AirTarget targets[], int count, float baseY) {
+    return TrySpawnAirTargetFrom(targets, count, AIR_TARGET_INTERCEPTOR, INTERCEPTOR_RADIUS, INTERCEPTOR_HP,
+        (Vector2){ GAME_WIDTH + INTERCEPTOR_RADIUS, ClampAirLaneY(baseY, INTERCEPTOR_RADIUS) }, 0);
+}
+
+bool TrySpawnGunship(AirTarget targets[], int count, float baseY) {
+    return TrySpawnAirTargetFrom(targets, count, AIR_TARGET_GUNSHIP, GUNSHIP_RADIUS, GUNSHIP_HP,
+        (Vector2){ GAME_WIDTH + GUNSHIP_RADIUS, ClampAirLaneY(baseY, GUNSHIP_RADIUS) }, 0);
 }
 
 bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset) {
@@ -246,14 +270,81 @@ int SpawnSkimmerDroneV(AirTarget targets[], int count, float baseY) {
     return spawned;
 }
 
+static float AirTargetSpeed(AirTargetType type) {
+    switch (type) {
+        case AIR_TARGET_INTERCEPTOR: return INTERCEPTOR_SPEED;
+        case AIR_TARGET_GUNSHIP: return GUNSHIP_SPEED;
+        default: return SKIMMER_DRONE_SPEED;
+    }
+}
+
 void UpdateAirTargets(AirTarget targets[], int count, float dt) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) continue;
         targets[i].t += dt;
-        targets[i].pos.x -= SKIMMER_DRONE_SPEED * dt;
-        targets[i].pos.y = targets[i].baseY
-            + sinf(targets[i].t * SKIMMER_DRONE_SINE_FREQUENCY) * SKIMMER_DRONE_SINE_AMPLITUDE;
+        targets[i].pos.x -= AirTargetSpeed(targets[i].type) * dt;
+        // Only the Skimmer Drone weaves; Interceptor and Gunship hold their
+        // spawn lane so their attack runs stay readable.
+        targets[i].pos.y = targets[i].type == AIR_TARGET_SKIMMER_DRONE
+            ? targets[i].baseY + sinf(targets[i].t * SKIMMER_DRONE_SINE_FREQUENCY) * SKIMMER_DRONE_SINE_AMPLITUDE
+            : targets[i].baseY;
         if (targets[i].pos.x < -targets[i].radius) targets[i].active = false;
+    }
+}
+
+static Vector2 AimAtPlayer(Vector2 from, Vector2 playerPos) {
+    Vector2 toPlayer = { playerPos.x - from.x, playerPos.y - from.y };
+    float distance = sqrtf(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
+    if (distance <= 0.0001f) return (Vector2){ -1.0f, 0.0f };
+    return (Vector2){ toPlayer.x / distance, toPlayer.y / distance };
+}
+
+void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playerPos,
+    EnemyBullet bullets[], int bulletCount) {
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active) continue;
+
+        if (targets[i].type == AIR_TARGET_INTERCEPTOR) {
+            if (targets[i].hasFired || targets[i].pos.x > INTERCEPTOR_FIRE_X) continue;
+            targets[i].hasFired = true;
+            Vector2 aim = AimAtPlayer(targets[i].pos, playerPos);
+            TrySpawnEnemyBullet(
+                bullets,
+                bulletCount,
+                (Vector2){
+                    targets[i].pos.x + aim.x * (targets[i].radius + 3.0f),
+                    targets[i].pos.y + aim.y * (targets[i].radius + 3.0f)
+                },
+                (Vector2){ aim.x * INTERCEPTOR_SHOT_SPEED, aim.y * INTERCEPTOR_SHOT_SPEED }
+            );
+        } else if (targets[i].type == AIR_TARGET_GUNSHIP) {
+            // Same courtesy as the Mobile Platform: the volley timer only
+            // runs while fully on-screen, so the first spread comes one
+            // interval after entry instead of greeting the player.
+            bool fullyOnScreen = targets[i].pos.x >= targets[i].radius
+                              && targets[i].pos.x <= GAME_WIDTH - targets[i].radius;
+            if (!fullyOnScreen) continue;
+            targets[i].fireTimer += dt;
+            while (targets[i].fireTimer >= GUNSHIP_FIRE_INTERVAL) {
+                targets[i].fireTimer -= GUNSHIP_FIRE_INTERVAL;
+                Vector2 aim = AimAtPlayer(targets[i].pos, playerPos);
+                for (int shot = -1; shot <= 1; shot++) {
+                    float angle = (float)shot * GUNSHIP_FAN_SPREAD_DEG * DEG2RAD;
+                    float ca = cosf(angle);
+                    float sa = sinf(angle);
+                    Vector2 dir = { aim.x * ca - aim.y * sa, aim.x * sa + aim.y * ca };
+                    TrySpawnEnemyBullet(
+                        bullets,
+                        bulletCount,
+                        (Vector2){
+                            targets[i].pos.x + dir.x * (targets[i].radius + 3.0f),
+                            targets[i].pos.y + dir.y * (targets[i].radius + 3.0f)
+                        },
+                        (Vector2){ dir.x * ENEMY_BULLET_SPEED, dir.y * ENEMY_BULLET_SPEED }
+                    );
+                }
+            }
+        }
     }
 }
 

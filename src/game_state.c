@@ -46,7 +46,9 @@ void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect
     for (int i = 0; i < events->count; i++) {
         const GameEvent *event = &events->items[i];
         if (event->type == GAME_EVENT_AIR_TARGET_DESTROYED) {
-            TrySpawnExplosion(explosions, event->pos, EXPLOSION_AIR_TARGET, 10.0f, 0.28f);
+            // The Gunship's bulk earns a bigger burst than the darts.
+            float airRadius = event->target.airTarget == AIR_TARGET_GUNSHIP ? 14.0f : 10.0f;
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_AIR_TARGET, airRadius, 0.28f);
         } else if (event->type == GAME_EVENT_SURFACE_TARGET_DESTROYED) {
             float radius = TRACKING_TURRET_RADIUS;
             if (event->target.surfaceTarget == SURFACE_TARGET_CASEMATE) radius = CASEMATE_RADIUS;

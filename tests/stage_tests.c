@@ -130,6 +130,38 @@ static void TestGroundRosterGlyphsSpawn(void) {
     }
 }
 
+static void TestAirRosterGlyphsSpawn(void) {
+    // Interceptor and Gunship map events spawn their enemies now that the
+    // air roster is implemented (their glyphs were skipped before).
+    const StageSpawnKind kinds[] = { STAGE_SPAWN_INTERCEPTOR, STAGE_SPAWN_GUNSHIP };
+    const AirTargetType types[] = { AIR_TARGET_INTERCEPTOR, AIR_TARGET_GUNSHIP };
+    for (int k = 0; k < 2; k++) {
+        int index = -1;
+        for (int i = 0; i < STAGE1_EVENT_COUNT; i++) {
+            if (STAGE1_EVENTS[i].kind == kinds[k]) {
+                index = i;
+                break;
+            }
+        }
+        CHECK(index >= 0);
+        if (index < 0) continue;
+
+        GameState state;
+        ResetRunState(&state);
+        state.stageCursor = index;
+        state.scrollDistance = (float)STAGE1_EVENTS[index].px - 0.5f;
+        UpdateStageScript(&state, 1.0f / OCEAN_SCROLL_SPEED);
+
+        bool spawned = false;
+        for (int i = 0; i < MAX_AIR_TARGETS; i++) {
+            if (state.airTargets[i].active && state.airTargets[i].type == types[k]) {
+                spawned = true;
+            }
+        }
+        CHECK(spawned);
+    }
+}
+
 static void TestMineLeavesNoWreck(void) {
     // Mines detonate to nothing: neither death path leaves a wreck.
     ExplosionEffect explosions[MAX_EXPLOSION_EFFECTS] = { 0 };
@@ -210,6 +242,7 @@ int main(void) {
     TestEventsFireOnceInOrder();
     TestRelayGlyphSpawns();
     TestGroundRosterGlyphsSpawn();
+    TestAirRosterGlyphsSpawn();
     TestMineLeavesNoWreck();
     TestRelayWreckRadius();
     TestBossLockFreezesScript();

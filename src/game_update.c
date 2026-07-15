@@ -91,6 +91,11 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     UpdateBullets(state->bullets, MAX_BULLETS, dt);
 
     UpdateAirTargets(state->airTargets, MAX_AIR_TARGETS, dt);
+    // Air return fire (Interceptor one-shot, Gunship spreads) shares the
+    // enemy bullet pool with the surface installations.
+    UpdateAirTargetFire(
+        state->airTargets, MAX_AIR_TARGETS, dt, state->player, state->enemyBullets, MAX_ENEMY_BULLETS
+    );
 
     // Gun-vs-air collision: brute-force O(bullets*targets) is fine at
     // these pool sizes (32*16 max).

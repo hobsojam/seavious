@@ -71,6 +71,90 @@ static void TestAirTargets(void) {
     CHECK(!ResolvePlayerContactDamage((Vector2){ 100, 100 }, 1, &contact, 1, NULL, 0, NULL));
 }
 
+static void TestInterceptor(void) {
+    AirTarget targets[1] = { 0 };
+    EnemyBullet bullets[2] = { 0 };
+    CHECK(TrySpawnInterceptor(targets, 1, 100.0f));
+    CHECK(targets[0].type == AIR_TARGET_INTERCEPTOR && targets[0].hp == INTERCEPTOR_HP);
+
+    // Straight lane flight: faster than a drone, no sine wobble.
+    float startX = targets[0].pos.x;
+    UpdateAirTargets(targets, 1, 1.0f);
+    NEAR(startX - targets[0].pos.x, INTERCEPTOR_SPEED);
+    NEAR(targets[0].pos.y, 100.0f);
+
+    // Holds fire until it reaches mid-screen...
+    targets[0].pos.x = INTERCEPTOR_FIRE_X + 5.0f;
+    UpdateAirTargetFire(targets, 1, 0.016f, (Vector2){ 48, 100 }, bullets, 2);
+    CHECK(!bullets[0].active);
+
+    // ...then fires exactly one shot aimed at the player, at double the
+    // shared projectile speed.
+    targets[0].pos.x = INTERCEPTOR_FIRE_X - 1.0f;
+    UpdateAirTargetFire(targets, 1, 0.016f, (Vector2){ 48, 100 }, bullets, 2);
+    CHECK(bullets[0].active);
+    NEAR(bullets[0].vel.x, -INTERCEPTOR_SHOT_SPEED);
+    NEAR(bullets[0].vel.y, 0.0f);
+    UpdateAirTargetFire(targets, 1, 10.0f, (Vector2){ 48, 100 }, bullets, 2);
+    CHECK(!bullets[1].active);
+
+    // A player below the lane pulls the aim downward.
+    AirTarget aimed[1] = { 0 };
+    EnemyBullet aimedBullets[1] = { 0 };
+    CHECK(TrySpawnInterceptor(aimed, 1, 100.0f));
+    aimed[0].pos.x = INTERCEPTOR_FIRE_X - 1.0f;
+    UpdateAirTargetFire(aimed, 1, 0.016f, (Vector2){ 48, 200 }, aimedBullets, 1);
+    CHECK(aimedBullets[0].active);
+    CHECK(aimedBullets[0].vel.x < 0 && aimedBullets[0].vel.y > 0);
+    float shotSpeed = sqrtf(aimedBullets[0].vel.x * aimedBullets[0].vel.x
+        + aimedBullets[0].vel.y * aimedBullets[0].vel.y);
+    NEAR(shotSpeed, INTERCEPTOR_SHOT_SPEED);
+
+    GameEventQueue events = { 0 };
+    CHECK(DamageAirTarget(&targets[0], 1, &events));
+    CHECK(ScoreGameEvents(&events) == SCORE_INTERCEPTOR);
+}
+
+static void TestGunship(void) {
+    AirTarget targets[1] = { 0 };
+    EnemyBullet bullets[8] = { 0 };
+    GameEventQueue events = { 0 };
+    CHECK(TrySpawnGunship(targets, 1, 150.0f));
+    CHECK(targets[0].type == AIR_TARGET_GUNSHIP && targets[0].hp == GUNSHIP_HP);
+
+    // Half the Interceptor's pace, holding its spawn lane.
+    float startX = targets[0].pos.x;
+    UpdateAirTargets(targets, 1, 1.0f);
+    NEAR(startX - targets[0].pos.x, GUNSHIP_SPEED);
+    NEAR(targets[0].pos.y, 150.0f);
+
+    // Not fully on-screen: the volley timer doesn't run.
+    targets[0].pos.x = (float)GAME_WIDTH + 2.0f;
+    UpdateAirTargetFire(targets, 1, GUNSHIP_FIRE_INTERVAL + 1.0f, (Vector2){ 100, 150 }, bullets, 8);
+    for (int i = 0; i < 8; i++) CHECK(!bullets[i].active);
+
+    // Fully on-screen: a 3-way spread aimed at the player.
+    targets[0].pos.x = 400.0f;
+    targets[0].fireTimer = 0.0f;
+    UpdateAirTargetFire(targets, 1, GUNSHIP_FIRE_INTERVAL, (Vector2){ 100, 150 }, bullets, 8);
+    int fired = 0;
+    for (int i = 0; i < 8; i++) {
+        if (bullets[i].active) fired++;
+    }
+    CHECK(fired == 3);
+    CHECK(bullets[0].vel.x < 0 && bullets[1].vel.x < 0 && bullets[2].vel.x < 0);
+    // Outer shots straddle the center shot, one to each side of the lane.
+    CHECK(bullets[0].vel.y * bullets[2].vel.y < -1.0f);
+    NEAR(bullets[1].vel.y, 0.0f);
+
+    // First multi-hit air target: survives two gun hits, dies to the third.
+    CHECK(!DamageAirTarget(&targets[0], 1, &events));
+    CHECK(!DamageAirTarget(&targets[0], 1, &events));
+    CHECK(targets[0].active && events.count == 0);
+    CHECK(DamageAirTarget(&targets[0], 1, &events));
+    CHECK(ScoreGameEvents(&events) == SCORE_GUNSHIP);
+}
+
 static void TestTorpedoes(void) {
     Torpedo torpedo = { 0 };
     Vector2 spawn = { 10, 20 };
@@ -291,6 +375,8 @@ int main(void) {
     TestDamageAndScore();
     TestMovementAndProjectiles();
     TestAirTargets();
+    TestInterceptor();
+    TestGunship();
     TestTorpedoes();
     TestSurfaceTargets();
     TestRelayNode();

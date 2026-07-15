@@ -6,6 +6,8 @@
 typedef struct {
     Texture2D playerTex;
     Texture2D droneTex;
+    Texture2D interceptorTex;
+    Texture2D gunshipTex;
     Texture2D casemateTex;
     Texture2D trackingTurretTex;
     Texture2D relayNodeTex;
