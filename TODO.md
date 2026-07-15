@@ -70,7 +70,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [ ] Terrain system: stage-data land footprints drifting at scroll speed —
       non-colliding for ship/gun, blocks torpedoes (armed = detonate at
       land edge, unarmed = fizzle), reticle clamps to the first land edge
-      in the lane; ground enemies can anchor to terrain features
+      in the lane; ground enemies can anchor to terrain features. Decide
+      here whether surface wrecks also block torpedoes under the same
+      rules (deferred design question — see README Structure section for
+      both options)
 - [x] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
       two reserve-life icons for the initial three-life count, score
       center-left, live torpedo ready/flight/reload status right, and space
