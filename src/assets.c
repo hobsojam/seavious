@@ -81,7 +81,7 @@ GameAssets LoadGameAssets(void) {
     }
     assets.terrainGroundTex = LoadTerrainTile("assets/tiles/terrain_ground.png", 128, 128, false);
     assets.terrainShoreTex = LoadTerrainTile("assets/tiles/terrain_shore_top.png", 128, 16, true);
-    assets.terrainHardpointTex = LoadTerrainTile("assets/tiles/terrain_hardpoint.png", 32, 32, false);
+    assets.terrainHardpointTex = LoadTerrainTile("assets/tiles/terrain_native_hardpoint.png", 32, 32, false);
 
     assets.oceanTex = LoadTexture("assets/tiles/ocean.png");
     SetTextureFilter(assets.oceanTex, TEXTURE_FILTER_POINT);
