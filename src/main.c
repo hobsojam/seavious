@@ -88,6 +88,13 @@ int main(void) {
         if (smokeFrames > 0 && (framesRun == 120 || framesRun == 240 || framesRun == 360)) {
             state.enemyBullets[0] = (EnemyBullet){ .pos = state.player, .active = true };
         }
+        // Jump the scroll so beat 7's islet is on screen: the terrain
+        // rendering (rounded coastline, beach rings, grain) draws
+        // headlessly for the rest of the run. The skipped-over stage
+        // events all fire at once; the spawn pools just cap out.
+        if (smokeFrames > 0 && framesRun == 200 && !state.bossLock) {
+            state.scrollDistance = 4600.0f;
+        }
         // Keep the run alive for the scripted boss segment below: the
         // three forced hits above can exhaust the stock, and game over
         // would freeze the boss update path for the rest of the run.
