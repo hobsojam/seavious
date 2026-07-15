@@ -65,7 +65,7 @@ def main():
 
     # The table must account for every glyph in the map.
     census = map_glyph_census()
-    spawn_glyphs = sum(n for ch, n in census.items() if ch != '#')
+    spawn_glyphs = sum(n for ch, n in census.items() if ch not in '#H')
     event_count = len(re.findall(r'STAGE_SPAWN_\w+ }', generated))
     check(event_count == spawn_glyphs,
           f'table has {event_count} events, map has {spawn_glyphs} spawn glyphs')
@@ -77,8 +77,9 @@ def main():
     rects = re.findall(r'\{ (\d+), (\d+), (\d+), (\d+) \},',
                        generated.split('STAGE1_TERRAIN[]')[1])
     rect_area = sum(int(w) * int(h) for _, _, w, h in rects)
-    check(rect_area == census.get('#', 0) * 32 * 32,
-          f'terrain rect area {rect_area} != {census.get("#", 0)} cells')
+    terrain_cells = census.get('#', 0) + census.get('H', 0)
+    check(rect_area == terrain_cells * 32 * 32,
+          f'terrain rect area {rect_area} != {terrain_cells} cells')
 
     if failures:
         print(f'\n{len(failures)} failure(s)')

@@ -32,10 +32,17 @@ typedef struct {
     int heightPx;
 } StageTerrainFootprint;
 
+typedef struct {
+    int px;        // left edge, map scroll-distance coordinates
+    int y;         // top edge in play-area coordinates
+} StageTerrainHardpoint;
+
 extern const StageSpawnEvent STAGE1_EVENTS[];
 extern const int STAGE1_EVENT_COUNT;
 extern const StageTerrainFootprint STAGE1_TERRAIN[];
 extern const int STAGE1_TERRAIN_COUNT;
+extern const StageTerrainHardpoint STAGE1_TERRAIN_HARDPOINTS[];
+extern const int STAGE1_TERRAIN_HARDPOINT_COUNT;
 extern const int STAGE1_LENGTH_PX;
 
 #endif

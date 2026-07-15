@@ -251,7 +251,7 @@ static bool TerrainFootprintsTouch(StageTerrainFootprint first, StageTerrainFoot
 // Collision retains the authored rectangular cells. Rendering merges every
 // touching group, so one transparent islet sprite replaces the visibly
 // stacked shore rings while targets still use the same stage coordinates.
-static void DrawTerrain(const GameState *state, const GameAssets *assets) {
+static void DrawStandaloneTerrain(const GameState *state, const GameAssets *assets) {
     enum { MAX_STAGE1_TERRAIN = 32 };
     if (STAGE1_TERRAIN_COUNT > MAX_STAGE1_TERRAIN) return;
 
@@ -294,6 +294,67 @@ static void DrawTerrain(const GameState *state, const GameAssets *assets) {
         Texture2D islet = assets->stage1IsletTex[variantSeed % STAGE1_ISLET_VARIANT_COUNT];
         Rectangle source = { 0.0f, 0.0f, (float)islet.width, (float)islet.height };
         DrawTexturePro(islet, source, destination, (Vector2){ 0 }, 0.0f, WHITE);
+    }
+}
+
+enum { TERRAIN_CELL_SIZE = 32 };
+
+static bool TerrainCellOccupied(int px, int y) {
+    for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
+        StageTerrainFootprint footprint = STAGE1_TERRAIN[i];
+        if (px >= footprint.px && px < footprint.px + footprint.widthPx
+            && y >= footprint.y && y < footprint.y + footprint.heightPx) return true;
+    }
+    return false;
+}
+
+static bool TerrainCellHasHardpoint(int px, int y) {
+    for (int i = 0; i < STAGE1_TERRAIN_HARDPOINT_COUNT; i++) {
+        if (STAGE1_TERRAIN_HARDPOINTS[i].px == px && STAGE1_TERRAIN_HARDPOINTS[i].y == y) return true;
+    }
+    return false;
+}
+
+static void DrawTerrainShoreEdge(Texture2D shore, Rectangle cell, int direction) {
+    Rectangle source = { 0.0f, 0.0f, (float)shore.width, (float)shore.height };
+    Rectangle destination = { cell.x + cell.width * 0.5f, cell.y + 3.0f, cell.width, 6.0f };
+    Vector2 origin = { cell.width * 0.5f, 3.0f };
+    float rotation = 0.0f;
+    if (direction == 1) { destination.y = cell.y + cell.height - 3.0f; rotation = 180.0f; }
+    if (direction == 2) { destination.x = cell.x + 3.0f; destination.y = cell.y + cell.height * 0.5f; rotation = -90.0f; }
+    if (direction == 3) { destination.x = cell.x + cell.width - 3.0f; destination.y = cell.y + cell.height * 0.5f; rotation = 90.0f; }
+    DrawTexturePro(shore, source, destination, origin, rotation, WHITE);
+}
+
+// The stage keeps its collision rectangles, but each occupied 32px cell now
+// receives terrain material and only exposed neighbours receive shoreline.
+// This is the base of an autotile system: large land masses and small islets
+// use one representation, while hardpoints are authored land features.
+static void DrawTerrain(const GameState *state, const GameAssets *assets) {
+    for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
+        StageTerrainFootprint footprint = STAGE1_TERRAIN[i];
+        for (int y = footprint.y; y < footprint.y + footprint.heightPx; y += TERRAIN_CELL_SIZE) {
+            for (int px = footprint.px; px < footprint.px + footprint.widthPx; px += TERRAIN_CELL_SIZE) {
+                StageTerrainFootprint cellFootprint = { px, y, TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE };
+                Rectangle cell = TerrainScreenRect(cellFootprint, state->scrollDistance);
+                if (cell.x > GAME_WIDTH || cell.x + cell.width < 0.0f) continue;
+
+                unsigned int sample = (unsigned int)(px / TERRAIN_CELL_SIZE) * 17u
+                    ^ (unsigned int)(y / TERRAIN_CELL_SIZE) * 29u;
+                Rectangle groundSource = {
+                    (float)((sample & 3u) * TERRAIN_CELL_SIZE),
+                    (float)(((sample >> 2) & 3u) * TERRAIN_CELL_SIZE),
+                    TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE
+                };
+                DrawTexturePro(assets->terrainGroundTex, groundSource, cell, (Vector2){ 0 }, 0.0f, WHITE);
+
+                if (!TerrainCellOccupied(px, y - TERRAIN_CELL_SIZE)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 0);
+                if (!TerrainCellOccupied(px, y + TERRAIN_CELL_SIZE)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 1);
+                if (!TerrainCellOccupied(px - TERRAIN_CELL_SIZE, y)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 2);
+                if (!TerrainCellOccupied(px + TERRAIN_CELL_SIZE, y)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 3);
+                if (TerrainCellHasHardpoint(px, y)) DrawTexture(assets->terrainHardpointTex, (int)cell.x, (int)cell.y, WHITE);
+            }
+        }
     }
 }
 
