@@ -12,6 +12,12 @@ static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
         case STAGE_SPAWN_DRONE_V5:
             SpawnSkimmerDroneV(state->airTargets, MAX_AIR_TARGETS, event->laneY);
             break;
+        case STAGE_SPAWN_INTERCEPTOR:
+            TrySpawnInterceptor(state->airTargets, MAX_AIR_TARGETS, event->laneY);
+            break;
+        case STAGE_SPAWN_GUNSHIP:
+            TrySpawnGunship(state->airTargets, MAX_AIR_TARGETS, event->laneY);
+            break;
         case STAGE_SPAWN_CASEMATE:
             TrySpawnCasemate(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
             break;
@@ -26,11 +32,6 @@ static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
             break;
         case STAGE_SPAWN_MOBILE_PLATFORM:
             TrySpawnMobilePlatform(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
-            break;
-        default:
-            // Interceptor and Gunship: their glyphs compile into the table
-            // so the map stays complete, and each starts spawning here as
-            // its enemy gets implemented (see TODO air-roster task).
             break;
     }
 }

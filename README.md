@@ -71,13 +71,15 @@ Air (magenta/purple, gun targets):
   clearly elongated with swept-back wings (the original brief said
   forward-swept; back-swept read cleaner at this sprite size), a full-length
   spine stripe with a bright top and dark bottom half, wingtip glints, and a
-  pale weapon core at the nose marking it as armed. Behavior numbers (first
-  pass): 140 px/s straight flight along its spawn row (vs the drone's 60
-  px/s sine), 1 HP, fires once when it crosses two-thirds of the screen.
-  Its shot establishes the universal enemy projectile: code-drawn red
-  (`#e83c3c`) diamond ~5px across with a white-hot single-pixel center,
-  180 px/s, identical for every enemy that shoots. Implementation is
-  blocked on the lives/damage system.
+  pale weapon core at the nose marking it as armed. Implemented: 140 px/s
+  straight flight along its spawn row (vs the drone's 60 px/s sine), 1 HP,
+  fires once when it crosses two-thirds of the screen, 200 points.
+  Its shot uses the universal enemy projectile: code-drawn red (`#e83c3c`)
+  diamond with a white-hot single-pixel center, identical for every enemy
+  that shoots (the diamond visual landed with the air roster, replacing
+  the placeholder circle). Its speed stays at the 160 px/s the surface
+  roster shipped and playtested with, rather than the 180 px/s this entry
+  originally sketched — one shared speed for every enemy shot wins.
 - *Wing Formation* — not a new sprite, just Skimmer Drones flying a fixed V
   or line formation, testing aim/positioning across a spread.
 - *Gunship* (heavier, less frequent) — bigger, tougher, fires a 3-way
@@ -87,12 +89,14 @@ Air (magenta/purple, gun targets):
   fuselages joined by a recessed deck, each hull carrying the family's
   magenta spine stripe with the bright/dark split, and the three emitters
   as pale cores — one at each hull nose plus a 2x2 block on the deck's
-  leading edge (the spread's center emitter). Behavior numbers (first
-  pass): 70 px/s straight flight along its spawn row (half the
+  leading edge (the spread's center emitter). Implemented: 70 px/s
+  straight flight along its spawn row (half the
   Interceptor's speed — the bulk should read in motion), 3 HP to the gun
   (the first multi-hit air target), fires a 3-way spread aimed at the
-  player (±16°) every 2.4s while fully on-screen, 500 points.
-  Implementation is part of the air-roster task.
+  player (±16°) every 2.4s while fully on-screen — the timer only runs
+  on-screen, so the first spread comes one interval after entry, same
+  courtesy as the Mobile Platform — 500 points, and a slightly larger
+  destruction burst than the darts to match its bulk.
 
 Ground/surface (amber/orange, torpedo targets):
 - *Casemate* — stationary, breaches the surface, and fires straight left
@@ -326,11 +330,11 @@ future enemies.
 | Target | Points | Status |
 | --- | ---: | --- |
 | Skimmer Drone | 100 | Implemented |
-| Interceptor | 200 | Planned |
+| Interceptor | 200 | Implemented |
 | Casemate | 300 | Implemented |
 | Tracking Turret | 400 | Implemented |
 | Relay Node | 400 | Implemented |
-| Gunship | 500 | Planned |
+| Gunship | 500 | Implemented |
 | Mobile Platform | 500 | Implemented |
 | Mine | 100 | Implemented (torpedo kill only; contact detonation scores nothing) |
 | Boss part | 1,000+ each | Planned; boss-clear bonus later |
@@ -512,13 +516,12 @@ progression spine, not yet a commitment beyond Stage 1.
 music + SFX, and the Stage 1 script driving all spawning: the committed
 map (`assets/stages/stage1.txt`) compiles to a C event table
 (`src/stage1_data.c`) that the engine walks by scroll distance — the
-implemented enemies (Skimmer Drone solo/line/V formations, Casemate,
-Tracking Turret, Relay Node, Mine, Mobile Platform) spawn at their
-authored beats, the not-yet-implemented air glyphs (Interceptor, Gunship)
-are skipped until each enemy lands, and the boss lock at
+full Stage 1 roster (Skimmer Drone solo/line/V formations, Interceptor,
+Gunship, Casemate, Tracking Turret, Relay Node, Mine, Mobile Platform)
+spawns at its authored beats, and the boss lock at
 map end freezes the scroll (raising the boss music as a placeholder for
-the future fight). Remaining for a completable Stage 1: the rest of the
-air roster, the terrain system, and the boss fight itself.
+the future fight). Remaining for a completable Stage 1: the terrain
+system and the boss fight itself.
 
 ## Building on Windows (MSVC + vcpkg)
 

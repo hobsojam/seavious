@@ -28,6 +28,22 @@
 #define SKIMMER_DRONE_HP             1
 #define SCORE_SKIMMER_DRONE  100
 
+#define INTERCEPTOR_RADIUS   8.0f
+#define INTERCEPTOR_SPEED  140.0f
+#define INTERCEPTOR_HP       1
+// Fires its single forward shot once it has crossed two-thirds of the
+// screen width (flying right-to-left, that line sits at x = width/3).
+#define INTERCEPTOR_FIRE_X (GAME_WIDTH / 3.0f)
+#define SCORE_INTERCEPTOR  200
+
+#define GUNSHIP_RADIUS          10.0f
+// Half the Interceptor's pace: the bulk should read in motion.
+#define GUNSHIP_SPEED           70.0f
+#define GUNSHIP_HP               3
+#define GUNSHIP_FIRE_INTERVAL    2.4f
+#define GUNSHIP_FAN_SPREAD_DEG  16.0f
+#define SCORE_GUNSHIP  500
+
 #define TORPEDO_SPEED    200.0f
 #define TORPEDO_COOLDOWN 1.5f
 #define TORPEDO_WIDTH    12.0f
@@ -98,7 +114,9 @@ typedef struct {
 } EnemyBullet;
 
 typedef enum {
-    AIR_TARGET_SKIMMER_DRONE
+    AIR_TARGET_SKIMMER_DRONE,
+    AIR_TARGET_INTERCEPTOR,
+    AIR_TARGET_GUNSHIP
 } AirTargetType;
 
 typedef struct {
@@ -111,6 +129,10 @@ typedef struct {
     // 0 = unowned; otherwise 1 + the owning Relay Node's pool index, so
     // relays can cap how many of *their* drones are alive at once.
     int ownerId;
+    // Gunship volley cadence; unused by the one-shot Interceptor (hasFired)
+    // and the unarmed Skimmer Drone.
+    float fireTimer;
+    bool hasFired;
     bool active;
 } AirTarget;
 
@@ -210,7 +232,11 @@ bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
 bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset);
 int SpawnSkimmerDroneLine(AirTarget targets[], int count, float baseY);
 int SpawnSkimmerDroneV(AirTarget targets[], int count, float baseY);
+bool TrySpawnInterceptor(AirTarget targets[], int count, float baseY);
+bool TrySpawnGunship(AirTarget targets[], int count, float baseY);
 void UpdateAirTargets(AirTarget targets[], int count, float dt);
+void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playerPos,
+    EnemyBullet bullets[], int bulletCount);
 void ResolveBulletAirTargetCollisions(Bullet bullets[], int bulletCount, AirTarget targets[], int targetCount,
     GameEventQueue *events);
 

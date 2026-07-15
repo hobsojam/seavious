@@ -9,6 +9,12 @@ GameAssets LoadGameAssets(void) {
     assets.droneTex = LoadTexture("assets/sprites/skimmer_drone.png");
     SetTextureFilter(assets.droneTex, TEXTURE_FILTER_POINT);
 
+    assets.interceptorTex = LoadTexture("assets/sprites/interceptor.png");
+    SetTextureFilter(assets.interceptorTex, TEXTURE_FILTER_POINT);
+
+    assets.gunshipTex = LoadTexture("assets/sprites/gunship.png");
+    SetTextureFilter(assets.gunshipTex, TEXTURE_FILTER_POINT);
+
     assets.casemateTex = LoadTexture("assets/sprites/casemate.png");
     SetTextureFilter(assets.casemateTex, TEXTURE_FILTER_POINT);
 
@@ -47,6 +53,8 @@ void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->relayNodeTex);
     UnloadTexture(assets->trackingTurretTex);
     UnloadTexture(assets->casemateTex);
+    UnloadTexture(assets->gunshipTex);
+    UnloadTexture(assets->interceptorTex);
     UnloadTexture(assets->droneTex);
     UnloadTexture(assets->playerTex);
 }
