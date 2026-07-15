@@ -59,7 +59,12 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       on-screen plus a first full interval" gating let enemies get far
       too deep before reacting; the Interceptor's mid-screen sniper
       trigger stays the deliberate exception
-- [ ] Boss fight structure (post-MVP, end of each stage)
+- [x] Boss fight structure (post-MVP, end of each stage) — landed with the
+      Stage 1 boss: the stage script raises the boss lock, `src/boss.c`
+      owns the fight from there (entrance, part-driven fight, death
+      chain, salvage, stage-clear overlay) including the `bossActive`
+      music flag; the stage-clear screen is a restart placeholder until
+      Stage 2 exists to advance into
 - [x] Stage/wave definition + sequencing — implemented:
       `tools/gen-stage-table.py` compiles `assets/stages/stage1.txt` into
       the committed `src/stage1_data.c` event table (drift-tested by
@@ -141,14 +146,41 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       LibreSprite still outstanding; now includes the
       armored (indestructible) mortar turret that lobs arcing shells during
       the fight and is salvaged intact afterward (see README boss entry)
-- [ ] Implement Stage 1 boss: Leviathan-class dreadnought (gun-weak pods +
+- [x] Implement Stage 1 boss: Leviathan-class dreadnought (gun-weak pods +
       torpedo-weak hull sections, plus the armored mortar turret hazard)
-      and the end-of-stage salvage sequence that awards the mortar
+      and the end-of-stage salvage sequence that awards the mortar —
+      implemented per the README design (`src/boss.c`, unit-tested in
+      `tests/boss_tests.c`): 2 pods (12 gun hits), 2 hull sections
+      (2 torpedoes), hidden core (4 torpedoes / 24 gun hits, mixing
+      works), staggered part fire that decays as parts die, arcing
+      mortar shells with shadow dodge-windows (cadence 4.0s→2.8s once
+      the core shows), lethal hull contact while the boss lives, boss
+      HP bar in the reserved HUD slot, death chain → wreck settle →
+      autopilot salvage → STAGE 1 CLEAR overlay. Playtest revision
+      (2026-07-15): the parked broadside let torpedoes fly through the
+      ship to reach far-side parts — the hull is now solid armor
+      (blocks torpedoes under the land rules, reticle clamps to it)
+      and the ship patrols vertically with a 180° turn at each end, so
+      each heading exposes exactly one broadside hull section and
+      killing both takes at least one full turn; blowing both tears
+      the breach open as the sole torpedo lane to the core. Second
+      revision: the hull sections are SAM batteries (the player is a
+      flyer, so surface-to-air is the right class, and open launch
+      cells are the literal gaps in the armor) — the facing battery
+      launches gun-shootable homing missiles (130 px/s, 140°/s turn
+      cap, 4s fuel, 50 pts for a shootdown) instead of straight lane
+      shots. Needs another Windows playtest for pacing (sail speed,
+      turn time, missile turn rate/fuel).
+      Placeholder SFX: mortar lob
+      reuses torpedo-launch, salvage jingle reuses the UI blip (see
+      Audio tasks)
 - [ ] Scavenged mortar weapon (Stage 2+, see README Core mechanic): lobbed
       arc over land blockers, shorter fixed-range in-lane reticle that
       ignores land edges, area blast on landing, strict land-only damage
-      class, own fire key + cooldown + green HUD status icon — blocked on
-      the Stage 1 boss (it's the salvage reward)
+      class, own fire key + cooldown + green HUD status icon — now
+      unblocked (the Stage 1 boss and its salvage sequence are in);
+      practically pairs with the Stage 2 skeleton, since Stage 1 ends
+      before the player could ever fire it
 - [ ] Design Stage 2 land-target roster (green mortar-class installations
       built on terrain) — the Stage 2 counterpart of the Stage 1 roster
       task above
@@ -300,7 +332,12 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [ ] Enemy-fire SFX: every enemy shot is currently silent — the SFX list
       already names the Interceptor shot as the first candidate; decide
       whether one shared shot sound covers all enemies (matching the
-      shared projectile) or the Gunship spread earns its own
+      shared projectile) or the Gunship spread earns its own. The boss
+      added placeholders to replace here too: the mortar lob (reuses
+      torpedo-launch, which a player torpedo impact can cut short), the
+      mortar blast (reuses the explosion boom), the salvage pickup
+      jingle (reuses the UI blip), and the SAM launch (currently silent
+      like all enemy fire; the shootdown reuses the air pop)
 - [x] Define sound effects — nine for the current game: gun shot,
       torpedo launch, torpedo splash (unarmed hit), explosion (armed
       boom), air pop (drone kill), player death, relay drone launch

@@ -208,25 +208,58 @@ player owns it. When the boss core dies the turret powers down intact, and
 the end-of-stage sequence has the skimmer salvage it: from Stage 2 onward
 it's fitted to the player as the third weapon (see Core mechanic).
 
-**Stage 1 boss design (Leviathan)**:
+**Stage 1 boss design (Leviathan)** (implemented in `src/boss.c`; the
+notes below are the design it follows — deviations, all deliberate:
+the stage-clear flow after the salvage is a restart placeholder until
+Stage 2 exists to advance into; the mortar's power-down is simply its
+shells stopping, since the dome sprite is already colorless; hull
+contact is lethal while the boss lives — the player owns the left side
+of the arena because the right side kills — and the settled wreck goes
+inert like every wreck; mortar lob/blast and the pickup jingle reuse
+existing SFX until the enemy-fire SFX task):
 
-*Body & layout* — a long broadside hull, bow left (toward the player),
-parked on the right ~40% of the screen once the boss lock stops the
-scroll; the player owns the left side of the arena. Overall footprint
-~200x120 on the 512x352 play area, drawn as one dark breached-hull base
-sprite (the "wreck-to-be") with the five interactive parts as separate
-sprites layered on top, each with its own hitbox and HP, following the
-weapon-class colors exactly:
+*Body & layout* — a long armored hull that **patrols vertically** on the
+right side of the arena once the boss lock stops the scroll: it sails up
+the screen, turns 180° in place at the lane end (bow sweeping over the
+right screen edge, away from the player), sails back down, and repeats
+(playtest revision: the original design parked it broadside-on, but that
+let torpedoes fly *through* the ship to reach parts along its far side,
+which read wrong for a warship). The hull is **solid armor** — it blocks
+torpedoes under exactly the land rules: the reticle clamps to it, armed
+shots detonate on the armor without damaging it, unarmed shots fizzle —
+while the ship's own body stays non-colliding for the gun (bullets fly
+over, the standard air-class rule) and lethal to ram. One hull section
+sits on each broadside, so **each sailing direction exposes exactly one
+torpedo-weak point** while the armor physically shields the other (the
+shielded section also holds its fire, pre-armed, and opens up the moment
+a turn swings it around); killing both means fighting through at least
+one full turn. The player owns the left of the arena because the right
+lane belongs to a moving wall. ~200x120 sprite footprint (72x190 as the
+sailing blocker), drawn as one dark breached-hull base sprite (the
+"wreck-to-be") rotated to heading, with the five interactive parts as
+separate sprites layered on top, each with its own hitbox and HP,
+following the weapon-class colors exactly:
 
 - 2x *AA pods* (magenta, gun-weak, ~20x20): raised turret bulbs on the
   hull spine, fore and aft. Same air-family visual language as the drone
   swarms — gunmetal-violet housings with magenta energy lines — because
   magenta = "shoot it." 12 gun hits each; 1,000 points. Each fires
   turret-style aimed red shots every ~2.0s.
-- 2x *hull sections* (amber, torpedo-weak, ~40x24): armored casemate
-  plates at the waterline, fore and aft, with the ground-family amber
-  waterline glow. 2 torpedoes each; 1,000 points. Each fires straight
-  lane shots (casemate-style) every ~2.5s.
+- 2x *hull sections* (amber, torpedo-weak, ~40x24): **SAM batteries** —
+  missile launch cells cut through the armor belt at the waterline, one
+  per broadside, with the ground-family amber glow. The weak-point logic
+  is literal: the ship's armor is unbroken everywhere except where its
+  own weapons need openings, and an open launch cell is exactly the gap
+  a torpedo fits into. 2 torpedoes each; 1,000 points. The player-facing
+  battery launches one homing SAM every ~3.0s (the player is an air
+  target — only the skis touch the water — so surface-to-air is the
+  correct class): the missile flies slightly faster than the skimmer
+  (130 vs 120 px/s) with a capped turn rate (~140°/s), so a hard juke
+  out-turns it and a straight run outlasts its ~4s of fuel — or the
+  gun shoots it down for 50 points, since a missile is airborne and the
+  gun-vs-air rule applies to it like anything else in the sky. Red dart
+  with an exhaust trail (enemy ordnance is always red; the trail and
+  silhouette separate "homing" from the diamond bullets at a glance).
 - 1x *mortar turret* (indestructible, ~24x24): armored dome aft-center,
   deliberately *colorless* in weapon-class terms — bare dark steel with
   no amber/magenta glow, the visual grammar for "no weapon works on
@@ -240,33 +273,43 @@ weapon-class colors exactly:
   explosion centers, reading as "the inside of the machine"). Weak to
   *both* weapons once exposed (4 torpedoes or ~24 gun hits; mixing
   works), so the endgame rewards whichever weapon the player has left
-  free. 2,000 points + stage-clear bonus later.
+  free. Blowing both sections also tears the armor open: the hull
+  blocker splits in two at the breach, and the core's own lane becomes
+  the one torpedo path *through* the ship. 2,000 points + stage-clear
+  bonus later.
 
-*Fight flow* — no scripted phases; the structure emerges from the parts:
-pods and hull sections all fire from the start (staggered timers so
-volleys interleave rather than wall), the mortar lobs throughout, and
-every destroyed part permanently silences its gun — the fight naturally
-decays from "bullet storm + mortar" to "just the mortar's rhythm" as the
-player dismantles the ship. Destroying a part leaves a burnt socket on
-the base sprite (the wreck look assembling in place). The mortar's
-cadence quickens slightly (~4.0s → ~2.8s) once the core is exposed, so
-the final push stays under pressure. Boss HP bar (reserved HUD slot)
-shows the sum of remaining destructible-part HP.
+*Fight flow* — no scripted phases; the structure emerges from the parts
+and the patrol: pods fire from the start (staggered timers so volleys
+interleave rather than wall), the player-facing SAM battery launches
+homing missiles while the shielded one waits its turn, the mortar lobs
+throughout, and every destroyed part permanently silences its gun — the
+fight naturally decays from "bullet storm + mortar" to "just the
+mortar's rhythm" as the player dismantles the ship, while the patrol
+paces the torpedo work: each broadside section is only workable on its
+own leg, so the fight has a built-in rhythm of gun pressure (pods,
+anytime) against windowed torpedo openings. Destroying a part leaves a
+burnt socket on the base sprite (the wreck look assembling in place).
+The mortar's cadence quickens slightly (~4.0s → ~2.8s) once the core is
+exposed, so the final push stays under pressure. Boss HP bar (reserved
+HUD slot) shows the sum of remaining destructible-part HP.
 
 *Sprites* — first-pass programmatic set at `assets/sprites/leviathan_*.png`
 (generated by `tools/gen-leviathan.py`, five sprites: the 200x120
 breached hull base with plate seams, spine ridge, and the jagged breach;
 the AA pod dome with its magenta energy ring; the amber-edged hull
-section plate with two dark gun ports facing the player; the bare-steel
+section plate with two dark ports facing the player (originally drawn
+as gun ports, now read as the SAM battery's launch cell doors — a
+dedicated launcher look can come with the sprite refinement); the bare-steel
 mortar dome — verified faction-colorless by the asset test; and the
 white-hot core opening). Mortar shell/shadow/blast are code-drawn VFX
 per the game's convention, not sprites, and destroyed-part scorch marks
 reuse the existing code-drawn wreck treatment rather than baked socket
 states. Refining in LibreSprite still outstanding, same as the roster.
 
-*Entrance & defeat* — the boss slides in from the right over ~3s under
+*Entrance & defeat* — the boss sails up into view from below the arena
+over ~3s under
 the boss-lock (scroll stopped, spawns stopped, "hammer" theme
-hard-cut in). On core death: chain of part-explosions along the hull
+hard-cut in), settling into its patrol. On core death: chain of part-explosions along the hull
 (white-hot → orange, biggest VFX in the game), the wreck settles a few
 pixels lower in the water, music hard-cuts back to the stage theme, and
 the mortar turret's red accents fade to dark — powered down, intact.
@@ -350,7 +393,8 @@ future enemies.
 | Gunship | 500 | Implemented |
 | Mobile Platform | 500 | Implemented |
 | Mine | 100 | Implemented (torpedo kill only; contact detonation scores nothing) |
-| Boss part | 1,000+ each | Planned; boss-clear bonus later |
+| Boss part | 1,000 (pods, SAM batteries), 2,000 (core) | Implemented; boss-clear bonus later |
+| Boss SAM missile (shot down) | 50 | Implemented |
 
 Basic filler targets are inexpensive, limited-torpedo surface threats pay
 more, and heavier or progression-gating threats carry the highest awards.
@@ -549,10 +593,11 @@ Gunship, Casemate, Tracking Turret, Relay Node, Mine, Mobile Platform)
 spawns at its authored beats, terrain footprints from the map block
 torpedoes and clamp the reticle (beat 7's islet set-piece works: the
 Casemate behind the island is permanently shielded in its lane), and the
-boss lock at
-map end freezes the scroll (raising the boss music as a placeholder for
-the future fight). Remaining for a completable Stage 1: the boss fight
-itself.
+boss lock at map end freezes the scroll and starts the Leviathan fight
+(entrance, part-driven fight with the mortar hazard, death chain, and
+the salvage sequence ending in a STAGE 1 CLEAR screen). Stage 1 is
+completable start to finish; the stage-clear screen restarts the run
+until Stage 2 exists to advance into.
 
 ## Building on Windows (MSVC + vcpkg)
 
@@ -607,6 +652,20 @@ player's current movement before firing.
 Enemy contact costs one life, triggers a brief ship explosion, then respawns
 the ship briefly invulnerable if any remain; game over follows the final
 explosion.
+
+At the end of the map the scroll locks and the Leviathan sails up from
+the bottom of the screen, patrolling the right side — up, a 180° turn,
+back down. Its armored hull stops torpedoes like land does (the reticle
+clamps to it), so only the amber SAM battery on the side facing you
+can be torpedoed; the turn at each patrol end swings the other one
+around. The facing battery launches homing missiles — out-turn them,
+outrun their fuel, or shoot them down (50 points; they're airborne, so
+the gun works). Gun down its magenta AA pods anytime, destroy both
+batteries to tear the breach open and expose the white-hot core (weak
+to both weapons, reachable through the gap in the armor), and dodge
+the armored mortar dome's arcing shells — the shadow marks where they
+land. Touching the hull while the boss lives is lethal. When the core
+dies, the skimmer salvages the mortar dome and the stage is clear.
 
 ## Technical Follow-ups
 
