@@ -87,4 +87,12 @@ const StageTerrainFootprint STAGE1_TERRAIN[] = {
 
 const int STAGE1_TERRAIN_COUNT = sizeof(STAGE1_TERRAIN) / sizeof(STAGE1_TERRAIN[0]);
 
+const StageTerrainHardpoint STAGE1_TERRAIN_HARDPOINTS[] = {
+    { 480, 32 },
+    { 4480, 128 },
+};
+
+const int STAGE1_TERRAIN_HARDPOINT_COUNT = sizeof(STAGE1_TERRAIN_HARDPOINTS)
+    / sizeof(STAGE1_TERRAIN_HARDPOINTS[0]);
+
 const int STAGE1_LENGTH_PX = 7200;

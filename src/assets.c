@@ -11,6 +11,16 @@ static Texture2D LoadTerrainSprite(const char *path) {
     return texture;
 }
 
+static Texture2D LoadTerrainTile(const char *path, int width, int height, bool cropAlpha) {
+    Image image = LoadImage(path);
+    if (cropAlpha) ImageCrop(&image, GetImageAlphaBorder(image, 0.1f));
+    ImageResizeNN(&image, width, height);
+    Texture2D texture = LoadTextureFromImage(image);
+    UnloadImage(image);
+    SetTextureFilter(texture, TEXTURE_FILTER_POINT);
+    return texture;
+}
+
 GameAssets LoadGameAssets(void) {
     GameAssets assets = { 0 };
 
@@ -69,6 +79,9 @@ GameAssets LoadGameAssets(void) {
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
         assets.stage1IsletTex[i] = LoadTerrainSprite(isletPaths[i]);
     }
+    assets.terrainGroundTex = LoadTerrainTile("assets/tiles/terrain_ground.png", 128, 128, false);
+    assets.terrainShoreTex = LoadTerrainTile("assets/tiles/terrain_shore_top.png", 128, 16, true);
+    assets.terrainHardpointTex = LoadTerrainTile("assets/tiles/terrain_hardpoint.png", 32, 32, false);
 
     assets.oceanTex = LoadTexture("assets/tiles/ocean.png");
     SetTextureFilter(assets.oceanTex, TEXTURE_FILTER_POINT);
@@ -91,6 +104,9 @@ void UnloadGameAssets(GameAssets *assets) {
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
         UnloadTexture(assets->stage1IsletTex[i]);
     }
+    UnloadTexture(assets->terrainHardpointTex);
+    UnloadTexture(assets->terrainShoreTex);
+    UnloadTexture(assets->terrainGroundTex);
     UnloadTexture(assets->leviathanCoreTex);
     UnloadTexture(assets->leviathanMortarTex);
     UnloadTexture(assets->leviathanHullSectionTex);
