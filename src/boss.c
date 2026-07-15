@@ -187,7 +187,7 @@ static void StartBossFight(GameState *state) {
     boss->partHp[BOSS_PART_HULL_AFT] = BOSS_HULL_SECTION_HP;
     boss->partHp[BOSS_PART_CORE] = BOSS_CORE_HP;
     for (int part = 0; part < BOSS_PART_COUNT; part++) {
-        float interval = part <= BOSS_PART_POD_AFT ? BOSS_POD_FIRE_INTERVAL : BOSS_HULL_SECTION_FIRE_INTERVAL;
+        float interval = part <= BOSS_PART_POD_AFT ? BOSS_POD_FIRE_INTERVAL : BOSS_SAM_INTERVAL;
         boss->partFireTimer[part] = interval - BOSS_PART_FIRST_SHOT_DELAY[part];
     }
     boss->mortarTimer = BOSS_MORTAR_INTERVAL - BOSS_MORTAR_FIRST_SHOT_DELAY;
@@ -322,7 +322,7 @@ static void FireBossGuns(GameState *state, float dt) {
     for (int part = BOSS_PART_POD_FORE; part <= BOSS_PART_HULL_AFT; part++) {
         if (!BossPartAlive(boss, (BossPartId)part)) continue;
         bool pod = part <= BOSS_PART_POD_AFT;
-        float interval = pod ? BOSS_POD_FIRE_INTERVAL : BOSS_HULL_SECTION_FIRE_INTERVAL;
+        float interval = pod ? BOSS_POD_FIRE_INTERVAL : BOSS_SAM_INTERVAL;
         // A shielded (far-side) section holds pre-armed, like enemies at
         // the activation line: its first shot comes right as the turn
         // swings it around to face the player.
