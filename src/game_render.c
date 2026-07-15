@@ -262,7 +262,9 @@ static void DrawTerrainShore(Rectangle land, float grow, Color color, int footpr
     points[0] = center;
     for (int p = 0; p <= SHORE_POINTS; p++) {
         int sample = p % SHORE_POINTS;
-        float angle = 2.0f * PI * (float)sample / (float)SHORE_POINTS;
+        // Raylib's fan helper requires the perimeter counter-clockwise;
+        // screen-space positive Y points down, so the angle is negative.
+        float angle = -2.0f * PI * (float)sample / (float)SHORE_POINTS;
         float c = cosf(angle);
         float s = sinf(angle);
         // n=4 superellipse: much softer corners than a rectangle but it
