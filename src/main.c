@@ -41,7 +41,10 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
-        if (IsKeyPressed(KEY_P)) {
+        // The smoke run toggles pause just after it jumps to the islet,
+        // covering the real pause/resume path without input injection.
+        bool smokePauseToggle = smokeFrames > 0 && (framesRun == 210 || framesRun == 211);
+        if (IsKeyPressed(KEY_P) || smokePauseToggle) {
             state.paused = !state.paused;
             SetGameAudioPaused(&audio, state.paused);
         }
