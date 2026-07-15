@@ -292,6 +292,13 @@ void UpdateAirTargets(AirTarget targets[], int count, float dt) {
     }
 }
 
+static Vector2 AimAtPlayer(Vector2 from, Vector2 playerPos) {
+    Vector2 toPlayer = { playerPos.x - from.x, playerPos.y - from.y };
+    float distance = sqrtf(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
+    if (distance <= 0.0001f) return (Vector2){ -1.0f, 0.0f };
+    return (Vector2){ toPlayer.x / distance, toPlayer.y / distance };
+}
+
 void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playerPos,
     EnemyBullet bullets[], int bulletCount) {
     for (int i = 0; i < count; i++) {
@@ -300,11 +307,15 @@ void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playe
         if (targets[i].type == AIR_TARGET_INTERCEPTOR) {
             if (targets[i].hasFired || targets[i].pos.x > INTERCEPTOR_FIRE_X) continue;
             targets[i].hasFired = true;
+            Vector2 aim = AimAtPlayer(targets[i].pos, playerPos);
             TrySpawnEnemyBullet(
                 bullets,
                 bulletCount,
-                (Vector2){ targets[i].pos.x - targets[i].radius - 3.0f, targets[i].pos.y },
-                (Vector2){ -ENEMY_BULLET_SPEED, 0.0f }
+                (Vector2){
+                    targets[i].pos.x + aim.x * (targets[i].radius + 3.0f),
+                    targets[i].pos.y + aim.y * (targets[i].radius + 3.0f)
+                },
+                (Vector2){ aim.x * INTERCEPTOR_SHOT_SPEED, aim.y * INTERCEPTOR_SHOT_SPEED }
             );
         } else if (targets[i].type == AIR_TARGET_GUNSHIP) {
             // Same courtesy as the Mobile Platform: the volley timer only
@@ -316,11 +327,7 @@ void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playe
             targets[i].fireTimer += dt;
             while (targets[i].fireTimer >= GUNSHIP_FIRE_INTERVAL) {
                 targets[i].fireTimer -= GUNSHIP_FIRE_INTERVAL;
-                Vector2 toPlayer = { playerPos.x - targets[i].pos.x, playerPos.y - targets[i].pos.y };
-                float distance = sqrtf(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
-                Vector2 aim = distance > 0.0001f
-                    ? (Vector2){ toPlayer.x / distance, toPlayer.y / distance }
-                    : (Vector2){ -1.0f, 0.0f };
+                Vector2 aim = AimAtPlayer(targets[i].pos, playerPos);
                 for (int shot = -1; shot <= 1; shot++) {
                     float angle = (float)shot * GUNSHIP_FAN_SPREAD_DEG * DEG2RAD;
                     float ca = cosf(angle);

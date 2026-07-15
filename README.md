@@ -64,7 +64,7 @@ Air (magenta/purple, gun targets):
   is kept deliberately plain — swept/elongated shapes are reserved for the
   Interceptor, extra emitter detail for the Gunship.
 - *Interceptor* — faster, flies straight at/past the player, fires a single
-  forward shot — the first enemy that shoots back. Elongated,
+  aimed shot — the first enemy that shoots back. Elongated,
   stealth-fighter-ish silhouette with a glowing spine stripe showing its
   weapon. Sprite (first-pass programmatic, 32x16, nose left): same air-family
   language as the drone (dark gunmetal-violet hull, magenta energy) but
@@ -74,12 +74,15 @@ Air (magenta/purple, gun targets):
   pale weapon core at the nose marking it as armed. Implemented: 140 px/s
   straight flight along its spawn row (vs the drone's 60 px/s sine), 1 HP,
   fires once when it crosses two-thirds of the screen, 200 points.
-  Its shot uses the universal enemy projectile: code-drawn red (`#e83c3c`)
-  diamond with a white-hot single-pixel center, identical for every enemy
-  that shoots (the diamond visual landed with the air roster, replacing
-  the placeholder circle). Its speed stays at the 160 px/s the surface
-  roster shipped and playtested with, rather than the 180 px/s this entry
-  originally sketched — one shared speed for every enemy shot wins.
+  The shot is aimed at the player and travels at double the shared
+  projectile speed (320 px/s vs the standard 160) — the first pass fired
+  straight down its own lane at 1x, where it barely outran the craft that
+  fired it and read as meaningless in the playtest. Visually it shares
+  the universal enemy projectile: code-drawn red (`#e83c3c`) diamond with
+  a white-hot single-pixel center, the same mark for every enemy shot
+  (the diamond landed with the air roster, replacing the placeholder
+  circle); only the Interceptor's speed differs, as its one-shot sniper
+  role demands.
 - *Wing Formation* — not a new sprite, just Skimmer Drones flying a fixed V
   or line formation, testing aim/positioning across a spread.
 - *Gunship* (heavier, less frequent) — bigger, tougher, fires a 3-way

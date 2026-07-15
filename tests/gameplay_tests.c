@@ -88,14 +88,27 @@ static void TestInterceptor(void) {
     UpdateAirTargetFire(targets, 1, 0.016f, (Vector2){ 48, 100 }, bullets, 2);
     CHECK(!bullets[0].active);
 
-    // ...then fires exactly one straight forward (leftward) shot.
+    // ...then fires exactly one shot aimed at the player, at double the
+    // shared projectile speed.
     targets[0].pos.x = INTERCEPTOR_FIRE_X - 1.0f;
     UpdateAirTargetFire(targets, 1, 0.016f, (Vector2){ 48, 100 }, bullets, 2);
     CHECK(bullets[0].active);
-    NEAR(bullets[0].vel.x, -ENEMY_BULLET_SPEED);
+    NEAR(bullets[0].vel.x, -INTERCEPTOR_SHOT_SPEED);
     NEAR(bullets[0].vel.y, 0.0f);
     UpdateAirTargetFire(targets, 1, 10.0f, (Vector2){ 48, 100 }, bullets, 2);
     CHECK(!bullets[1].active);
+
+    // A player below the lane pulls the aim downward.
+    AirTarget aimed[1] = { 0 };
+    EnemyBullet aimedBullets[1] = { 0 };
+    CHECK(TrySpawnInterceptor(aimed, 1, 100.0f));
+    aimed[0].pos.x = INTERCEPTOR_FIRE_X - 1.0f;
+    UpdateAirTargetFire(aimed, 1, 0.016f, (Vector2){ 48, 200 }, aimedBullets, 1);
+    CHECK(aimedBullets[0].active);
+    CHECK(aimedBullets[0].vel.x < 0 && aimedBullets[0].vel.y > 0);
+    float shotSpeed = sqrtf(aimedBullets[0].vel.x * aimedBullets[0].vel.x
+        + aimedBullets[0].vel.y * aimedBullets[0].vel.y);
+    NEAR(shotSpeed, INTERCEPTOR_SHOT_SPEED);
 
     GameEventQueue events = { 0 };
     CHECK(DamageAirTarget(&targets[0], 1, &events));

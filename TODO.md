@@ -87,8 +87,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       README for the full Stage 1 roster
 - [x] Implement air roster: Interceptor, Gunship — both spawn from their
       stage glyphs (`i`/`G`) now:
-      - Interceptor: 140 px/s straight lane flight, 1 HP, fires one
-        forward shot after crossing two-thirds of the screen, 200 points
+      - Interceptor: 140 px/s straight lane flight, 1 HP, fires one shot
+        aimed at the player after crossing two-thirds of the screen at
+        double the shared projectile speed (playtest: the original
+        straight 1x lane shot read as meaningless), 200 points
       - Gunship: 70 px/s straight lane flight, 3 gun HP (first multi-hit
         air target), 3-way spread aimed at the player (±16°) every 2.4s
         while fully on-screen (first spread one interval after entry),
@@ -251,7 +253,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       `assets/audio/stage1_theme_a.xm`) picked as the stage 1 theme and
       wired in. Lead instrument level dropped 44→34 (XM 0–64 scale, all
       four theme files) after the first Windows playtest found the tune
-      overpowering the drums+bass backing. Theme B ("driver", `assets/audio/stage1_theme_b.xm`) is
+      overpowering the drums+bass backing, then 34→22 with the bass
+      rebalanced (25%→40% pulse for a stronger fundamental, volume 48→64)
+      after the second playtest still heard the tune dominating and no
+      audible bass — needs another audition. Theme B ("driver", `assets/audio/stage1_theme_b.xm`) is
       kept in the repo, reserved for future modal screens (menus,
       high-score entry) — wire it when those screens exist
 - [x] Wire music into the game: Theme A loops during gameplay, hard-cut
