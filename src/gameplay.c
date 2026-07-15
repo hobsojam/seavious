@@ -71,6 +71,13 @@ int ScoreGameEvents(const GameEventQueue *events) {
             if (event->target.surfaceTarget == SURFACE_TARGET_RELAY_NODE) score += SCORE_RELAY_NODE;
             if (event->target.surfaceTarget == SURFACE_TARGET_MINE) score += SCORE_MINE;
             if (event->target.surfaceTarget == SURFACE_TARGET_MOBILE_PLATFORM) score += SCORE_MOBILE_PLATFORM;
+        } else if (event->type == GAME_EVENT_BOSS_PART_DESTROYED) {
+            if (event->target.bossPart == BOSS_PART_CORE) score += SCORE_BOSS_CORE;
+            else if (event->target.bossPart == BOSS_PART_POD_FORE
+                || event->target.bossPart == BOSS_PART_POD_AFT) score += SCORE_BOSS_POD;
+            else score += SCORE_BOSS_HULL_SECTION;
+        } else if (event->type == GAME_EVENT_BOSS_MISSILE_DOWNED) {
+            score += SCORE_BOSS_MISSILE;
         }
     }
     return score;
@@ -377,10 +384,20 @@ Rectangle TerrainScreenRect(StageTerrainFootprint footprint, float scrollDistanc
     };
 }
 
-// True when a torpedo travelling on laneY overlaps the footprint's rows.
-static bool TerrainOverlapsLane(Rectangle rect, float laneY) {
+// True when a torpedo travelling on laneY overlaps the blocker's rows.
+static bool RectBlocksTorpedoLane(Rectangle rect, float laneY) {
     float hh = TORPEDO_HEIGHT / 2.0f;
     return laneY + hh > rect.y && laneY - hh < rect.y + rect.height;
+}
+
+// Shared blocked-lane-reads-before-firing rule: clamp to the blocker's
+// left edge if it sits ahead of the nose in this lane (a blocker fully
+// behind the spawn point is ignored - firing from beyond it is the
+// counter-play).
+static float ClampLaneToRectEdge(Vector2 spawn, float clampedX, Rectangle rect) {
+    if (!RectBlocksTorpedoLane(rect, spawn.y)) return clampedX;
+    if (rect.x + rect.width <= spawn.x) return clampedX;
+    return rect.x < clampedX ? rect.x : clampedX;
 }
 
 Vector2 CalculateTorpedoReticle(Vector2 spawn, const StageTerrainFootprint terrain[], int terrainCount,
@@ -388,17 +405,22 @@ Vector2 CalculateTorpedoReticle(Vector2 spawn, const StageTerrainFootprint terra
     float clampedX = spawn.x + TORPEDO_MAX_RANGE;
     float screenMaxX = GAME_WIDTH - TORPEDO_RETICLE_SCREEN_MARGIN;
     if (clampedX > screenMaxX) clampedX = screenMaxX;
-    // A blocked lane reads before firing: clamp to the first land edge
-    // ahead of the nose (land fully behind the spawn point is ignored -
-    // flying past an island to fire from beyond it is the counter-play).
     for (int i = 0; i < terrainCount; i++) {
-        Rectangle rect = TerrainScreenRect(terrain[i], scrollDistance);
-        if (!TerrainOverlapsLane(rect, spawn.y)) continue;
-        if (rect.x + rect.width <= spawn.x) continue;
-        if (rect.x < clampedX) clampedX = rect.x;
+        clampedX = ClampLaneToRectEdge(spawn, clampedX, TerrainScreenRect(terrain[i], scrollDistance));
     }
     if (clampedX < spawn.x) clampedX = spawn.x;
     return (Vector2){ clampedX, spawn.y };
+}
+
+// Re-clamps an already-computed reticle against screen-space blocker
+// rects (the boss's armored hull) under the same rules as land.
+Vector2 ClampReticleToRects(Vector2 spawn, Vector2 reticle, const Rectangle rects[], int rectCount) {
+    float clampedX = reticle.x;
+    for (int i = 0; i < rectCount; i++) {
+        clampedX = ClampLaneToRectEdge(spawn, clampedX, rects[i]);
+    }
+    if (clampedX < spawn.x) clampedX = spawn.x;
+    return (Vector2){ clampedX, reticle.y };
 }
 
 Vector2 CalculateLeadTorpedoVelocity(Vector2 spawn, const SurfaceTarget targets[], int targetCount) {
@@ -477,32 +499,56 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt) {
     return NoTorpedoImpact();
 }
 
+// Impact sits at the blocker edge the nose crossed; a torpedo fired
+// while already over the blocker (the ship flies above it) dies in place.
+static bool TorpedoRectImpactEdge(const Torpedo *torpedo, Rectangle rect, float *edgeX) {
+    float hw = TORPEDO_WIDTH / 2.0f;
+    if (!RectBlocksTorpedoLane(rect, torpedo->pos.y)) return false;
+    if (torpedo->pos.x + hw < rect.x || torpedo->pos.x - hw > rect.x + rect.width) return false;
+    *edgeX = torpedo->pos.x < rect.x ? rect.x : torpedo->pos.x;
+    return true;
+}
+
+// Armed = detonate at the edge (the caller resolves splash, which can
+// still catch targets hugging the blocker); unarmed = fizzle, no splash.
+static TorpedoImpact BlockedTorpedoImpact(Torpedo *torpedo, bool hit, float edgeX) {
+    if (!hit) return NoTorpedoImpact();
+    Vector2 impactPos = { edgeX, torpedo->pos.y };
+    torpedo->active = false;
+    return TorpedoImpactAt(torpedo->armed ? TORPEDO_IMPACT_EXPLOSION : TORPEDO_IMPACT_DIRECT, impactPos);
+}
+
 TorpedoImpact ResolveTorpedoTerrainCollision(Torpedo *torpedo, const StageTerrainFootprint terrain[],
     int terrainCount, float scrollDistance) {
     if (!torpedo->active) return NoTorpedoImpact();
 
-    float hw = TORPEDO_WIDTH / 2.0f;
     float bestEdgeX = 0.0f;
     bool hit = false;
     for (int i = 0; i < terrainCount; i++) {
-        Rectangle rect = TerrainScreenRect(terrain[i], scrollDistance);
-        if (!TerrainOverlapsLane(rect, torpedo->pos.y)) continue;
-        if (torpedo->pos.x + hw < rect.x || torpedo->pos.x - hw > rect.x + rect.width) continue;
-        // Impact sits at the land edge the nose crossed; a torpedo fired
-        // while already over land (the ship flies above it) dies in place.
-        float edgeX = torpedo->pos.x < rect.x ? rect.x : torpedo->pos.x;
+        float edgeX;
+        if (!TorpedoRectImpactEdge(torpedo, TerrainScreenRect(terrain[i], scrollDistance), &edgeX)) continue;
         if (!hit || edgeX < bestEdgeX) {
             bestEdgeX = edgeX;
             hit = true;
         }
     }
-    if (!hit) return NoTorpedoImpact();
+    return BlockedTorpedoImpact(torpedo, hit, bestEdgeX);
+}
 
-    Vector2 impactPos = { bestEdgeX, torpedo->pos.y };
-    torpedo->active = false;
-    // Armed = detonate at the edge (the caller resolves splash, which can
-    // still catch shoreline targets); unarmed = fizzle, no splash at all.
-    return TorpedoImpactAt(torpedo->armed ? TORPEDO_IMPACT_EXPLOSION : TORPEDO_IMPACT_DIRECT, impactPos);
+TorpedoImpact ResolveTorpedoRectCollision(Torpedo *torpedo, const Rectangle rects[], int rectCount) {
+    if (!torpedo->active) return NoTorpedoImpact();
+
+    float bestEdgeX = 0.0f;
+    bool hit = false;
+    for (int i = 0; i < rectCount; i++) {
+        float edgeX;
+        if (!TorpedoRectImpactEdge(torpedo, rects[i], &edgeX)) continue;
+        if (!hit || edgeX < bestEdgeX) {
+            bestEdgeX = edgeX;
+            hit = true;
+        }
+    }
+    return BlockedTorpedoImpact(torpedo, hit, bestEdgeX);
 }
 
 static bool TrySpawnSurfaceTarget(SurfaceTarget targets[], int count, SurfaceTargetType type, float radius, int hp,

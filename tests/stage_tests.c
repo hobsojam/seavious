@@ -224,7 +224,9 @@ static void TestBossLockFreezesScript(void) {
 
     UpdateStageScript(&state, 1.0f);
     CHECK(state.bossLock);
-    CHECK(state.bossActive);
+    // The script only raises the lock; the boss fight module owns
+    // bossActive (and the music) from its first update.
+    CHECK(!state.bossActive);
 
     float lockedDistance = state.scrollDistance;
     UpdateStageScript(&state, 1.0f);

@@ -13,6 +13,11 @@ typedef struct {
     Texture2D relayNodeTex;
     Texture2D mineTex;
     Texture2D mobilePlatformTex;
+    Texture2D leviathanHullTex;
+    Texture2D leviathanPodTex;
+    Texture2D leviathanHullSectionTex;
+    Texture2D leviathanMortarTex;
+    Texture2D leviathanCoreTex;
     Texture2D oceanTex;
     Texture2D oceanOverlayTex;
 } GameAssets;

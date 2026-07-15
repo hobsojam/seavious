@@ -30,6 +30,23 @@ GameAssets LoadGameAssets(void) {
     assets.mobilePlatformTex = LoadTexture("assets/sprites/mobile_platform.png");
     SetTextureFilter(assets.mobilePlatformTex, TEXTURE_FILTER_POINT);
 
+    // Leviathan boss set: the hull base plus its four layered part
+    // sprites (see README "Stage 1 boss design").
+    assets.leviathanHullTex = LoadTexture("assets/sprites/leviathan_hull.png");
+    SetTextureFilter(assets.leviathanHullTex, TEXTURE_FILTER_POINT);
+
+    assets.leviathanPodTex = LoadTexture("assets/sprites/leviathan_pod.png");
+    SetTextureFilter(assets.leviathanPodTex, TEXTURE_FILTER_POINT);
+
+    assets.leviathanHullSectionTex = LoadTexture("assets/sprites/leviathan_hull_section.png");
+    SetTextureFilter(assets.leviathanHullSectionTex, TEXTURE_FILTER_POINT);
+
+    assets.leviathanMortarTex = LoadTexture("assets/sprites/leviathan_mortar.png");
+    SetTextureFilter(assets.leviathanMortarTex, TEXTURE_FILTER_POINT);
+
+    assets.leviathanCoreTex = LoadTexture("assets/sprites/leviathan_core.png");
+    SetTextureFilter(assets.leviathanCoreTex, TEXTURE_FILTER_POINT);
+
     assets.oceanTex = LoadTexture("assets/tiles/ocean.png");
     SetTextureFilter(assets.oceanTex, TEXTURE_FILTER_POINT);
     SetTextureWrap(assets.oceanTex, TEXTURE_WRAP_REPEAT);
@@ -48,6 +65,11 @@ GameAssets LoadGameAssets(void) {
 void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->oceanOverlayTex);
     UnloadTexture(assets->oceanTex);
+    UnloadTexture(assets->leviathanCoreTex);
+    UnloadTexture(assets->leviathanMortarTex);
+    UnloadTexture(assets->leviathanHullSectionTex);
+    UnloadTexture(assets->leviathanPodTex);
+    UnloadTexture(assets->leviathanHullTex);
     UnloadTexture(assets->mobilePlatformTex);
     UnloadTexture(assets->mineTex);
     UnloadTexture(assets->relayNodeTex);

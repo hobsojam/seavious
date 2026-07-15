@@ -1,8 +1,10 @@
 #include "assets.h"
 #include "audio.h"
+#include "boss.h"
 #include "game_render.h"
 #include "game_state.h"
 #include "game_update.h"
+#include "stage_data.h"
 #include "raylib.h"
 #include <stdlib.h>
 
@@ -86,6 +88,55 @@ int main(void) {
         if (smokeFrames > 0 && (framesRun == 120 || framesRun == 240 || framesRun == 360)) {
             state.enemyBullets[0] = (EnemyBullet){ .pos = state.player, .active = true };
         }
+        // Keep the run alive for the scripted boss segment below: the
+        // three forced hits above can exhaust the stock, and game over
+        // would freeze the boss update path for the rest of the run.
+        if (smokeFrames > 0 && framesRun == 365) state.lives = 3;
+        // Jump to the map end so the boss lock, the fight entrance, and
+        // the music hard-cut all run headlessly in the remaining frames.
+        if (smokeFrames > 0 && framesRun == 380 && !state.bossLock) {
+            state.scrollDistance = (float)STAGE1_LENGTH_PX;
+        }
+        // Force-walk the fight through states the short headless run
+        // can't reach in real time, so their update+render paths (part
+        // fire, scorches, exposed core, shell arc/shadow/blast, salvage
+        // dome, stage-clear overlay) all execute.
+        if (smokeFrames > 0 && framesRun == 410 && state.boss.phase == BOSS_PHASE_ENTERING) {
+            state.boss.phase = BOSS_PHASE_FIGHTING;
+            state.boss.hullCenter = (Vector2){ BOSS_PATROL_X, 200.0f };
+            state.boss.rotation = 90.0f;
+            state.boss.sailDirection = -1;
+            state.boss.partHp[BOSS_PART_POD_FORE] = 0;
+            state.boss.partHp[BOSS_PART_HULL_FORE] = 0;
+            state.boss.coreExposed = true;
+            state.boss.shells[0] = (MortarShell){
+                .launch = BossMortarPosition(&state.boss),
+                .target = { 300.0f, 100.0f },
+                .t = 0.3f,
+                .active = true
+            };
+            state.boss.shells[1] = (MortarShell){
+                .launch = BossMortarPosition(&state.boss),
+                .target = { 350.0f, 250.0f },
+                .t = BOSS_MORTAR_AIR_TIME,
+                .blastT = 0.25f,
+                .landed = true,
+                .active = true
+            };
+            // A SAM already in flight covers the homing + render paths
+            // (and likely the shootdown, crossing the gun stream).
+            state.boss.missiles[0] = (BossMissile){
+                .pos = { 320.0f, 176.0f },
+                .vel = { -BOSS_MISSILE_SPEED, 0.0f },
+                .active = true
+            };
+        }
+        if (smokeFrames > 0 && framesRun == 450 && state.boss.phase == BOSS_PHASE_FIGHTING) {
+            state.boss.phase = BOSS_PHASE_SALVAGE_DOCK;
+            state.boss.phaseTimer = 0.0f;
+            state.boss.salvageDomePos = BossMortarPosition(&state.boss);
+        }
+        if (smokeFrames > 0 && framesRun == 470) state.stageClear = true;
 
         UpdateGame(&state, &assets, dt, smokeFrames > 0 && framesRun == 0);
         PlayGameSfx(&audio, &state.gameEvents);

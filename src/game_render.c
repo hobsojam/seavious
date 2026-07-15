@@ -1,4 +1,5 @@
 #include "game_render.h"
+#include "boss.h"
 #include "stage_data.h"
 #include "raylib.h"
 #include "rlgl.h"
@@ -14,7 +15,11 @@ static void DrawHudShipSlot(Vector2 center, Color color) {
     DrawLine((int)(center.x - 3.0f), (int)center.y, (int)(center.x + 3.0f), (int)center.y, color);
 }
 
-static void DrawHud(int score, int lives, float torpedoCooldown, bool torpedoActive) {
+static void DrawHud(const GameState *state) {
+    int score = state->score;
+    int lives = state->lives;
+    float torpedoCooldown = state->torpedoCooldown;
+    bool torpedoActive = state->torpedo.active;
     const Color panel = (Color){ 10, 14, 18, 255 };
     const Color panelInset = (Color){ 16, 24, 30, 255 };
     const Color cyan = (Color){ 76, 224, 232, 255 };
@@ -66,9 +71,172 @@ static void DrawHud(int score, int lives, float torpedoCooldown, bool torpedoAct
     DrawRectangle(244, top + 25, 126, 3, panelInset);
     DrawRectangle(244, top + 25, (int)(126.0f * reloadProgress), 3, torpedoStatusColor);
 
-    // Reserved boss region: it becomes a labeled health meter during fights.
+    // Reserved boss region: a labeled health meter while the boss lives
+    // (sum of remaining destructible-part HP), the empty inset otherwise.
     DrawRectangle(389, top + 12, 115, 8, panelInset);
     DrawRectangleLines(389, top + 12, 115, 8, (Color){ 74, 94, 102, 90 });
+    if (state->boss.phase == BOSS_PHASE_ENTERING || state->boss.phase == BOSS_PHASE_FIGHTING) {
+        DrawText("LEVIATHAN", 389, top + 4, 8, (Color){ 232, 72, 72, 255 });
+        int fill = (int)(115.0f * (float)BossRemainingHp(&state->boss) / (float)BossTotalHp());
+        DrawRectangle(389, top + 12, fill, 8, (Color){ 232, 72, 72, 255 });
+    }
+}
+
+// Boss sprites rotate with the ship's heading (the hull sails vertical
+// legs with 180-degree turns between them).
+static void DrawTextureRotatedAt(Texture2D tex, Vector2 center, float rotation) {
+    DrawTexturePro(
+        tex,
+        (Rectangle){ 0, 0, (float)tex.width, (float)tex.height },
+        (Rectangle){ center.x, center.y, (float)tex.width, (float)tex.height },
+        (Vector2){ tex.width / 2.0f, tex.height / 2.0f },
+        rotation,
+        WHITE
+    );
+}
+
+// The boss's water-level body: hull base, shell shadows, live parts,
+// exposed core, and the mortar dome (until the salvage lifts it off).
+// Drawn with the surface layer, under the player and everything airborne.
+static void DrawBoss(const GameState *state, const GameAssets *assets) {
+    const BossState *boss = &state->boss;
+    if (boss->phase == BOSS_PHASE_INACTIVE) return;
+
+    DrawTextureRotatedAt(
+        assets->leviathanHullTex,
+        (Vector2){ boss->hullCenter.x, boss->hullCenter.y + boss->settleOffset },
+        boss->rotation
+    );
+
+    // Burnt sockets where parts used to be: the wreck look assembling in
+    // place on the base sprite, one scorch per destroyed pod/section.
+    for (int part = BOSS_PART_POD_FORE; part <= BOSS_PART_HULL_AFT; part++) {
+        if (BossPartAlive(boss, (BossPartId)part)) continue;
+        Vector2 pos = BossPartPosition(boss, (BossPartId)part);
+        float radius = part <= BOSS_PART_POD_AFT ? 9.0f : 13.0f;
+        DrawCircleV(pos, radius, (Color){ 34, 29, 25, 230 });
+        DrawCircleLines((int)pos.x, (int)pos.y, radius, (Color){ 12, 18, 20, 220 });
+        DrawCircleV((Vector2){ pos.x - 2.0f, pos.y + 1.0f }, radius * 0.45f, (Color){ 10, 15, 17, 210 });
+    }
+
+    // Mortar shadows sit on the water at the landing point: they shrink
+    // while the shell rises, grow back as it falls, and the red rim
+    // sharpens as the landing (the dodge deadline) closes in.
+    for (int i = 0; i < MAX_MORTAR_SHELLS; i++) {
+        const MortarShell *shell = &boss->shells[i];
+        if (!shell->active || shell->landed) continue;
+        float u = shell->t / BOSS_MORTAR_AIR_TIME;
+        float radius = 2.0f + 5.0f * fabsf(cosf(PI * u));
+        DrawCircleV(shell->target, radius, (Color){ 8, 10, 14, 110 });
+        DrawCircleLines((int)shell->target.x, (int)shell->target.y, radius + 1.0f,
+            (Color){ 232, 60, 60, (unsigned char)(40.0f + 150.0f * u) });
+    }
+
+    if (BossPartAlive(boss, BOSS_PART_HULL_FORE)) {
+        DrawTextureRotatedAt(assets->leviathanHullSectionTex,
+            BossPartPosition(boss, BOSS_PART_HULL_FORE), boss->rotation);
+    }
+    if (BossPartAlive(boss, BOSS_PART_HULL_AFT)) {
+        DrawTextureRotatedAt(assets->leviathanHullSectionTex,
+            BossPartPosition(boss, BOSS_PART_HULL_AFT), boss->rotation);
+    }
+    if (BossPartAlive(boss, BOSS_PART_POD_FORE)) {
+        DrawTextureRotatedAt(assets->leviathanPodTex,
+            BossPartPosition(boss, BOSS_PART_POD_FORE), boss->rotation);
+    }
+    if (BossPartAlive(boss, BOSS_PART_POD_AFT)) {
+        DrawTextureRotatedAt(assets->leviathanPodTex,
+            BossPartPosition(boss, BOSS_PART_POD_AFT), boss->rotation);
+    }
+    if (boss->coreExposed && BossPartAlive(boss, BOSS_PART_CORE)) {
+        Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
+        DrawTextureRotatedAt(assets->leviathanCoreTex, core, boss->rotation);
+        // Escaping glow: the white-hot inside of the machine, breathing.
+        unsigned char pulse = (unsigned char)(110 + 70.0f * sinf((float)GetTime() * 9.0f));
+        DrawCircleV(core, 5.0f, (Color){ 255, 246, 216, pulse });
+    }
+    if (boss->phase < BOSS_PHASE_SALVAGE_DOCK) {
+        DrawTextureRotatedAt(assets->leviathanMortarTex, BossMortarPosition(boss), boss->rotation);
+    }
+}
+
+// The boss's airborne pieces: shells arcing over everything on the
+// water, their landing blasts, and the salvaged dome's docking flight.
+// Drawn above the player and air targets.
+static void DrawBossAirborne(const GameState *state, const GameAssets *assets) {
+    const BossState *boss = &state->boss;
+    if (boss->phase == BOSS_PHASE_INACTIVE) return;
+
+    for (int i = 0; i < MAX_MORTAR_SHELLS; i++) {
+        const MortarShell *shell = &boss->shells[i];
+        if (!shell->active) continue;
+        if (!shell->landed) {
+            // Top-down lob: the shell tracks the launch->target line while
+            // an arc offset lifts it up-screen and scales it larger near
+            // the apex, "rising then falling" over the drifting shadow.
+            float u = shell->t / BOSS_MORTAR_AIR_TIME;
+            float arc = sinf(PI * u);
+            Vector2 pos = {
+                shell->launch.x + (shell->target.x - shell->launch.x) * u,
+                shell->launch.y + (shell->target.y - shell->launch.y) * u - 40.0f * arc
+            };
+            DrawPoly(pos, 4, 3.0f + 3.0f * arc, 0.0f, (Color){ 232, 60, 60, 255 });
+            DrawPixelV(pos, (Color){ 255, 250, 240, 255 });
+        } else {
+            // Area blast: red-accented (the universal "this kills you"),
+            // distinct from the white-hot destruction explosions.
+            float p = 1.0f - shell->blastT / BOSS_MORTAR_BLAST_DURATION;
+            unsigned char fade = (unsigned char)(210.0f * (1.0f - p * 0.7f));
+            DrawCircleV(shell->target, BOSS_MORTAR_BLAST_RADIUS * (0.4f + 0.6f * p),
+                (Color){ 232, 90, 40, fade });
+            DrawCircleLines((int)shell->target.x, (int)shell->target.y,
+                BOSS_MORTAR_BLAST_RADIUS * (0.6f + 0.4f * p),
+                (Color){ 232, 60, 60, (unsigned char)(220.0f * (1.0f - p)) });
+            DrawCircleV(shell->target, 8.0f * (1.0f - p), (Color){ 255, 246, 216, fade });
+        }
+    }
+
+    // SAMs: red dart with an exhaust trail, rotated to heading - enemy
+    // ordnance is always red, and the dart shape plus trail separates
+    // "homing missile" from the diamond bullets at a glance.
+    for (int i = 0; i < MAX_BOSS_MISSILES; i++) {
+        const BossMissile *missile = &state->boss.missiles[i];
+        if (!missile->active) continue;
+        rlPushMatrix();
+        rlTranslatef(missile->pos.x, missile->pos.y, 0.0f);
+        rlRotatef(atan2f(missile->vel.y, missile->vel.x) * RAD2DEG, 0.0f, 0.0f, 1.0f);
+        for (int puff = 0; puff < 3; puff++) {
+            DrawCircle(-7 - 4 * puff, 0, 1.6f - 0.3f * (float)puff,
+                (Color){ 255, 140, 60, (unsigned char)(150 - 40 * puff) });
+        }
+        DrawRectangle(-5, -2, 9, 4, (Color){ 232, 60, 60, 255 });
+        DrawTriangle(
+            (Vector2){ 8.0f, 0.0f },
+            (Vector2){ 4.0f, -2.0f },
+            (Vector2){ 4.0f, 2.0f },
+            (Color){ 232, 60, 60, 255 }
+        );
+        DrawRectangle(-1, -1, 2, 2, (Color){ 255, 250, 240, 255 });
+        rlPopMatrix();
+    }
+
+    // Salvage: the dome lifts off the wreck, shrinks slightly as it
+    // docks onto the skimmer's spine, and rides there from then on.
+    if (boss->phase >= BOSS_PHASE_SALVAGE_DOCK) {
+        float u = boss->phase == BOSS_PHASE_SALVAGE_DOCK
+            ? boss->phaseTimer / BOSS_SALVAGE_DOCK_DURATION : 1.0f;
+        if (u > 1.0f) u = 1.0f;
+        float scale = 1.0f - 0.45f * u;
+        Vector2 domePos = boss->phase == BOSS_PHASE_CLEARED ? state->player : boss->salvageDomePos;
+        DrawTextureEx(
+            assets->leviathanMortarTex,
+            (Vector2){
+                domePos.x - assets->leviathanMortarTex.width / 2.0f * scale,
+                domePos.y - assets->leviathanMortarTex.height / 2.0f * scale
+            },
+            0.0f, scale, WHITE
+        );
+    }
 }
 
 void DrawGame(const GameState *state, const GameAssets *assets) {
@@ -82,6 +250,11 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     Vector2 torpedoReticle = CalculateTorpedoReticle(
         torpedoSpawn, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT, state->scrollDistance
     );
+    // The boss's armored hull clamps the reticle like a land edge, so a
+    // shielded lane reads before firing.
+    Rectangle bossBlockers[2];
+    int bossBlockerCount = BossHullBlockers(&state->boss, bossBlockers);
+    torpedoReticle = ClampReticleToRects(torpedoSpawn, torpedoReticle, bossBlockers, bossBlockerCount);
 
     ClearBackground(BLACK);
 
@@ -157,18 +330,21 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         }
     }
 
-    // Reticle marks maximum torpedo range, not a target lock.
-    DrawLine((int)torpedoSpawn.x, (int)torpedoSpawn.y, (int)torpedoReticle.x, (int)torpedoReticle.y,
-        (Color){ 76, 224, 232, 55 });
-    DrawCircleLines((int)torpedoReticle.x, (int)torpedoReticle.y, 6.0f, (Color){ 232, 148, 44, 190 });
-    DrawLine((int)(torpedoReticle.x - 10.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x - 4.0f), (int)torpedoReticle.y,
-        (Color){ 232, 148, 44, 190 });
-    DrawLine((int)(torpedoReticle.x + 4.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x + 10.0f), (int)torpedoReticle.y,
-        (Color){ 232, 148, 44, 190 });
-    DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y - 10.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y - 4.0f),
-        (Color){ 232, 148, 44, 190 });
-    DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y + 4.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y + 10.0f),
-        (Color){ 232, 148, 44, 190 });
+    // Reticle marks maximum torpedo range, not a target lock. It stands
+    // down with the rest of the weapons once the salvage autopilot flies.
+    if (!BossSequenceOwnsPlayer(state)) {
+        DrawLine((int)torpedoSpawn.x, (int)torpedoSpawn.y, (int)torpedoReticle.x, (int)torpedoReticle.y,
+            (Color){ 76, 224, 232, 55 });
+        DrawCircleLines((int)torpedoReticle.x, (int)torpedoReticle.y, 6.0f, (Color){ 232, 148, 44, 190 });
+        DrawLine((int)(torpedoReticle.x - 10.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x - 4.0f), (int)torpedoReticle.y,
+            (Color){ 232, 148, 44, 190 });
+        DrawLine((int)(torpedoReticle.x + 4.0f), (int)torpedoReticle.y, (int)(torpedoReticle.x + 10.0f), (int)torpedoReticle.y,
+            (Color){ 232, 148, 44, 190 });
+        DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y - 10.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y - 4.0f),
+            (Color){ 232, 148, 44, 190 });
+        DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y + 4.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y + 10.0f),
+            (Color){ 232, 148, 44, 190 });
+    }
 
     if (state->torpedoImpactTimer > 0.0f) {
         float life = state->torpedoImpactTimer / (state->torpedoImpactType == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f);
@@ -244,6 +420,10 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         }
     }
 
+    // The boss's body belongs to the surface layer: above the surface
+    // targets it dwarfs, below the player and everything airborne.
+    DrawBoss(state, assets);
+
     // Ship points right (direction of travel / forward fire). It is
     // hidden during its explosion; respawn follows once the effect ends.
     if (!state->playerDestroyed) {
@@ -306,6 +486,10 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         DrawCircleV(state->explosions[i].pos, radius * 0.35f, (Color){ 255, 242, 196, alpha });
     }
 
+    // Mortar shells at their arc apex are the highest thing in the scene,
+    // and the docking dome flies over the player: top of the world layer.
+    DrawBossAirborne(state, assets);
+
     // Torpedo reads as player tech: hull-white body with pointed nose,
     // cyan spine stripe + engine glow, and a fading surface wake behind it.
     if (state->torpedo.active) {
@@ -346,10 +530,17 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (Color){ 0, 0, 0, 140 });
         DrawText("GAME OVER", 162, 150, 24, (Color){ 232, 248, 248, 255 });
         DrawText("PRESS R TO RESTART", 132, 184, 12, (Color){ 76, 224, 232, 255 });
+    } else if (state->stageClear) {
+        // Lighter dim than game over: the wreck and the docked mortar
+        // stay readable behind the stage-clear card.
+        DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (Color){ 0, 0, 0, 110 });
+        DrawText("STAGE 1 CLEAR", 120, 140, 24, (Color){ 232, 248, 248, 255 });
+        DrawText("MORTAR TURRET SALVAGED", 152, 176, 12, (Color){ 232, 148, 44, 255 });
+        DrawText("PRESS R TO RESTART", 168, 200, 12, (Color){ 76, 224, 232, 255 });
     } else if (state->respawnInvulnerability > 0.0f) {
         unsigned char blink = (unsigned char)(120 + 80 * sinf(GetTime() * 22.0f));
         DrawText("RESPAWNING", 180, 150, 12, (Color){ 76, 224, 232, blink });
     }
 
-    DrawHud(state->score, state->lives, state->torpedoCooldown, state->torpedo.active);
+    DrawHud(state);
 }
