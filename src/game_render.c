@@ -71,6 +71,65 @@ static void DrawHud(int score, int lives, float torpedoCooldown, bool torpedoAct
     DrawRectangleLines(389, top + 12, 115, 8, (Color){ 74, 94, 102, 90 });
 }
 
+// Land: stage-data footprints drifting with the scroll, drawn above
+// everything that belongs to the water (wake, wrecks) and below all
+// targets, so shoreline installations sit on their islets. Second-pass
+// code-drawn look until dedicated islet art: each ring pass draws a
+// rounded rectangle for EVERY footprint before the next pass starts, so
+// stacked footprints merge into one landmass per layer, and the rounded
+// corners meeting at footprint seams leave small ring-colored notches
+// that read as coves rather than grid seams. From the water inward:
+// tinted shallows, surf foam, wet beach sand (the beach ringing every
+// waterline), then a drier interior with a sparse grain. Collision is
+// unchanged - torpedoes still block on the square footprints; the
+// rounding is purely the coastline's look (corner mismatch is under the
+// surf/shallow rings, so it never reads as a dry-land hit).
+static void DrawTerrain(const GameState *state) {
+    static const struct {
+        float inflate;
+        Color color;
+    } coastRings[] = {
+        { 6.0f, (Color){ 32, 94, 128, 255 } },    // shallows tint
+        { 2.0f, (Color){ 207, 239, 240, 175 } },  // surf foam
+        { 0.0f, (Color){ 149, 128, 90, 255 } },   // wet beach sand
+        { -5.0f, (Color){ 183, 161, 108, 255 } }, // dry interior sand
+    };
+    const int ringCount = (int)(sizeof(coastRings) / sizeof(coastRings[0]));
+
+    for (int pass = 0; pass < ringCount; pass++) {
+        for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
+            Rectangle land = TerrainScreenRect(STAGE1_TERRAIN[i], state->scrollDistance);
+            float grow = coastRings[pass].inflate;
+            Rectangle ring = {
+                land.x - grow, land.y - grow,
+                land.width + 2.0f * grow, land.height + 2.0f * grow
+            };
+            if (ring.width <= 0.0f || ring.height <= 0.0f) continue;
+            if (ring.x > (float)GAME_WIDTH + 8.0f || ring.x + ring.width < -8.0f) continue;
+            DrawRectangleRounded(ring, 0.6f, 8, coastRings[pass].color);
+        }
+    }
+
+    // Grain: a few darker flecks per footprint, hashed from the footprint
+    // itself so they stay anchored to the land as it drifts. Kept at
+    // near-invisible contrast - the ocean-tile lesson: visible pattern
+    // reads as fabric, not ground.
+    for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
+        Rectangle land = TerrainScreenRect(STAGE1_TERRAIN[i], state->scrollDistance);
+        if (land.x > (float)GAME_WIDTH + 8.0f || land.x + land.width < -8.0f) continue;
+        if (land.width < 24.0f || land.height < 24.0f) continue;
+        int flecks = (int)(land.width * land.height) / 400;
+        for (int g = 0; g < flecks; g++) {
+            unsigned int h = (unsigned int)STAGE1_TERRAIN[i].px * 2654435761u
+                ^ (unsigned int)STAGE1_TERRAIN[i].y * 83492791u
+                ^ (unsigned int)g * 40503u;
+            float fx = 8.0f + (float)(h % 997u) / 997.0f * (land.width - 18.0f);
+            float fy = 8.0f + (float)((h / 997u) % 997u) / 997.0f * (land.height - 17.0f);
+            DrawRectangle((int)(land.x + fx), (int)(land.y + fy), 2, 1, (Color){ 166, 144, 94, 255 });
+        }
+    }
+}
+
 void DrawGame(const GameState *state, const GameAssets *assets) {
     const Color bulletColor = (Color){ 76, 224, 232, 255 };
     const Color enemyBulletColor = (Color){ 232, 72, 72, 255 };
@@ -136,26 +195,7 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         );
     }
 
-    // Land: stage-data footprints drifting with the scroll, drawn above
-    // everything that belongs to the water (wake, wrecks) and below all
-    // targets, so shoreline installations sit on their islets. First-pass
-    // code-drawn look until the islet art task: a foam surf rim then the
-    // sand fill - the rim pass runs for every footprint before any fill,
-    // so on multi-rect islands the fill overdraws interior rims and only
-    // the union's shoreline keeps its surf line.
-    for (int pass = 0; pass < 2; pass++) {
-        for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
-            Rectangle land = TerrainScreenRect(STAGE1_TERRAIN[i], state->scrollDistance);
-            if (land.x > (float)GAME_WIDTH + 2.0f || land.x + land.width < -2.0f) continue;
-            if (pass == 0) {
-                DrawRectangle((int)land.x - 2, (int)land.y - 2, (int)land.width + 4, (int)land.height + 4,
-                    (Color){ 207, 239, 240, 165 });
-            } else {
-                DrawRectangle((int)land.x, (int)land.y, (int)land.width, (int)land.height,
-                    (Color){ 184, 162, 110, 255 });
-            }
-        }
-    }
+    DrawTerrain(state);
 
     // Reticle marks maximum torpedo range, not a target lock.
     DrawLine((int)torpedoSpawn.x, (int)torpedoSpawn.y, (int)torpedoReticle.x, (int)torpedoReticle.y,

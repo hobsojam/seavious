@@ -520,12 +520,18 @@ not just background art. At runtime the footprints need no entity pool:
 each one's screen rectangle derives purely from the run's scroll distance
 (the same clock the ground glyphs spawn on), so the boss lock freezing the
 scroll freezes land with the rest of the water for free, and restart
-rewinds it with the script. Rendering is a first-pass code-drawn look
-until the islet art task: a sand fill over a pale foam surf rim, drawn
-above the water layer (wake, wrecks) and below all targets so shoreline
-installations sit on their islets — the rim is drawn for every footprint
-before any fill, so multi-rectangle islands keep one clean shoreline
-with no interior seams. Stage 1 is open ocean with sparse islets; heavier
+rewinds it with the script. Rendering is a second-pass code-drawn look
+until dedicated islet art: concentric rounded coastline rings — tinted
+shallows, surf foam, a wet-sand beach ringing every waterline, then a
+drier interior with a sparse near-invisible grain — drawn above the
+water layer (wake, wrecks) and below all targets so shoreline
+installations sit on their islets. Each ring pass draws every footprint
+before the next ring starts, so multi-rectangle islands merge into one
+landmass per layer, and where stacked footprints meet, the rounded
+corners leave small ring-colored notches that read as coves instead of
+grid seams. Collision stays on the square footprints — the rounding is
+coastline dressing, and the corner mismatch hides under the surf and
+shallows rings. Stage 1 is open ocean with sparse islets; heavier
 terrain flavor (storms, archipelagos) is per-stage variety for later
 stages. From Stage 2, land also *holds* destructible targets — green
 mortar-class installations built on terrain (see Core mechanic) — so

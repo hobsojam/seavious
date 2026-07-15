@@ -83,8 +83,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       enemies anchored to islets (beat 7's Relay Node) just work by map
       placement. Deferred wreck question decided: wrecks stay inert and
       do NOT block torpedoes (see README Structure for the rationale).
-      First-pass code-drawn islet look (sand fill over a foam surf rim);
-      needs a Windows playtest for readability/colors
+      Second-pass code-drawn islet look (playtest: the flat rectangles
+      read too square): rounded coastline with concentric rings —
+      shallows, surf foam, wet beach around every waterline, dry
+      interior with sparse grain; footprint seams read as coves. Needs
+      a Windows playtest for readability/colors
 - [x] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
       two reserve-life icons for the initial three-life count, score
       center-left, live torpedo ready/flight/reload status right, and space
@@ -162,9 +165,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       deliberately deferred to the Stage 2 mortar-target class (see
       README roster note) rather than reskins of the water designs
 - [ ] Island/islet terrain art (Stage 1: sparse islets on open ocean) —
-      unblocked now that the terrain-footprint system is in; replaces the
-      first-pass code-drawn sand-and-foam rectangles in `game_render.c`
-      (probably edge-aware tiles or per-footprint generated sprites)
+      unblocked now that the terrain-footprint system is in; would
+      replace the code-drawn rounded-coastline rings in `game_render.c`
+      (second pass: shallows/foam/beach/interior layers) with real
+      tiles or per-island generated sprites, if the code-drawn look
+      ever falls short
 - [x] Air enemy sprites (drone swarms) — Skimmer Drone, Interceptor, and
       Gunship first passes all done (see Art below)
 

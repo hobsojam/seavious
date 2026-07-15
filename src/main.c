@@ -86,6 +86,13 @@ int main(void) {
         if (smokeFrames > 0 && (framesRun == 120 || framesRun == 240 || framesRun == 360)) {
             state.enemyBullets[0] = (EnemyBullet){ .pos = state.player, .active = true };
         }
+        // Jump the scroll so beat 7's islet is on screen: the terrain
+        // rendering (rounded coastline, beach rings, grain) draws
+        // headlessly for the rest of the run. The skipped-over stage
+        // events all fire at once; the spawn pools just cap out.
+        if (smokeFrames > 0 && framesRun == 200 && !state.bossLock) {
+            state.scrollDistance = 4600.0f;
+        }
 
         UpdateGame(&state, &assets, dt, smokeFrames > 0 && framesRun == 0);
         PlayGameSfx(&audio, &state.gameEvents);
