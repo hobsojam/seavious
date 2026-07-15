@@ -30,6 +30,58 @@ typedef struct {
     bool active;
 } SurfaceWreck;
 
+// Stage 1 boss (Leviathan) run state. The fight is part-driven, not
+// phase-scripted: parts fire until individually destroyed, the core kill
+// ends it (see README "Stage 1 boss design"). These phases only sequence
+// the bookends - entrance slide-in, death chain, and the salvage beat
+// that awards the mortar.
+#define MAX_MORTAR_SHELLS 3
+#define BOSS_ENTRANCE_DURATION 3.0f
+#define BOSS_DEATH_DURATION 2.4f
+#define BOSS_SALVAGE_APPROACH_DURATION 1.6f
+#define BOSS_SALVAGE_DOCK_DURATION 1.8f
+// Hull sprite (200x120) top-left when parked: content on the right ~40%
+// of the play area, vertically centered.
+#define BOSS_PARKED_X 312.0f
+#define BOSS_HULL_TOP_Y 116.0f
+
+typedef enum {
+    BOSS_PHASE_INACTIVE,
+    BOSS_PHASE_ENTERING,
+    BOSS_PHASE_FIGHTING,
+    BOSS_PHASE_DYING,
+    BOSS_PHASE_SALVAGE_APPROACH,
+    BOSS_PHASE_SALVAGE_DOCK,
+    BOSS_PHASE_CLEARED
+} BossPhase;
+
+// One lobbed mortar shell: launch -> target over a fixed air time (the
+// dodge window, telegraphed by the shadow at the target), then a short
+// area blast that can kill the player.
+typedef struct {
+    Vector2 launch;
+    Vector2 target;
+    float t;
+    float blastT;
+    bool landed;
+    bool active;
+} MortarShell;
+
+typedef struct {
+    BossPhase phase;
+    float phaseTimer;
+    Vector2 hullPos;        // top-left of the 200x120 hull sprite
+    float settleOffset;     // wreck sits a few px lower after the core dies
+    int partHp[BOSS_PART_COUNT];
+    float partFireTimer[BOSS_PART_COUNT];
+    bool coreExposed;
+    float mortarTimer;
+    MortarShell shells[MAX_MORTAR_SHELLS];
+    int deathExplosionsSpawned;
+    Vector2 salvageStart;   // player position when the autopilot takes over
+    Vector2 salvageDomePos; // mortar dome while lifting/docking
+} BossState;
+
 // Everything a single run owns: player, scoring, run flow flags, weapon
 // state, and every entity pool. One ResetRunState call starts a fresh run.
 typedef struct {
@@ -49,6 +101,10 @@ typedef struct {
     float scrollDistance;
     int stageCursor;
     bool bossLock;
+    // Raised by the salvage sequence after the boss falls; gates the
+    // stage-clear overlay and the restart input alongside gameOver.
+    bool stageClear;
+    BossState boss;
     float respawnInvulnerability;
     bool playerDestroyed;
     float playerDeathTimer;

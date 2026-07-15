@@ -3,6 +3,7 @@
 #include "game_render.h"
 #include "game_state.h"
 #include "game_update.h"
+#include "stage_data.h"
 #include "raylib.h"
 #include <stdlib.h>
 
@@ -85,6 +86,11 @@ int main(void) {
         }
         if (smokeFrames > 0 && (framesRun == 120 || framesRun == 240 || framesRun == 360)) {
             state.enemyBullets[0] = (EnemyBullet){ .pos = state.player, .active = true };
+        }
+        // Jump to the map end so the boss lock, the fight entrance, and
+        // the music hard-cut all run headlessly in the remaining frames.
+        if (smokeFrames > 0 && framesRun == 380 && !state.bossLock) {
+            state.scrollDistance = (float)STAGE1_LENGTH_PX;
         }
 
         UpdateGame(&state, &assets, dt, smokeFrames > 0 && framesRun == 0);

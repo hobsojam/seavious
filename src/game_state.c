@@ -65,6 +65,26 @@ void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect
             // Contact detonation: a blast clearly bigger than the mine
             // itself, but no wreck and (via ScoreGameEvents) no score.
             TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, MINE_RADIUS + 8.0f, 0.38f);
+        } else if (event->type == GAME_EVENT_BOSS_PART_DESTROYED) {
+            // Pods burst in the air family's magenta; hull sections and
+            // the core in the surface family's orange. The burnt socket a
+            // destroyed part leaves is drawn by the boss renderer on top
+            // of the hull sprite (the wreck pool draws under the hull, so
+            // it can't carry these).
+            bool pod = event->target.bossPart == BOSS_PART_POD_FORE
+                || event->target.bossPart == BOSS_PART_POD_AFT;
+            bool core = event->target.bossPart == BOSS_PART_CORE;
+            TrySpawnExplosion(explosions, event->pos,
+                pod ? EXPLOSION_AIR_TARGET : EXPLOSION_SURFACE_TARGET,
+                core ? 22.0f : 16.0f, core ? 0.55f : 0.45f);
+        } else if (event->type == GAME_EVENT_BOSS_DEFEATED) {
+            // Capstone of the death chain: the biggest single burst in
+            // the game, at the hull center.
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, 28.0f, 0.6f);
+        } else if (event->type == GAME_EVENT_MORTAR_FIRED) {
+            // Launch puff at the dome; the shell/shadow/blast themselves
+            // are code-drawn VFX from the shell state, not effects.
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, 6.0f, 0.18f);
         }
     }
 }

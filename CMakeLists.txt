@@ -12,6 +12,7 @@ find_package(glfw3 CONFIG REQUIRED)
 add_executable(seavious
     src/assets.c
     src/audio.c
+    src/boss.c
     src/game_render.c
     src/game_state.c
     src/game_update.c
@@ -48,6 +49,18 @@ if(BUILD_TESTING)
     target_include_directories(stage_tests PRIVATE src)
     target_link_libraries(stage_tests PRIVATE raylib glfw)
     add_test(NAME stage_tests COMMAND stage_tests)
+
+    add_executable(boss_tests
+        tests/boss_tests.c
+        src/boss.c
+        src/game_state.c
+        src/gameplay.c
+        src/stage.c
+        src/stage1_data.c
+    )
+    target_include_directories(boss_tests PRIVATE src)
+    target_link_libraries(boss_tests PRIVATE raylib glfw)
+    add_test(NAME boss_tests COMMAND boss_tests)
 
     if(UNIX)
         add_test(

@@ -71,6 +71,11 @@ int ScoreGameEvents(const GameEventQueue *events) {
             if (event->target.surfaceTarget == SURFACE_TARGET_RELAY_NODE) score += SCORE_RELAY_NODE;
             if (event->target.surfaceTarget == SURFACE_TARGET_MINE) score += SCORE_MINE;
             if (event->target.surfaceTarget == SURFACE_TARGET_MOBILE_PLATFORM) score += SCORE_MOBILE_PLATFORM;
+        } else if (event->type == GAME_EVENT_BOSS_PART_DESTROYED) {
+            if (event->target.bossPart == BOSS_PART_CORE) score += SCORE_BOSS_CORE;
+            else if (event->target.bossPart == BOSS_PART_POD_FORE
+                || event->target.bossPart == BOSS_PART_POD_AFT) score += SCORE_BOSS_POD;
+            else score += SCORE_BOSS_HULL_SECTION;
         }
     }
     return score;

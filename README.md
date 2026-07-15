@@ -208,7 +208,15 @@ player owns it. When the boss core dies the turret powers down intact, and
 the end-of-stage sequence has the skimmer salvage it: from Stage 2 onward
 it's fitted to the player as the third weapon (see Core mechanic).
 
-**Stage 1 boss design (Leviathan)**:
+**Stage 1 boss design (Leviathan)** (implemented in `src/boss.c`; the
+notes below are the design it follows — deviations, all deliberate:
+the stage-clear flow after the salvage is a restart placeholder until
+Stage 2 exists to advance into; the mortar's power-down is simply its
+shells stopping, since the dome sprite is already colorless; hull
+contact is lethal while the boss lives — the player owns the left side
+of the arena because the right side kills — and the settled wreck goes
+inert like every wreck; mortar lob/blast and the pickup jingle reuse
+existing SFX until the enemy-fire SFX task):
 
 *Body & layout* — a long broadside hull, bow left (toward the player),
 parked on the right ~40% of the screen once the boss lock stops the
@@ -350,7 +358,7 @@ future enemies.
 | Gunship | 500 | Implemented |
 | Mobile Platform | 500 | Implemented |
 | Mine | 100 | Implemented (torpedo kill only; contact detonation scores nothing) |
-| Boss part | 1,000+ each | Planned; boss-clear bonus later |
+| Boss part | 1,000 (pods, hull sections), 2,000 (core) | Implemented; boss-clear bonus later |
 
 Basic filler targets are inexpensive, limited-torpedo surface threats pay
 more, and heavier or progression-gating threats carry the highest awards.
@@ -543,10 +551,11 @@ Gunship, Casemate, Tracking Turret, Relay Node, Mine, Mobile Platform)
 spawns at its authored beats, terrain footprints from the map block
 torpedoes and clamp the reticle (beat 7's islet set-piece works: the
 Casemate behind the island is permanently shielded in its lane), and the
-boss lock at
-map end freezes the scroll (raising the boss music as a placeholder for
-the future fight). Remaining for a completable Stage 1: the boss fight
-itself.
+boss lock at map end freezes the scroll and starts the Leviathan fight
+(entrance, part-driven fight with the mortar hazard, death chain, and
+the salvage sequence ending in a STAGE 1 CLEAR screen). Stage 1 is
+completable start to finish; the stage-clear screen restarts the run
+until Stage 2 exists to advance into.
 
 ## Building on Windows (MSVC + vcpkg)
 
@@ -601,6 +610,13 @@ player's current movement before firing.
 Enemy contact costs one life, triggers a brief ship explosion, then respawns
 the ship briefly invulnerable if any remain; game over follows the final
 explosion.
+
+At the end of the map the scroll locks and the Leviathan slides in: gun
+down its magenta AA pods, torpedo its amber hull sections to expose the
+white-hot core (weak to both weapons), and dodge the armored mortar
+dome's arcing shells — the shadow marks where they land. Touching the
+hull while the boss lives is lethal. When the core dies, the skimmer
+salvages the mortar dome and the stage is clear.
 
 ## Technical Follow-ups
 

@@ -105,6 +105,21 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
             case GAME_EVENT_MINE_DETONATED:
                 PlayIfValid(audio->mineDetonation);
                 break;
+            case GAME_EVENT_BOSS_PART_DESTROYED:
+            case GAME_EVENT_BOSS_DEFEATED:
+            case GAME_EVENT_MORTAR_BLAST:
+                PlayIfValid(audio->explosion);
+                break;
+            case GAME_EVENT_MORTAR_FIRED:
+                // Placeholder lob sound until the enemy-fire SFX task:
+                // reuses the torpedo-launch whoosh, which a simultaneous
+                // player torpedo impact may cut short (acceptable for now).
+                PlayIfValid(audio->torpedoLaunch);
+                break;
+            case GAME_EVENT_MORTAR_SALVAGED:
+                // Pickup jingle stand-in until a dedicated SFX exists.
+                PlayIfValid(audio->uiBlip);
+                break;
         }
     }
 }

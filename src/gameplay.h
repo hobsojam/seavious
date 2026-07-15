@@ -103,6 +103,40 @@
 #define MOBILE_PLATFORM_WAKE_INTERVAL    0.07f
 #define SCORE_MOBILE_PLATFORM 500
 
+// Stage 1 boss (Leviathan) parts: the dual-targeting rule made literal.
+// Pods are gun-weak (magenta, air-class), hull sections are torpedo-weak
+// (amber, surface-class), and the core - revealed once both hull
+// sections are gone - is weak to both. HP shares one currency for the
+// boss bar: pods and the core count gun hits directly, hull sections
+// count torpedoes (BOSS_HULL_SECTION_TORPEDO_WORTH gun-units each on
+// the bar), and a torpedo into the core removes
+// BOSS_CORE_TORPEDO_DAMAGE gun-units so "4 torpedoes or ~24 gun hits;
+// mixing works" holds.
+typedef enum {
+    BOSS_PART_POD_FORE,
+    BOSS_PART_POD_AFT,
+    BOSS_PART_HULL_FORE,
+    BOSS_PART_HULL_AFT,
+    BOSS_PART_CORE,
+    BOSS_PART_COUNT
+} BossPartId;
+
+#define BOSS_POD_HP 12
+#define BOSS_HULL_SECTION_HP 2
+#define BOSS_CORE_HP 24
+#define BOSS_CORE_TORPEDO_DAMAGE 6
+#define BOSS_HULL_SECTION_TORPEDO_WORTH 6
+#define BOSS_POD_FIRE_INTERVAL 2.0f
+#define BOSS_HULL_SECTION_FIRE_INTERVAL 2.5f
+#define BOSS_MORTAR_INTERVAL 4.0f
+#define BOSS_MORTAR_INTERVAL_CORE_EXPOSED 2.8f
+#define BOSS_MORTAR_AIR_TIME 1.2f
+#define BOSS_MORTAR_BLAST_RADIUS 24.0f
+#define BOSS_MORTAR_BLAST_DURATION 0.30f
+#define SCORE_BOSS_POD 1000
+#define SCORE_BOSS_HULL_SECTION 1000
+#define SCORE_BOSS_CORE 2000
+
 #define MAX_GAME_EVENTS 64
 
 #define MAX_WAKE_PARTICLES   96
@@ -204,7 +238,12 @@ typedef enum {
     GAME_EVENT_PLAYER_DEATH,
     GAME_EVENT_RUN_RESTARTED,
     GAME_EVENT_DRONE_LAUNCHED,
-    GAME_EVENT_MINE_DETONATED
+    GAME_EVENT_MINE_DETONATED,
+    GAME_EVENT_BOSS_PART_DESTROYED,
+    GAME_EVENT_BOSS_DEFEATED,
+    GAME_EVENT_MORTAR_FIRED,
+    GAME_EVENT_MORTAR_BLAST,
+    GAME_EVENT_MORTAR_SALVAGED
 } GameEventType;
 
 typedef struct {
@@ -214,6 +253,7 @@ typedef struct {
         AirTargetType airTarget;
         SurfaceTargetType surfaceTarget;
         TorpedoImpactType torpedoImpact;
+        BossPartId bossPart;
     } target;
 } GameEvent;
 

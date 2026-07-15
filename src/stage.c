@@ -48,10 +48,8 @@ void UpdateStageScript(GameState *state, float dt) {
     }
 
     if (state->scrollDistance >= (float)STAGE1_LENGTH_PX) {
+        // UpdateBossFight sees the lock and starts the fight (it owns
+        // bossActive and with it the music hard-cuts).
         state->bossLock = true;
-        // The boss fight structure doesn't exist yet; raising bossActive
-        // makes the lock audible (hammer theme hard-cuts in) until the
-        // fight itself owns this flag.
-        state->bossActive = true;
     }
 }

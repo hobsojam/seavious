@@ -1,4 +1,5 @@
 #include "game_update.h"
+#include "boss.h"
 #include "stage.h"
 #include "stage_data.h"
 #include "raylib.h"
@@ -9,13 +10,18 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     float halfH = assets->playerTex.height / 2.0f;
     float playerRadius = PLAYER_HIT_RADIUS;
 
-    if (state->gameOver && (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))) {
+    if ((state->gameOver || state->stageClear)
+        && (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))) {
         ResetRunState(state);
         PushGameEvent(&state->gameEvents, (GameEvent){
             .type = GAME_EVENT_RUN_RESTARTED, .pos = state->player
         });
     }
     if (state->gameOver) return;
+
+    // From the salvage autopilot on, the boss sequence flies the ship:
+    // no input, no weapons, no reticle - the run is already won.
+    bool bossOwnsPlayer = BossSequenceOwnsPlayer(state);
 
     Vector2 playerVelocity = { 0.0f, 0.0f };
     if (state->playerDestroyed) {
@@ -34,10 +40,12 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
 
         float inputX = 0.0f;
         float inputY = 0.0f;
-        if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))  inputX -= 1.0f;
-        if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) inputX += 1.0f;
-        if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
-        if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
+        if (!bossOwnsPlayer) {
+            if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))  inputX -= 1.0f;
+            if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) inputX += 1.0f;
+            if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
+            if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
+        }
         Vector2 playerBeforeMove = state->player;
         MovePlayer(&state->player, inputX, inputY, PLAYER_SPEED, dt, halfW, halfH);
         if (dt > 0.0f) {
@@ -61,14 +69,16 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
 
         // Auto-fire: accumulate dt and emit as many shots as the interval
         // allows, so a stalled frame can't silently eat a shot.
-        state->fireTimer += dt;
-        while (state->fireTimer >= BULLET_FIRE_INTERVAL) {
-            state->fireTimer -= BULLET_FIRE_INTERVAL;
-            Vector2 muzzle = { state->player.x + halfW, state->player.y };
-            if (TrySpawnBullet(state->bullets, MAX_BULLETS, muzzle)) {
-                PushGameEvent(&state->gameEvents, (GameEvent){
-                    .type = GAME_EVENT_GUN_FIRED, .pos = muzzle
-                });
+        if (!bossOwnsPlayer) {
+            state->fireTimer += dt;
+            while (state->fireTimer >= BULLET_FIRE_INTERVAL) {
+                state->fireTimer -= BULLET_FIRE_INTERVAL;
+                Vector2 muzzle = { state->player.x + halfW, state->player.y };
+                if (TrySpawnBullet(state->bullets, MAX_BULLETS, muzzle)) {
+                    PushGameEvent(&state->gameEvents, (GameEvent){
+                        .type = GAME_EVENT_GUN_FIRED, .pos = muzzle
+                    });
+                }
             }
         }
     }
@@ -78,6 +88,9 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     // spawns and water-anchored drift below (scrollDt), while airborne
     // craft, projectiles, and timers keep running on real dt.
     UpdateStageScript(state, dt);
+    // The boss fight starts the frame the script raises the lock, and
+    // from then on owns bossActive, the part fight, and the salvage flow.
+    UpdateBossFight(state, dt);
     float scrollDt = state->bossLock ? 0.0f : dt;
 
     // World scrolls right-to-left under the player. Kept bounded by
@@ -107,7 +120,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     // Torpedo: manual second input, gated by both "one in flight at a
     // time" and a reload cooldown so it isn't unlimited-fire like the gun.
     if (state->torpedoCooldown > 0.0f) state->torpedoCooldown -= dt;
-    bool fireTorpedo = IsKeyPressed(KEY_SPACE) || forceTorpedoFire;
+    bool fireTorpedo = (IsKeyPressed(KEY_SPACE) || forceTorpedoFire) && !bossOwnsPlayer;
     if (!state->playerDestroyed && fireTorpedo && !state->torpedo.active && state->torpedoCooldown <= 0.0f) {
         Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
         FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT,
@@ -146,11 +159,18 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     UpdateEnemyBullets(state->enemyBullets, MAX_ENEMY_BULLETS, dt);
 
     // Torpedo-vs-surface collision — the gun deliberately has no case
-    // here: bullets pass over ground targets (dual-targeting rule).
+    // here: bullets pass over ground targets (dual-targeting rule). Boss
+    // parts join the same chain: hull sections (and the exposed core)
+    // take direct hits, and an armed explosion's splash reaches both
+    // surface targets and boss parts.
+    if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
+        torpedoImpact = ResolveTorpedoBossPartCollision(&state->torpedo, &state->boss, &state->gameEvents);
+    }
     if (torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION) {
         ResolveTorpedoExplosion(
             torpedoImpact.pos, state->surfaceTargets, MAX_SURFACE_TARGETS, &state->gameEvents
         );
+        ResolveBossSplashDamage(&state->boss, torpedoImpact.pos, &state->gameEvents);
     } else if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
         torpedoImpact = ResolveTorpedoSurfaceTargetCollision(
             &state->torpedo, state->surfaceTargets, MAX_SURFACE_TARGETS, &state->gameEvents
@@ -173,12 +193,21 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     bool enemyBulletHit = ResolveEnemyBulletPlayerCollision(
         state->enemyBullets, MAX_ENEMY_BULLETS, state->player, playerRadius
     );
-    bool playerVulnerable = !state->playerDestroyed && state->respawnInvulnerability <= 0.0f;
+    // Once the core dies the run is won: nothing can kill the player
+    // through the death chain and salvage beat.
+    bool bossVictory = state->boss.phase >= BOSS_PHASE_DYING;
+    bool playerVulnerable = !state->playerDestroyed && state->respawnInvulnerability <= 0.0f && !bossVictory;
     bool contactHit = playerVulnerable && ResolvePlayerContactDamage(
         state->player, playerRadius, state->airTargets, MAX_AIR_TARGETS,
         state->surfaceTargets, MAX_SURFACE_TARGETS, &state->gameEvents
     );
-    if (playerVulnerable && (enemyBulletHit || contactHit)) {
+    // Boss hazards: ramming the live hull and standing in a mortar blast
+    // both cost the ship like any other hit.
+    bool bossHit = playerVulnerable && (
+        ResolveBossContactDamage(&state->boss, state->player, playerRadius)
+        || ResolveMortarBlastPlayerHit(&state->boss, state->player, playerRadius)
+    );
+    if (playerVulnerable && (enemyBulletHit || contactHit || bossHit)) {
         TrySpawnExplosion(state->explosions, state->player, EXPLOSION_PLAYER, 20.0f, PLAYER_DEATH_DURATION);
         BeginPlayerDeath(state);
     }
