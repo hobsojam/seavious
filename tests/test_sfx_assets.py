@@ -29,6 +29,8 @@ FILES = {
     'relay_launch.wav': (0.18, 0.26),
     'mine_detonation.wav': (0.28, 0.36),
     'ui_blip.wav': (0.07, 0.12),
+    'mortar_fire.wav': (0.18, 0.22),
+    'mortar_salvage.wav': (0.28, 0.32),
 }
 
 failures = []

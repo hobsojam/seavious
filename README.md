@@ -420,12 +420,13 @@ than the tracker for one-shot sounds, and WAV has no compatibility caveats
 the way XM/MOD does.
 
 First-pass SFX are programmatic (`tools/gen-sfx.py` → `assets/audio/sfx/`,
-nine square/sine/noise one-shots at 22050 Hz mono; refine in ChipTone
+eleven square/sine/noise one-shots at 22050 Hz mono; refine in ChipTone
 later): gun shot (every auto-fire shot, deliberately tiny and quiet),
 torpedo launch, torpedo splash (unarmed direct hit), explosion (armed
 boom), air pop (drone kill), player death, relay drone launch
 (broadcast warble), mine detonation (sharp contact crack, distinct from
-the torpedo boom), and a UI blip on run restart.
+the torpedo boom), a UI blip on run restart, a short boss-mortar launch
+thump, and a two-note mortar-salvage pickup.
 They're triggered through the `GameEventQueue`: the update code emits
 events (weapon fired, impact, death, restart) and `audio.c` maps events
 to sounds — the same pattern the destruction VFX already use, so gameplay

@@ -3,6 +3,8 @@
 
 #include "raylib.h"
 
+enum { STAGE1_ISLET_VARIANT_COUNT = 4 };
+
 typedef struct {
     Texture2D playerTex;
     Texture2D droneTex;
@@ -18,7 +20,7 @@ typedef struct {
     Texture2D leviathanHullSectionTex;
     Texture2D leviathanMortarTex;
     Texture2D leviathanCoreTex;
-    Texture2D stage1IsletTex;
+    Texture2D stage1IsletTex[STAGE1_ISLET_VARIANT_COUNT];
     Texture2D oceanTex;
     Texture2D oceanOverlayTex;
 } GameAssets;

@@ -256,7 +256,6 @@ static void DrawTerrain(const GameState *state, const GameAssets *assets) {
     if (STAGE1_TERRAIN_COUNT > MAX_STAGE1_TERRAIN) return;
 
     bool visited[MAX_STAGE1_TERRAIN] = { false };
-    Rectangle source = { 0.0f, 0.0f, (float)assets->stage1IsletTex.width, (float)assets->stage1IsletTex.height };
 
     for (int start = 0; start < STAGE1_TERRAIN_COUNT; start++) {
         if (visited[start]) continue;
@@ -290,7 +289,11 @@ static void DrawTerrain(const GameState *state, const GameAssets *assets) {
             maxX - minX + shorelineMargin * 2.0f, maxY - minY + shorelineMargin * 2.0f
         };
         if (destination.x > (float)GAME_WIDTH + shorelineMargin || destination.x + destination.width < -shorelineMargin) continue;
-        DrawTexturePro(assets->stage1IsletTex, source, destination, (Vector2){ 0 }, 0.0f, WHITE);
+        unsigned int variantSeed = (unsigned int)STAGE1_TERRAIN[start].px * 17u
+            ^ (unsigned int)STAGE1_TERRAIN[start].y * 31u ^ (unsigned int)start;
+        Texture2D islet = assets->stage1IsletTex[variantSeed % STAGE1_ISLET_VARIANT_COUNT];
+        Rectangle source = { 0.0f, 0.0f, (float)islet.width, (float)islet.height };
+        DrawTexturePro(islet, source, destination, (Vector2){ 0 }, 0.0f, WHITE);
     }
 }
 
