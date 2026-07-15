@@ -47,6 +47,15 @@ GameAssets LoadGameAssets(void) {
     assets.leviathanCoreTex = LoadTexture("assets/sprites/leviathan_core.png");
     SetTextureFilter(assets.leviathanCoreTex, TEXTURE_FILTER_POINT);
 
+    // Downsample the authored sprite once so its clustered pixel detail stays
+    // legible as the compact Stage 1 terrain groups move past the player.
+    Image stage1IsletImage = LoadImage("assets/sprites/stage1_islet.png");
+    ImageCrop(&stage1IsletImage, GetImageAlphaBorder(stage1IsletImage, 0.1f));
+    ImageResizeNN(&stage1IsletImage, 128, 128);
+    assets.stage1IsletTex = LoadTextureFromImage(stage1IsletImage);
+    UnloadImage(stage1IsletImage);
+    SetTextureFilter(assets.stage1IsletTex, TEXTURE_FILTER_POINT);
+
     assets.oceanTex = LoadTexture("assets/tiles/ocean.png");
     SetTextureFilter(assets.oceanTex, TEXTURE_FILTER_POINT);
     SetTextureWrap(assets.oceanTex, TEXTURE_WRAP_REPEAT);
@@ -65,6 +74,7 @@ GameAssets LoadGameAssets(void) {
 void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->oceanOverlayTex);
     UnloadTexture(assets->oceanTex);
+    UnloadTexture(assets->stage1IsletTex);
     UnloadTexture(assets->leviathanCoreTex);
     UnloadTexture(assets->leviathanMortarTex);
     UnloadTexture(assets->leviathanHullSectionTex);

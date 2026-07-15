@@ -18,6 +18,7 @@ typedef struct {
     Texture2D leviathanHullSectionTex;
     Texture2D leviathanMortarTex;
     Texture2D leviathanCoreTex;
+    Texture2D stage1IsletTex;
     Texture2D oceanTex;
     Texture2D oceanOverlayTex;
 } GameAssets;

@@ -239,97 +239,58 @@ static void DrawBossAirborne(const GameState *state, const GameAssets *assets) {
     }
 }
 
-// A stable, small wobble makes each footprint's coast imperfect without
-// swimming as the stage scrolls. The same seed is used for every ring so
-// shallows, foam, and sand remain a clean, concentric shoreline.
-static float TerrainShoreWobble(int footprint, int point) {
-    unsigned int h = (unsigned int)footprint * 747796405u + (unsigned int)point * 2891336453u;
-    h = (h ^ (h >> 16)) * 2246822519u;
-    return ((float)(h & 0xffu) / 255.0f - 0.5f) * 0.10f;
+static bool TerrainFootprintsTouch(StageTerrainFootprint first, StageTerrainFootprint second) {
+    const float firstRight = first.px + first.widthPx;
+    const float firstBottom = first.y + first.heightPx;
+    const float secondRight = second.px + second.widthPx;
+    const float secondBottom = second.y + second.heightPx;
+    return first.px <= secondRight && firstRight >= second.px
+        && first.y <= secondBottom && firstBottom >= second.y;
 }
 
-// Draw a softly irregular superellipse rather than a rounded rectangle.
-// The wide, gently wobbled sides turn grid footprints into coastline lobes;
-// where adjacent footprints meet, their rings overlap into small coves.
-static void DrawTerrainShore(Rectangle land, float grow, Color color, int footprint) {
-    enum { SHORE_POINTS = 24 };
-    Vector2 points[SHORE_POINTS + 2];
-    // Stage-table rows merge only when their widths match. Extending the
-    // visual contour vertically lets stepped rows join as one islet instead
-    // of reading as a stack of separate sandbars; collision stays unchanged.
-    const float shorelineJoin = 6.0f;
-    const float halfW = land.width * 0.5f + grow;
-    const float halfH = land.height * 0.5f + grow + shorelineJoin;
-    if (halfW <= 0.0f || halfH <= 0.0f) return;
+// Collision retains the authored rectangular cells. Rendering merges every
+// touching group, so one transparent islet sprite replaces the visibly
+// stacked shore rings while targets still use the same stage coordinates.
+static void DrawTerrain(const GameState *state, const GameAssets *assets) {
+    enum { MAX_STAGE1_TERRAIN = 32 };
+    if (STAGE1_TERRAIN_COUNT > MAX_STAGE1_TERRAIN) return;
 
-    Vector2 center = { land.x + land.width * 0.5f, land.y + land.height * 0.5f };
-    points[0] = center;
-    for (int p = 0; p <= SHORE_POINTS; p++) {
-        int sample = p % SHORE_POINTS;
-        // Raylib's fan helper requires the perimeter counter-clockwise;
-        // screen-space positive Y points down, so the angle is negative.
-        float angle = -2.0f * PI * (float)sample / (float)SHORE_POINTS;
-        float c = cosf(angle);
-        float s = sinf(angle);
-        // n=4 superellipse: much softer corners than a rectangle but it
-        // still respects the authored footprint's overall proportions.
-        float x = copysignf(sqrtf(fabsf(c)), c);
-        float y = copysignf(sqrtf(fabsf(s)), s);
-        float wobble = 1.0f + TerrainShoreWobble(footprint, sample);
-        points[p + 1] = (Vector2){ center.x + halfW * x * wobble, center.y + halfH * y * wobble };
-    }
-    DrawTriangleFan(points, SHORE_POINTS + 2, color);
-}
+    bool visited[MAX_STAGE1_TERRAIN] = { false };
+    Rectangle source = { 0.0f, 0.0f, (float)assets->stage1IsletTex.width, (float)assets->stage1IsletTex.height };
 
-// Land: stage-data footprints drifting with the scroll, drawn above
-// everything that belongs to the water (wake, wrecks) and below all
-// targets, so shoreline installations sit on their islets. From the water
-// inward: tinted shallows, surf foam, wet beach sand, then a drier interior.
-// Collision remains on the square authored footprints; these organic rings
-// are visual dressing, deliberately extending over the collision corners.
-static void DrawTerrain(const GameState *state) {
-    static const struct {
-        float inflate;
-        Color color;
-    } coastRings[] = {
-        { 6.0f, { 32, 94, 128, 255 } },    // shallows tint
-        { 2.0f, { 207, 239, 240, 175 } },  // surf foam
-        { 0.0f, { 149, 128, 90, 255 } },   // wet beach sand
-        { -5.0f, { 183, 161, 108, 255 } }, // dry interior sand
-    };
-    const int ringCount = (int)(sizeof(coastRings) / sizeof(coastRings[0]));
+    for (int start = 0; start < STAGE1_TERRAIN_COUNT; start++) {
+        if (visited[start]) continue;
 
-    for (int pass = 0; pass < ringCount; pass++) {
-        for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
-            Rectangle land = TerrainScreenRect(STAGE1_TERRAIN[i], state->scrollDistance);
-            float grow = coastRings[pass].inflate;
-            Rectangle ring = {
-                land.x - grow, land.y - grow,
-                land.width + 2.0f * grow, land.height + 2.0f * grow
-            };
-            if (ring.width <= 0.0f || ring.height <= 0.0f) continue;
-            if (ring.x > (float)GAME_WIDTH + 8.0f || ring.x + ring.width < -8.0f) continue;
-            DrawTerrainShore(land, grow, coastRings[pass].color, i);
+        int pending[MAX_STAGE1_TERRAIN];
+        int next = 0;
+        int pendingCount = 1;
+        pending[0] = start;
+        float minX = 100000.0f, minY = 100000.0f, maxX = -100000.0f, maxY = -100000.0f;
+        visited[start] = true;
+
+        while (next < pendingCount) {
+            int current = pending[next++];
+            Rectangle currentRect = TerrainScreenRect(STAGE1_TERRAIN[current], state->scrollDistance);
+            if (currentRect.x < minX) minX = currentRect.x;
+            if (currentRect.y < minY) minY = currentRect.y;
+            if (currentRect.x + currentRect.width > maxX) maxX = currentRect.x + currentRect.width;
+            if (currentRect.y + currentRect.height > maxY) maxY = currentRect.y + currentRect.height;
+
+            for (int candidate = 0; candidate < STAGE1_TERRAIN_COUNT; candidate++) {
+                if (!visited[candidate] && TerrainFootprintsTouch(STAGE1_TERRAIN[current], STAGE1_TERRAIN[candidate])) {
+                    visited[candidate] = true;
+                    pending[pendingCount++] = candidate;
+                }
+            }
         }
-    }
 
-    // Grain: a few darker flecks per footprint, hashed from the footprint
-    // itself so they stay anchored to the land as it drifts. Kept at
-    // near-invisible contrast - the ocean-tile lesson: visible pattern
-    // reads as fabric, not ground.
-    for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
-        Rectangle land = TerrainScreenRect(STAGE1_TERRAIN[i], state->scrollDistance);
-        if (land.x > (float)GAME_WIDTH + 8.0f || land.x + land.width < -8.0f) continue;
-        if (land.width < 24.0f || land.height < 24.0f) continue;
-        int flecks = (int)(land.width * land.height) / 400;
-        for (int g = 0; g < flecks; g++) {
-            unsigned int h = (unsigned int)STAGE1_TERRAIN[i].px * 2654435761u
-                ^ (unsigned int)STAGE1_TERRAIN[i].y * 83492791u
-                ^ (unsigned int)g * 40503u;
-            float fx = 8.0f + (float)(h % 997u) / 997.0f * (land.width - 18.0f);
-            float fy = 8.0f + (float)((h / 997u) % 997u) / 997.0f * (land.height - 17.0f);
-            DrawRectangle((int)(land.x + fx), (int)(land.y + fy), 2, 1, (Color){ 166, 144, 94, 255 });
-        }
+        const float shorelineMargin = 10.0f;
+        Rectangle destination = {
+            minX - shorelineMargin, minY - shorelineMargin,
+            maxX - minX + shorelineMargin * 2.0f, maxY - minY + shorelineMargin * 2.0f
+        };
+        if (destination.x > (float)GAME_WIDTH + shorelineMargin || destination.x + destination.width < -shorelineMargin) continue;
+        DrawTexturePro(assets->stage1IsletTex, source, destination, (Vector2){ 0 }, 0.0f, WHITE);
     }
 }
 
@@ -403,7 +364,7 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         );
     }
 
-    DrawTerrain(state);
+    DrawTerrain(state, assets);
 
     // Reticle marks maximum torpedo range, not a target lock. It stands
     // down with the rest of the weapons once the salvage autopilot flies.
