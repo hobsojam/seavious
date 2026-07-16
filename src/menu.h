@@ -21,6 +21,12 @@ typedef enum {
     MENU_RESULT_QUIT
 } MenuResult;
 
+typedef enum {
+    QUIT_CONFIRM_NONE,
+    QUIT_CONFIRM_CANCEL,
+    QUIT_CONFIRM_QUIT
+} QuitConfirmationResult;
+
 typedef struct {
     MenuScreen screen;
     int cursor;
@@ -36,18 +42,23 @@ typedef struct {
     bool left;
     bool right;
     bool select; // Enter / numpad Enter / Space
-    bool back;   // Backspace (not Escape: raylib's exit key closes the window)
+    bool back;   // Backspace or Escape
 } MenuInput;
 
 MenuInput ReadMenuInput(void);
 
 void ResetPauseMenu(PauseMenu *menu);
 // Navigate with the movement actions, select with Enter/Space, step back
-// with Backspace. Sets *settingsChanged when a volume was adjusted this
+// with Backspace or Escape. Sets *settingsChanged when a volume was adjusted this
 // frame (the caller applies it to the audio and saves the file).
 MenuResult UpdatePauseMenu(PauseMenu *menu, GameSettings *settings, bool *settingsChanged,
     MenuInput input);
 void DrawPauseMenu(const PauseMenu *menu, const GameSettings *settings);
+
+// Confirmation shown for an Escape press during active gameplay. Select
+// confirms quitting; Backspace/Escape dismisses it and returns to the run.
+QuitConfirmationResult UpdateQuitConfirmation(MenuInput input);
+void DrawQuitConfirmation(void);
 
 // Shared navigation helper and sub-screens, used by both the pause menu
 // and the title screen so the two hosts can never drift apart.
