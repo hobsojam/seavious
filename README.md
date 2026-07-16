@@ -211,7 +211,8 @@ it's fitted to the player as the third weapon (see Core mechanic).
 **Stage 1 boss design (Leviathan)** (implemented in `src/boss.c`; the
 notes below are the design it follows — deviations, all deliberate:
 the stage-clear flow after the salvage is a restart placeholder until
-Stage 2 exists to advance into; the mortar's power-down is simply its
+Stage 2 exists to advance into — the restart keeps the salvaged mortar,
+standing in for the Stage 2 handoff; the mortar's power-down is simply its
 shells stopping, since the dome sprite is already colorless; hull
 contact is lethal while the boss lives — the player owns the left side
 of the arena because the right side kills — and the settled wreck goes
@@ -317,7 +318,8 @@ The salvage beat is deliberately simple: the skimmer auto-pilots
 alongside, the turret dome lifts off the wreck and docks onto the
 skimmer's spine (a few seconds of sprite animation, no input), a pickup
 jingle plays, and the stage-clear flow takes over. Stage 2 then opens
-with the mortar equipped.
+with the mortar equipped (today: the stage-clear replay of Stage 1 does,
+with the dome riding the skimmer's spine from the start of the run).
 
 **Color palette**: No sky rendered — open water scrolls underneath the
 top-down camera. Environment is classic flat arcade water in the
@@ -371,12 +373,23 @@ altitude; lobbing up-and-forward from sea level reads fine top-down:
 projectile scales up then down over a drifting shadow) that **arcs over
 land**, with its own shorter fixed-range in-lane reticle that — unlike
 the torpedo's — does not clamp at land edges, an area blast where it
-lands, its own manual-fire key, and its own cooldown/HUD icon. Class
-mapping stays strict in all three lanes: gun→air, torpedo→water surface,
-mortar→land targets only — arcade readability beats blast physics, the
-same rule that lets gun bullets pass over surface targets. Land targets
-(possible from Stage 2, since only the mortar can touch them) get the
-third faction color to complete the triad.
+lands, its own manual-fire key (Left Shift or X — a dedicated key, not a
+weapon toggle: the strict class mapping means the target already dictates
+the weapon, so a mode switch would be pure overhead), and its own
+cooldown/HUD icon. Class mapping is intended to stay strict in all three
+lanes: gun→air, torpedo→water surface, mortar→land targets only — arcade
+readability beats blast physics, the same rule that lets gun bullets pass
+over surface targets. Land targets (possible from Stage 2, since only the
+mortar can touch them) get the third faction color to complete the triad.
+*Implementation status*: the weapon is in (first pass — flight, blast,
+reticle, HUD icon, 2.5s cooldown, 120px range vs the torpedo's 170px),
+and since no land targets exist yet its blast **provisionally damages
+surface targets** (and boss parts, at torpedo rates) so it can be
+playtested — the working theory is it may keep water-class damage
+permanently as the harder-to-aim alternative to the torpedo; that call is
+deferred to playtesting. Until Stage 2 exists, the salvaged mortar
+carries into the stage-clear replay of Stage 1 (a game over still
+forfeits it), so the upgrade is testable end-to-end.
 
 **Scoring (first pass)**: Points are awarded once, when a target is
 destroyed. The current mechanical proof implements the two live target
@@ -473,8 +486,11 @@ reserve ships appear in the HUD. Center-left: score, in a pixel font, the
 largest text in the bar. Right: torpedo status icon — bright/amber
 when ready, pale while in flight, and dim with a reload meter on cooldown
 (torpedo isn't unlimited-fire, unlike the gun); once the mortar is
-scavenged (Stage 2+) a second, green status icon joins it with the same
-ready/flight/cooldown states. Far right: reserved but
+scavenged a second, green dome icon joins it with the same
+ready/flight/cooldown states — the weapon block splits into two compact
+side-by-side icons whose state reads by color alone (the worded torpedo
+status only fits while the torpedo is the sole manual weapon). Far right:
+reserved but
 empty outside boss fights, becomes a boss health bar when one is active, so
 the layout doesn't need to change later just to add that. Chosen as a
 reserved bar rather than an overlay so the HUD never competes with the
@@ -646,6 +662,12 @@ Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.
 Hits before arming do only small direct impact damage, with no splash.
+After clearing the stage once, the replay starts with the scavenged
+mortar: Left Shift or X lobs a shell (one in flight at a time, 2.5s
+reload) to its own shorter green reticle, which ignores land and armor
+entirely — the shell arcs over them — and lands in an area blast that
+(provisionally, pending playtesting) damages surface targets and boss
+parts.
 Land (sand islets drifting with the water) never collides with the ship
 or gun, but blocks torpedoes: the reticle clamps to a land edge in the
 lane, armed torpedoes detonate against it (splash can still catch

@@ -13,7 +13,12 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
 
     if ((state->gameOver || state->stageClear)
         && (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))) {
+        // The scavenged mortar is run progression, not stage state: the
+        // stage-clear replay (standing in for Stage 2) keeps it, a game
+        // over forfeits it with the rest of the run.
+        bool keepMortar = state->stageClear && state->hasMortar;
         ResetRunState(state);
+        state->hasMortar = keepMortar;
         PushGameEvent(&state->gameEvents, (GameEvent){
             .type = GAME_EVENT_RUN_RESTARTED, .pos = state->player
         });
@@ -199,6 +204,31 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
             .type = GAME_EVENT_TORPEDO_IMPACT, .pos = torpedoImpact.pos,
             .target.torpedoImpact = torpedoImpact.type
         });
+    }
+    // Scavenged mortar: same manual gating as the torpedo (one shell in
+    // flight + a cooldown), but the shot ignores every blocker - the shell
+    // arcs over land and the boss's armor alike, which is its whole point.
+    // The landing blast provisionally splashes surface targets and boss
+    // parts (playtest call pending on water-class damage); the strict
+    // land-only mapping waits for Stage 2's land targets.
+    if (state->mortarCooldown > 0.0f) state->mortarCooldown -= dt;
+    bool fireMortar = state->hasMortar && !bossOwnsPlayer
+        && (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_X));
+    if (!state->playerDestroyed && fireMortar && !state->mortarShell.active && state->mortarCooldown <= 0.0f) {
+        Vector2 mortarSpawn = { state->player.x + halfW, state->player.y };
+        FirePlayerMortar(&state->mortarShell, mortarSpawn, CalculateMortarReticle(mortarSpawn));
+        state->mortarCooldown = PLAYER_MORTAR_COOLDOWN;
+        PushGameEvent(&state->gameEvents, (GameEvent){
+            .type = GAME_EVENT_MORTAR_FIRED, .pos = mortarSpawn
+        });
+    }
+    if (UpdatePlayerMortarShell(&state->mortarShell, dt, scrollDt)) {
+        Vector2 blast = state->mortarShell.target;
+        PushGameEvent(&state->gameEvents, (GameEvent){
+            .type = GAME_EVENT_MORTAR_BLAST, .pos = blast
+        });
+        ResolveMortarBlastSurfaceTargets(blast, state->surfaceTargets, MAX_SURFACE_TARGETS, &state->gameEvents);
+        ResolveBossSplashDamage(&state->boss, blast, &state->gameEvents);
     }
     // Player hits resolve before the destruction-effects pass so a mine
     // detonated by contact still gets its blast and SFX this same frame.

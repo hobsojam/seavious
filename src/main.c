@@ -95,6 +95,15 @@ int main(void) {
         if (smokeFrames > 0 && (framesRun == 120 || framesRun == 240 || framesRun == 360)) {
             state.enemyBullets[0] = (EnemyBullet){ .pos = state.player, .active = true };
         }
+        // Grant the scavenged mortar and lob a shell directly (no input
+        // injection), so the player-mortar flight/blast update, the green
+        // reticle/shadow/shell render paths, and the split HUD all run.
+        if (smokeFrames > 0 && framesRun == 100) {
+            state.hasMortar = true;
+            Vector2 mortarSpawn = { state.player.x + 12.0f, state.player.y };
+            FirePlayerMortar(&state.mortarShell, mortarSpawn, CalculateMortarReticle(mortarSpawn));
+            state.mortarCooldown = PLAYER_MORTAR_COOLDOWN;
+        }
         // Jump the scroll so beat 7's islet is on screen: the terrain
         // rendering (organic coastline, beach rings, grain) draws
         // headlessly for the rest of the run. The skipped-over stage

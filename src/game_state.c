@@ -19,6 +19,8 @@ void BeginPlayerDeath(GameState *state) {
     state->torpedoCooldown = 0.0f;
     state->torpedoImpactType = TORPEDO_IMPACT_NONE;
     state->torpedoImpactTimer = 0.0f;
+    state->mortarShell.active = false;
+    state->mortarCooldown = 0.0f;
     PushGameEvent(&state->gameEvents, (GameEvent){
         .type = GAME_EVENT_PLAYER_DEATH, .pos = state->player
     });

@@ -60,6 +60,11 @@ static void DrawHud(const GameState *state) {
         if (reloadProgress > 1.0f) reloadProgress = 1.0f;
     }
 
+    // Weapon panel: the torpedo alone owns the full block with a worded
+    // status; once the mortar is scavenged the block splits into two
+    // side-by-side icons whose state reads by color alone (green/amber
+    // ready, pale in flight, dim with a filling bar on reload).
+    int weaponBarWidth = state->hasMortar ? 56 : 126;
     DrawRectangle(244, top + 14, 14, 6, torpedoStatusColor);
     DrawTriangle(
         (Vector2){ 263.0f, (float)top + 17.0f },
@@ -67,9 +72,30 @@ static void DrawHud(const GameState *state) {
         (Vector2){ 258.0f, (float)top + 20.0f },
         torpedoStatusColor
     );
-    DrawText(torpedoStatus, 270, top + 12, 10, torpedoStatusColor);
-    DrawRectangle(244, top + 25, 126, 3, panelInset);
-    DrawRectangle(244, top + 25, (int)(126.0f * reloadProgress), 3, torpedoStatusColor);
+    if (!state->hasMortar) DrawText(torpedoStatus, 270, top + 12, 10, torpedoStatusColor);
+    DrawRectangle(244, top + 25, weaponBarWidth, 3, panelInset);
+    DrawRectangle(244, top + 25, (int)((float)weaponBarWidth * reloadProgress), 3, torpedoStatusColor);
+
+    if (state->hasMortar) {
+        const Color green = (Color){ 108, 224, 96, 255 };
+        Color mortarStatusColor = green;
+        float mortarProgress = 1.0f;
+        if (state->mortarShell.active) {
+            mortarStatusColor = pale;
+            mortarProgress = 0.0f;
+        } else if (state->mortarCooldown > 0.0f) {
+            mortarStatusColor = inactive;
+            mortarProgress = 1.0f - state->mortarCooldown / PLAYER_MORTAR_COOLDOWN;
+            if (mortarProgress < 0.0f) mortarProgress = 0.0f;
+            if (mortarProgress > 1.0f) mortarProgress = 1.0f;
+        }
+        DrawText("MORTAR", 314, top + 4, 8, green);
+        // Dome-on-base icon: the salvaged turret in miniature.
+        DrawCircleV((Vector2){ 321.0f, (float)top + 16.0f }, 4.0f, mortarStatusColor);
+        DrawRectangle(314, top + 18, 14, 3, mortarStatusColor);
+        DrawRectangle(314, top + 25, 56, 3, panelInset);
+        DrawRectangle(314, top + 25, (int)(56.0f * mortarProgress), 3, mortarStatusColor);
+    }
 
     // Reserved boss region: a labeled health meter while the boss lives
     // (sum of remaining destructible-part HP), the empty inset otherwise.
@@ -495,6 +521,29 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
             (Color){ 232, 148, 44, 190 });
         DrawLine((int)torpedoReticle.x, (int)(torpedoReticle.y + 4.0f), (int)torpedoReticle.x, (int)(torpedoReticle.y + 10.0f),
             (Color){ 232, 148, 44, 190 });
+
+        // Mortar reticle: shorter range, never clamped - it deliberately
+        // ignores the land edges and armor that cap the torpedo lane, so
+        // the two markers split apart exactly when the lane is blocked.
+        if (state->hasMortar) {
+            Vector2 mortarReticle = CalculateMortarReticle(torpedoSpawn);
+            const Color mortarGreen = (Color){ 108, 224, 96, 190 };
+            DrawCircleLines((int)mortarReticle.x, (int)mortarReticle.y, 4.0f, mortarGreen);
+            DrawLine((int)(mortarReticle.x - 8.0f), (int)mortarReticle.y,
+                (int)(mortarReticle.x - 3.0f), (int)mortarReticle.y, mortarGreen);
+            DrawLine((int)(mortarReticle.x + 3.0f), (int)mortarReticle.y,
+                (int)(mortarReticle.x + 8.0f), (int)mortarReticle.y, mortarGreen);
+        }
+    }
+
+    // Player mortar shadow: same shrink/grow landing telegraph as the
+    // boss's shells, green-rimmed because this one is the player's.
+    if (state->mortarShell.active && !state->mortarShell.landed) {
+        float u = state->mortarShell.t / PLAYER_MORTAR_AIR_TIME;
+        float shadowRadius = 2.0f + 5.0f * fabsf(cosf(PI * u));
+        DrawCircleV(state->mortarShell.target, shadowRadius, (Color){ 8, 10, 14, 110 });
+        DrawCircleLines((int)state->mortarShell.target.x, (int)state->mortarShell.target.y, shadowRadius + 1.0f,
+            (Color){ 108, 224, 96, (unsigned char)(40.0f + 150.0f * u) });
     }
 
     if (state->torpedoImpactTimer > 0.0f) {
@@ -584,6 +633,20 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
             (int)(state->player.y - assets->playerTex.height / 2.0f),
             WHITE
         );
+        // The scavenged dome rides the spine (carried over from the
+        // previous run's salvage); once a fresh salvage sequence starts,
+        // the docking animation in DrawBossAirborne draws it instead.
+        if (state->hasMortar && state->boss.phase < BOSS_PHASE_SALVAGE_DOCK) {
+            float domeScale = 0.55f;
+            DrawTextureEx(
+                assets->leviathanMortarTex,
+                (Vector2){
+                    state->player.x - assets->leviathanMortarTex.width / 2.0f * domeScale,
+                    state->player.y - assets->leviathanMortarTex.height / 2.0f * domeScale
+                },
+                0.0f, domeScale, WHITE
+            );
+        }
     }
 
     for (int i = 0; i < MAX_BULLETS; i++) {
@@ -640,6 +703,31 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     // Mortar shells at their arc apex are the highest thing in the scene,
     // and the docking dome flies over the player: top of the world layer.
     DrawBossAirborne(state, assets);
+
+    // The player's shell arcs at the same height as the boss's - same
+    // lob-and-blast language, green for player ordnance.
+    if (state->mortarShell.active) {
+        const MortarShell *shell = &state->mortarShell;
+        if (!shell->landed) {
+            float u = shell->t / PLAYER_MORTAR_AIR_TIME;
+            float arc = sinf(PI * u);
+            Vector2 shellPos = {
+                shell->launch.x + (shell->target.x - shell->launch.x) * u,
+                shell->launch.y + (shell->target.y - shell->launch.y) * u - 40.0f * arc
+            };
+            DrawPoly(shellPos, 4, 3.0f + 3.0f * arc, 0.0f, (Color){ 108, 224, 96, 255 });
+            DrawPixelV(shellPos, (Color){ 255, 250, 240, 255 });
+        } else {
+            float p = 1.0f - shell->blastT / PLAYER_MORTAR_BLAST_DURATION;
+            unsigned char fade = (unsigned char)(210.0f * (1.0f - p * 0.7f));
+            DrawCircleV(shell->target, PLAYER_MORTAR_BLAST_RADIUS * (0.4f + 0.6f * p),
+                (Color){ 130, 224, 90, fade });
+            DrawCircleLines((int)shell->target.x, (int)shell->target.y,
+                PLAYER_MORTAR_BLAST_RADIUS * (0.6f + 0.4f * p),
+                (Color){ 108, 224, 96, (unsigned char)(220.0f * (1.0f - p)) });
+            DrawCircleV(shell->target, 8.0f * (1.0f - p), (Color){ 255, 246, 216, fade });
+        }
+    }
 
     // Torpedo reads as player tech: hull-white body with pointed nose,
     // cyan spine stripe + engine glow, and a fading surface wake behind it.
