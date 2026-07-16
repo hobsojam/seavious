@@ -815,3 +815,55 @@ TorpedoImpact ResolveTorpedoSurfaceTargetCollision(Torpedo *torpedo, SurfaceTarg
 
     return NoTorpedoImpact();
 }
+
+Vector2 CalculateMortarReticle(Vector2 spawn) {
+    // Shorter range than the torpedo and no terrain clamp: the shell arcs
+    // over land, so a blocked lane doesn't exist for this weapon. Only the
+    // screen margin caps it.
+    float x = spawn.x + PLAYER_MORTAR_MAX_RANGE;
+    float screenMaxX = GAME_WIDTH - TORPEDO_RETICLE_SCREEN_MARGIN;
+    if (x > screenMaxX) x = screenMaxX;
+    return (Vector2){ x, spawn.y };
+}
+
+void FirePlayerMortar(MortarShell *shell, Vector2 spawn, Vector2 target) {
+    *shell = (MortarShell){
+        .launch = spawn,
+        .target = target,
+        .t = 0.0f,
+        .blastT = 0.0f,
+        .landed = false,
+        .active = true
+    };
+}
+
+// Returns true on the single step the shell lands (the caller resolves
+// the blast); afterwards the shell only ticks its blast visual down.
+bool UpdatePlayerMortarShell(MortarShell *shell, float dt, float scrollDt) {
+    if (!shell->active) return false;
+    if (!shell->landed) {
+        // The landing point is water-anchored like the torpedo's target;
+        // scrollDt keeps it frozen with the water under the boss lock.
+        shell->target.x -= OCEAN_SCROLL_SPEED * scrollDt;
+        shell->t += dt;
+        if (shell->t >= PLAYER_MORTAR_AIR_TIME) {
+            shell->landed = true;
+            shell->blastT = PLAYER_MORTAR_BLAST_DURATION;
+            return true;
+        }
+    } else {
+        shell->blastT -= dt;
+        if (shell->blastT <= 0.0f) shell->active = false;
+    }
+    return false;
+}
+
+void ResolveMortarBlastSurfaceTargets(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events) {
+    for (int i = 0; i < targetCount; i++) {
+        if (!targets[i].active) continue;
+        float hitDist = targets[i].radius + PLAYER_MORTAR_BLAST_RADIUS;
+        if (DistanceSquared(pos, targets[i].pos) <= hitDist * hitDist) {
+            DamageSurfaceTarget(&targets[i], 1, events);
+        }
+    }
+}

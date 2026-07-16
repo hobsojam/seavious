@@ -63,18 +63,6 @@ typedef enum {
     BOSS_PHASE_CLEARED
 } BossPhase;
 
-// One lobbed mortar shell: launch -> target over a fixed air time (the
-// dodge window, telegraphed by the shadow at the target), then a short
-// area blast that can kill the player.
-typedef struct {
-    Vector2 launch;
-    Vector2 target;
-    float t;
-    float blastT;
-    bool landed;
-    bool active;
-} MortarShell;
-
 // One SAM off a hull-section battery: steers toward the player at a
 // capped turn rate until its fuel runs out; the gun can shoot it down.
 typedef struct {
@@ -149,6 +137,13 @@ typedef struct {
     float torpedoImpactTimer;
 
     SurfaceTarget surfaceTargets[MAX_SURFACE_TARGETS];
+
+    // Scavenged mortar: hasMortar is run progression, not stage state -
+    // the salvage raises it, a stage-clear replay (standing in for Stage 2
+    // until one exists) carries it over, a game over forfeits it.
+    bool hasMortar;
+    MortarShell mortarShell;
+    float mortarCooldown;
 
     WakeParticle wake[MAX_WAKE_PARTICLES];
     float wakeEmitTimer;

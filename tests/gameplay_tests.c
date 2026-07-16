@@ -232,6 +232,52 @@ static void TestTerrain(void) {
     CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION);
 }
 
+static void TestPlayerMortar(void) {
+    // The mortar reticle ignores land outright: the same footprint that
+    // clamps the torpedo lane leaves the mortar's fixed range untouched.
+    StageTerrainFootprint land = { 1000, 96, 64, 32 };
+    float scroll = 1200.0f; // land on screen at x = 312..376
+    Vector2 spawn = { 250.0f, 112.0f };
+    Vector2 torpedoReticle = CalculateTorpedoReticle(spawn, &land, 1, scroll);
+    NEAR(torpedoReticle.x, 312.0f);
+    Vector2 mortarReticle = CalculateMortarReticle(spawn);
+    NEAR(mortarReticle.x, spawn.x + PLAYER_MORTAR_MAX_RANGE);
+    NEAR(mortarReticle.y, spawn.y);
+
+    // Only the screen margin caps the range.
+    Vector2 nearEdge = CalculateMortarReticle((Vector2){ (float)GAME_WIDTH - 40.0f, 100.0f });
+    NEAR(nearEdge.x, (float)GAME_WIDTH - TORPEDO_RETICLE_SCREEN_MARGIN);
+
+    // Flight: the water-anchored target drifts with scrollDt, the shell
+    // reports its landing exactly once, blasts, then expires.
+    MortarShell shell = { 0 };
+    FirePlayerMortar(&shell, spawn, mortarReticle);
+    CHECK(shell.active && !shell.landed);
+    CHECK(!UpdatePlayerMortarShell(&shell, PLAYER_MORTAR_AIR_TIME / 2.0f, 1.0f));
+    NEAR(shell.target.x, mortarReticle.x - OCEAN_SCROLL_SPEED);
+    CHECK(UpdatePlayerMortarShell(&shell, PLAYER_MORTAR_AIR_TIME / 2.0f, 0.0f));
+    CHECK(shell.landed);
+    NEAR(shell.blastT, PLAYER_MORTAR_BLAST_DURATION);
+    CHECK(!UpdatePlayerMortarShell(&shell, PLAYER_MORTAR_BLAST_DURATION, 0.0f));
+    CHECK(!shell.active);
+    CHECK(!UpdatePlayerMortarShell(&shell, 1.0f, 0.0f));
+
+    // Blast: area damage against surface targets inside the radius only
+    // (the provisional water-class rule that playtesting will confirm).
+    SurfaceTarget targets[2] = {
+        { .type = SURFACE_TARGET_CASEMATE, .pos = { 100.0f, 100.0f },
+          .radius = CASEMATE_RADIUS, .hp = 1, .active = true },
+        { .type = SURFACE_TARGET_CASEMATE,
+          .pos = { 100.0f + PLAYER_MORTAR_BLAST_RADIUS + CASEMATE_RADIUS + 5.0f, 100.0f },
+          .radius = CASEMATE_RADIUS, .hp = 1, .active = true },
+    };
+    GameEventQueue events = { 0 };
+    ResolveMortarBlastSurfaceTargets((Vector2){ 100.0f, 100.0f }, targets, 2, &events);
+    CHECK(!targets[0].active);
+    CHECK(targets[1].active);
+    CHECK(events.count == 1);
+}
+
 static void TestSurfaceTargets(void) {
     SurfaceTarget targets[2] = { 0 };
     CHECK(TrySpawnCasemate(targets, 2, 30));
@@ -462,6 +508,7 @@ int main(void) {
     TestGunship();
     TestTorpedoes();
     TestTerrain();
+    TestPlayerMortar();
     TestSurfaceTargets();
     TestRelayNode();
     TestMine();
