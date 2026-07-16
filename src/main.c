@@ -39,6 +39,9 @@ int main(void) {
 
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(GAME_WIDTH * WINDOW_SCALE, GAME_HEIGHT * WINDOW_SCALE, "Seavious");
+    // Escape is context-sensitive: it backs out of a modal, or asks before
+    // ending an active run. Raylib must not consume it as an immediate exit.
+    SetExitKey(KEY_NULL);
     SetTargetFPS(60);
 
     // Runtime window/taskbar icon; the exe file's own icon is the same
@@ -71,12 +74,19 @@ int main(void) {
     // Boot lands on the title screen; START begins a fresh run.
     bool onTitle = true;
     bool quit = false;
+    bool quitConfirm = false;
 
     while (!WindowShouldClose() && !quit) {
         float dt = GetFrameTime();
         // Sampled once per frame; the menu/title state machines are pure
         // over this struct (unit-testable without a window).
         MenuInput menuInput = ReadMenuInput();
+        bool escapePressed = IsKeyPressed(KEY_ESCAPE);
+        // Cover the runtime confirmation path without real key injection:
+        // request it after the scripted pause closes, then dismiss it on
+        // the next frame so the remaining smoke scenario can continue.
+        bool smokeQuitRequest = smokeFrames > 0 && framesRun == 218;
+        if (smokeFrames > 0 && framesRun == 219) menuInput.back = true;
 
         // F11 flips fullscreen anywhere (the options row is the
         // discoverable path, this is the shortcut) and persists like any
@@ -264,7 +274,20 @@ int main(void) {
             ContinueRun(&state);
         }
 
-        if (runGameFrame) {
+        if (quitConfirm) {
+            QuitConfirmationResult confirmResult = UpdateQuitConfirmation(menuInput);
+            if (confirmResult == QUIT_CONFIRM_CANCEL) {
+                quitConfirm = false;
+                SetGameAudioPaused(&audio, false);
+            } else if (confirmResult == QUIT_CONFIRM_QUIT) {
+                quit = true;
+            }
+        } else if (runGameFrame && !state.paused && (escapePressed || smokeQuitRequest)) {
+            quitConfirm = true;
+            SetGameAudioPaused(&audio, true);
+        }
+
+        if (runGameFrame && !quitConfirm) {
             UpdateGame(&state, &assets, dt,
                 smokeFrames > 0 && framesRun == 9,
                 smokeFrames > 0 && framesRun == 100);
@@ -301,6 +324,7 @@ int main(void) {
             } else {
                 DrawGame(&state, &assets);
                 if (state.paused) DrawPauseMenu(&menu, &settings);
+                if (quitConfirm) DrawQuitConfirmation();
             }
         EndTextureMode();
 

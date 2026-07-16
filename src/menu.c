@@ -32,9 +32,7 @@ MenuInput ReadMenuInput(void) {
         .left = InputActionPressed(INPUT_MOVE_LEFT),
         .right = InputActionPressed(INPUT_MOVE_RIGHT),
         .select = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_SPACE),
-        // Backspace, not Escape: raylib's default exit key is Escape, so
-        // binding "back" there would close the window instead.
-        .back = IsKeyPressed(KEY_BACKSPACE),
+        .back = IsKeyPressed(KEY_BACKSPACE) || IsKeyPressed(KEY_ESCAPE),
     };
 }
 
@@ -119,7 +117,7 @@ static void DrawRootMenu(const PauseMenu *menu) {
         if (selected) DrawText(">", 176, y, 10, MENU_AMBER);
         DrawText(ROOT_LABELS[i], 190, y, 10, selected ? MENU_PALE : MENU_CYAN);
     }
-    DrawText("UP/DOWN + ENTER", 190, 140 + 18 * ROOT_COUNT + 2, 8, MENU_INACTIVE);
+    DrawText("ESC: RESUME", 190, 140 + 18 * ROOT_COUNT + 2, 8, MENU_INACTIVE);
 }
 
 static void DrawVolumeRow(const char *label, int value, int y, bool selected) {
@@ -185,7 +183,7 @@ void DrawControlsScreen(void) {
             y += rowHeight;
         }
     }
-    DrawText("ENTER/BACKSPACE TO RETURN", 162, panelY + panelHeight - 14, 8, MENU_INACTIVE);
+    DrawText("ENTER/ESC TO RETURN", 162, panelY + panelHeight - 14, 8, MENU_INACTIVE);
 }
 
 void DrawPauseMenu(const PauseMenu *menu, const GameSettings *settings) {
@@ -194,4 +192,25 @@ void DrawPauseMenu(const PauseMenu *menu, const GameSettings *settings) {
         case MENU_SCREEN_OPTIONS: DrawOptionsScreen(menu->cursor, settings); break;
         case MENU_SCREEN_CONTROLS: DrawControlsScreen(); break;
     }
+}
+
+QuitConfirmationResult UpdateQuitConfirmation(MenuInput input) {
+    if (input.back) return QUIT_CONFIRM_CANCEL;
+    if (input.select) return QUIT_CONFIRM_QUIT;
+    return QUIT_CONFIRM_NONE;
+}
+
+void DrawQuitConfirmation(void) {
+    DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (Color){ 0, 0, 0, 155 });
+    const int panelX = 146;
+    const int panelY = 142;
+    const int panelWidth = 220;
+    const int panelHeight = 92;
+    DrawRectangle(panelX, panelY, panelWidth, panelHeight, MENU_PANEL);
+    DrawRectangleLines(panelX, panelY, panelWidth, panelHeight, MENU_CYAN);
+    const char *title = "QUIT GAME?";
+    DrawText(title, (GAME_WIDTH - MeasureText(title, 18)) / 2, panelY + 12, 18, MENU_PALE);
+    DrawText("END THIS RUN?", 196, panelY + 42, 10, MENU_CYAN);
+    DrawText("ENTER: YES", 176, panelY + 64, 8, MENU_AMBER);
+    DrawText("ESC/BKSP: NO", 268, panelY + 64, 8, MENU_INACTIVE);
 }

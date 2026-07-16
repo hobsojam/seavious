@@ -101,7 +101,8 @@ static void TestTitleOptionsFlow(void) {
     Step(&title, &assets, &settings, &changed, InLeft());
     CHECK(settings.sfxVolume == 0 && !changed);
 
-    // Backspace returns to the root with the cursor kept on OPTIONS.
+    // A menu "back" (Backspace or Escape) returns to the root with the
+    // cursor kept on OPTIONS.
     CHECK(Step(&title, &assets, &settings, &changed, InBack()) == TITLE_RESULT_NONE);
     CHECK(title.screen == TITLE_SCREEN_ROOT && title.cursor == 1);
 
@@ -126,7 +127,8 @@ static void TestTitleControlsFlow(void) {
     // Idle frames stay on the controls screen.
     Step(&title, &assets, &settings, &changed, InNone());
     CHECK(title.screen == TITLE_SCREEN_CONTROLS);
-    // Select and Backspace both return, cursor kept on CONTROLS.
+    // Select and a menu "back" (Backspace or Escape) both return, with the
+    // cursor kept on CONTROLS.
     Step(&title, &assets, &settings, &changed, InSelect());
     CHECK(title.screen == TITLE_SCREEN_ROOT && title.cursor == 2);
     Step(&title, &assets, &settings, &changed, InSelect());
@@ -237,7 +239,7 @@ static void TestPauseMenuResults(void) {
     bool changed = false;
 
     CHECK(UpdatePauseMenu(&menu, &settings, &changed, InNone()) == MENU_RESULT_NONE);
-    // Select on RESUME resumes; Backspace resumes from anywhere on root.
+    // Select on RESUME resumes; Backspace/Escape resumes from the root.
     CHECK(UpdatePauseMenu(&menu, &settings, &changed, InSelect()) == MENU_RESULT_RESUME);
     CHECK(UpdatePauseMenu(&menu, &settings, &changed, InBack()) == MENU_RESULT_RESUME);
 
@@ -258,6 +260,12 @@ static void TestPauseMenuResults(void) {
     CHECK(menu.screen == MENU_SCREEN_ROOT && menu.cursor == 1);
 }
 
+static void TestQuitConfirmation(void) {
+    CHECK(UpdateQuitConfirmation(InNone()) == QUIT_CONFIRM_NONE);
+    CHECK(UpdateQuitConfirmation(InBack()) == QUIT_CONFIRM_CANCEL);
+    CHECK(UpdateQuitConfirmation(InSelect()) == QUIT_CONFIRM_QUIT);
+}
+
 int main(void) {
     TestTitleRootNavigation();
     TestTitleOptionsFlow();
@@ -267,5 +275,6 @@ int main(void) {
     TestPresentRect();
     TestFullscreenSynchronization();
     TestPauseMenuResults();
+    TestQuitConfirmation();
     return failures != 0;
 }
