@@ -3,6 +3,7 @@
 
 #include "assets.h"
 #include "gameplay.h"
+#include "menu.h"
 #include "settings.h"
 
 // Title screen (see README "Title screen"): the SEAVIOUS wordmark over
@@ -33,8 +34,11 @@ typedef struct {
 } TitleScreen;
 
 void ResetTitleScreen(TitleScreen *title);
+// Pure over the injected input (see MenuInput); assets are only read for
+// texture dimensions, so tests can pass a zero-initialized struct with
+// the tile widths set.
 TitleResult UpdateTitleScreen(TitleScreen *title, const GameAssets *assets,
-    GameSettings *settings, bool *settingsChanged, float dt);
+    GameSettings *settings, bool *settingsChanged, MenuInput input, float dt);
 void DrawTitleScreen(const TitleScreen *title, const GameAssets *assets,
     const GameSettings *settings);
 

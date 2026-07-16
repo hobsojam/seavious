@@ -1,5 +1,4 @@
 #include "title.h"
-#include "input.h"
 #include "menu.h"
 #include "raylib.h"
 #include <math.h>
@@ -32,7 +31,7 @@ static Vector2 TitleShipPos(float time) {
 }
 
 TitleResult UpdateTitleScreen(TitleScreen *title, const GameAssets *assets,
-    GameSettings *settings, bool *settingsChanged, float dt) {
+    GameSettings *settings, bool *settingsChanged, MenuInput input, float dt) {
     *settingsChanged = false;
     title->time += dt;
     title->oceanScroll = AdvanceOceanScroll(title->oceanScroll, dt, (float)assets->oceanTex.width);
@@ -59,8 +58,8 @@ TitleResult UpdateTitleScreen(TitleScreen *title, const GameAssets *assets,
 
     switch (title->screen) {
         case TITLE_SCREEN_ROOT: {
-            title->cursor = MenuStepCursor(title->cursor, TITLE_ROOT_COUNT);
-            if (!MenuSelectPressed()) return TITLE_RESULT_NONE;
+            title->cursor = MenuStepCursor(title->cursor, TITLE_ROOT_COUNT, input);
+            if (!input.select) return TITLE_RESULT_NONE;
             switch (title->cursor) {
                 case TITLE_START: return TITLE_RESULT_START;
                 case TITLE_OPTIONS: title->screen = TITLE_SCREEN_OPTIONS; title->cursor = 0; break;
@@ -70,13 +69,13 @@ TitleResult UpdateTitleScreen(TitleScreen *title, const GameAssets *assets,
             return TITLE_RESULT_NONE;
         }
         case TITLE_SCREEN_OPTIONS:
-            if (UpdateOptionsScreen(&title->cursor, settings, settingsChanged)) {
+            if (UpdateOptionsScreen(&title->cursor, settings, settingsChanged, input)) {
                 title->screen = TITLE_SCREEN_ROOT;
                 title->cursor = TITLE_OPTIONS;
             }
             return TITLE_RESULT_NONE;
         case TITLE_SCREEN_CONTROLS:
-            if (UpdateControlsScreen()) {
+            if (UpdateControlsScreen(input)) {
                 title->screen = TITLE_SCREEN_ROOT;
                 title->cursor = TITLE_CONTROLS;
             }

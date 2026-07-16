@@ -54,6 +54,9 @@ int main(void) {
 
     while (!WindowShouldClose() && !quit) {
         float dt = GetFrameTime();
+        // Sampled once per frame; the menu/title state machines are pure
+        // over this struct (unit-testable without a window).
+        MenuInput menuInput = ReadMenuInput();
 
         // Captured before the title screen may start a run, so the
         // Enter/Space press that selects START can't leak into this same
@@ -62,9 +65,12 @@ int main(void) {
 
         if (onTitle) {
             bool settingsChanged = false;
-            TitleResult titleResult = UpdateTitleScreen(&title, &assets, &settings, &settingsChanged, dt);
-            // The smoke run renders the title for a few frames, then
-            // auto-starts (no input injection headlessly).
+            // The smoke run walks the title's sub-screens for render
+            // coverage, then auto-starts (no input injection headlessly).
+            if (smokeFrames > 0 && framesRun == 3) title.screen = TITLE_SCREEN_OPTIONS;
+            if (smokeFrames > 0 && framesRun == 5) title.screen = TITLE_SCREEN_CONTROLS;
+            TitleResult titleResult = UpdateTitleScreen(&title, &assets, &settings, &settingsChanged,
+                menuInput, dt);
             if (smokeFrames > 0 && framesRun == 8) titleResult = TITLE_RESULT_START;
             if (settingsChanged) {
                 ApplyAudioSettings(&audio, &settings);
@@ -213,7 +219,7 @@ int main(void) {
             // Space would fire a torpedo).
             if (state.paused) {
                 bool settingsChanged = false;
-                MenuResult menuResult = UpdatePauseMenu(&menu, &settings, &settingsChanged);
+                MenuResult menuResult = UpdatePauseMenu(&menu, &settings, &settingsChanged, menuInput);
                 if (settingsChanged) {
                     ApplyAudioSettings(&audio, &settings);
                     SaveGameSettings(&settings, SETTINGS_FILE);

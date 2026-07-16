@@ -207,7 +207,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       cut through the letters) over live scrolling ocean, the 2.5x ship
       banked 12° drifting under it with a real wake trail, Theme B
       "driver" playing, and a Start / Options / Controls / Quit menu
-      sharing the pause menu's sub-screens
+      sharing the pause menu's sub-screens. Menu/title state machines
+      are pure over an injected MenuInput struct and unit-tested in
+      `tests/title_tests.c` (navigation, options adjust/clamp, back-out
+      cursor restore, ambient scroll/wake simulation, pause results)
 - [x] Link the options/controls screens from the title screen — done
       with the title screen above (shared sub-screen functions in
       `menu.c`)
