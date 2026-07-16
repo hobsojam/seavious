@@ -6,6 +6,7 @@
 #include "game_update.h"
 #include "input.h"
 #include "menu.h"
+#include "present.h"
 #include "settings.h"
 #include "stage.h"
 #include "title.h"
@@ -21,7 +22,22 @@ __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
 __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 #endif
 
+// Fullscreen is borderless windowed (no video-mode switch, alt-tab
+// friendly); the setting is the source of truth and this converges the
+// window to it, so boot, F11, and the options row share one path.
+static void ApplyFullscreenSetting(const GameSettings *settings) {
+    if (settings->fullscreen != IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE)) {
+        ToggleBorderlessWindowed();
+    }
+}
+
 int main(void) {
+    // Set by the headless CI smoke test so the real game loop exits cleanly
+    // after a deterministic number of frames and writes its gcov data.
+    const char *smokeFramesValue = getenv("SEAVIOUS_SMOKE_FRAMES");
+    int smokeFrames = smokeFramesValue == NULL ? 0 : atoi(smokeFramesValue);
+    int framesRun = 0;
+
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(GAME_WIDTH * WINDOW_SCALE, GAME_HEIGHT * WINDOW_SCALE, "Seavious");
     SetTargetFPS(60);
@@ -35,6 +51,8 @@ int main(void) {
     }
 
     GameSettings settings = LoadGameSettings(SETTINGS_FILE);
+    // The headless smoke run stays windowed regardless of the setting.
+    if (smokeFrames == 0) ApplyFullscreenSetting(&settings);
     GameAudio audio;
     LoadGameAudio(&audio, &settings);
 
@@ -54,17 +72,20 @@ int main(void) {
     bool onTitle = true;
     bool quit = false;
 
-    // Set by the headless CI smoke test so the real game loop exits cleanly
-    // after a deterministic number of frames and writes its gcov data.
-    const char *smokeFramesValue = getenv("SEAVIOUS_SMOKE_FRAMES");
-    int smokeFrames = smokeFramesValue == NULL ? 0 : atoi(smokeFramesValue);
-    int framesRun = 0;
-
     while (!WindowShouldClose() && !quit) {
         float dt = GetFrameTime();
         // Sampled once per frame; the menu/title state machines are pure
         // over this struct (unit-testable without a window).
         MenuInput menuInput = ReadMenuInput();
+
+        // F11 flips fullscreen anywhere (the options row is the
+        // discoverable path, this is the shortcut) and persists like any
+        // other setting change.
+        if (IsKeyPressed(KEY_F11)) {
+            settings.fullscreen = !settings.fullscreen;
+            ApplyFullscreenSetting(&settings);
+            SaveGameSettings(&settings, SETTINGS_FILE);
+        }
 
         // Captured before the title screen may start a run, so the
         // Enter/Space press that selects START can't leak into this same
@@ -82,6 +103,7 @@ int main(void) {
             if (smokeFrames > 0 && framesRun == 8) titleResult = TITLE_RESULT_START;
             if (settingsChanged) {
                 ApplyAudioSettings(&audio, &settings);
+                ApplyFullscreenSetting(&settings);
                 SaveGameSettings(&settings, SETTINGS_FILE);
                 if (IsSoundValid(audio.uiBlip)) PlaySound(audio.uiBlip);
             }
@@ -257,6 +279,7 @@ int main(void) {
                 MenuResult menuResult = UpdatePauseMenu(&menu, &settings, &settingsChanged, menuInput);
                 if (settingsChanged) {
                     ApplyAudioSettings(&audio, &settings);
+                    ApplyFullscreenSetting(&settings);
                     SaveGameSettings(&settings, SETTINGS_FILE);
                     // Click at the new level so the SFX volume is audible while
                     // adjusting (the music stream stays paused with the sim).
@@ -283,10 +306,13 @@ int main(void) {
 
         BeginDrawing();
             ClearBackground(BLACK);
+            // Integer-scaled and centered on whatever the window/screen
+            // is right now: the fixed 2x window gets exactly the old
+            // full-window blit, fullscreen letterboxes with black bars.
             DrawTexturePro(
                 target.texture,
                 (Rectangle){ 0, 0, (float)target.texture.width, -(float)target.texture.height },
-                (Rectangle){ 0, 0, (float)GAME_WIDTH * WINDOW_SCALE, (float)GAME_HEIGHT * WINDOW_SCALE },
+                CalculatePresentRect(GetScreenWidth(), GetScreenHeight()),
                 (Vector2){ 0, 0 },
                 0.0f,
                 WHITE

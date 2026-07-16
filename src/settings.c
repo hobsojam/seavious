@@ -19,6 +19,7 @@ static int ClampVolume(int value) {
 void ApplyGameSetting(GameSettings *settings, const char *key, int value) {
     if (strcmp(key, "music_volume") == 0) settings->musicVolume = ClampVolume(value);
     else if (strcmp(key, "sfx_volume") == 0) settings->sfxVolume = ClampVolume(value);
+    else if (strcmp(key, "fullscreen") == 0) settings->fullscreen = value != 0;
 }
 
 GameSettings LoadGameSettings(const char *path) {
@@ -42,8 +43,8 @@ GameSettings LoadGameSettings(const char *path) {
 bool SaveGameSettings(const GameSettings *settings, const char *path) {
     FILE *file = fopen(path, "w");
     if (file == NULL) return false;
-    int written = fprintf(file, "music_volume=%d\nsfx_volume=%d\n",
-        settings->musicVolume, settings->sfxVolume);
+    int written = fprintf(file, "music_volume=%d\nsfx_volume=%d\nfullscreen=%d\n",
+        settings->musicVolume, settings->sfxVolume, settings->fullscreen ? 1 : 0);
     fclose(file);
     return written > 0;
 }

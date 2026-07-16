@@ -1,3 +1,4 @@
+#include "present.h"
 #include "title.h"
 
 #include <math.h>
@@ -159,6 +160,59 @@ static void TestTitleAmbientSimulation(void) {
     CHECK(active > 0 && active <= MAX_WAKE_PARTICLES);
 }
 
+static void TestOptionsFullscreenToggle(void) {
+    TitleScreen title;
+    ResetTitleScreen(&title);
+    GameAssets assets = FakeAssets();
+    GameSettings settings = DefaultGameSettings();
+    bool changed = false;
+    CHECK(!settings.fullscreen);
+
+    // Title -> OPTIONS -> down to the FULLSCREEN row.
+    Step(&title, &assets, &settings, &changed, InDown());
+    Step(&title, &assets, &settings, &changed, InSelect());
+    Step(&title, &assets, &settings, &changed, InDown());
+    Step(&title, &assets, &settings, &changed, InDown());
+
+    // Left/right both flip the toggle, each reporting the change.
+    Step(&title, &assets, &settings, &changed, InRight());
+    CHECK(settings.fullscreen && changed);
+    Step(&title, &assets, &settings, &changed, InLeft());
+    CHECK(!settings.fullscreen && changed);
+    // Idle on the row reports no change.
+    Step(&title, &assets, &settings, &changed, InNone());
+    CHECK(!changed);
+}
+
+static void TestPresentRect(void) {
+    // The fixed 2x window gets exactly the old full-window blit.
+    CHECK(CalculatePresentScale(1024, 768) == 2);
+    Rectangle window = CalculatePresentRect(1024, 768);
+    NEAR(window.x, 0.0f);
+    NEAR(window.y, 0.0f);
+    NEAR(window.width, 1024.0f);
+    NEAR(window.height, 768.0f);
+
+    // Integer-only scaling: 1080p letterboxes a 2x image (a fractional
+    // 2.8x would make point-filtered pixels uneven), 1440p fits 3x,
+    // 4K fits 5x (height-bound).
+    CHECK(CalculatePresentScale(1920, 1080) == 2);
+    Rectangle fhd = CalculatePresentRect(1920, 1080);
+    NEAR(fhd.x, 448.0f);
+    NEAR(fhd.y, 156.0f);
+    NEAR(fhd.width, 1024.0f);
+    NEAR(fhd.height, 768.0f);
+    CHECK(CalculatePresentScale(2560, 1440) == 3);
+    CHECK(CalculatePresentScale(3840, 2160) == 5);
+
+    // A screen smaller than the canvas still presents at 1x, centered
+    // (symmetric crop via negative offsets, never a zero scale).
+    CHECK(CalculatePresentScale(300, 200) == 1);
+    Rectangle tiny = CalculatePresentRect(300, 200);
+    NEAR(tiny.x, -106.0f);
+    NEAR(tiny.y, -92.0f);
+}
+
 static void TestPauseMenuResults(void) {
     PauseMenu menu;
     ResetPauseMenu(&menu);
@@ -192,6 +246,8 @@ int main(void) {
     TestTitleOptionsFlow();
     TestTitleControlsFlow();
     TestTitleAmbientSimulation();
+    TestOptionsFullscreenToggle();
+    TestPresentRect();
     TestPauseMenuResults();
     return failures != 0;
 }
