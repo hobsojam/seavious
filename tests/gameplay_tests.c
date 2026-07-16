@@ -84,26 +84,30 @@ static void TestInterceptor(void) {
     NEAR(targets[0].pos.y, 100.0f);
 
     // Holds fire until it reaches mid-screen...
+    GameEventQueue fireEvents = { 0 };
     targets[0].pos.x = INTERCEPTOR_FIRE_X + 5.0f;
-    UpdateAirTargetFire(targets, 1, 0.016f, (Vector2){ 48, 100 }, bullets, 2);
+    UpdateAirTargetFire(targets, 1, 0.016f, (Vector2){ 48, 100 }, bullets, 2, &fireEvents);
     CHECK(!bullets[0].active);
+    CHECK(fireEvents.count == 0);
 
     // ...then fires exactly one shot aimed at the player, at double the
-    // shared projectile speed.
+    // shared projectile speed, announcing itself with one fire event.
     targets[0].pos.x = INTERCEPTOR_FIRE_X - 1.0f;
-    UpdateAirTargetFire(targets, 1, 0.016f, (Vector2){ 48, 100 }, bullets, 2);
+    UpdateAirTargetFire(targets, 1, 0.016f, (Vector2){ 48, 100 }, bullets, 2, &fireEvents);
     CHECK(bullets[0].active);
     NEAR(bullets[0].vel.x, -INTERCEPTOR_SHOT_SPEED);
     NEAR(bullets[0].vel.y, 0.0f);
-    UpdateAirTargetFire(targets, 1, 10.0f, (Vector2){ 48, 100 }, bullets, 2);
+    CHECK(fireEvents.count == 1 && fireEvents.items[0].type == GAME_EVENT_ENEMY_FIRED);
+    UpdateAirTargetFire(targets, 1, 10.0f, (Vector2){ 48, 100 }, bullets, 2, &fireEvents);
     CHECK(!bullets[1].active);
+    CHECK(fireEvents.count == 1);
 
     // A player below the lane pulls the aim downward.
     AirTarget aimed[1] = { 0 };
     EnemyBullet aimedBullets[1] = { 0 };
     CHECK(TrySpawnInterceptor(aimed, 1, 100.0f));
     aimed[0].pos.x = INTERCEPTOR_FIRE_X - 1.0f;
-    UpdateAirTargetFire(aimed, 1, 0.016f, (Vector2){ 48, 200 }, aimedBullets, 1);
+    UpdateAirTargetFire(aimed, 1, 0.016f, (Vector2){ 48, 200 }, aimedBullets, 1, NULL);
     CHECK(aimedBullets[0].active);
     CHECK(aimedBullets[0].vel.x < 0 && aimedBullets[0].vel.y > 0);
     float shotSpeed = sqrtf(aimedBullets[0].vel.x * aimedBullets[0].vel.x
@@ -129,19 +133,23 @@ static void TestGunship(void) {
     NEAR(targets[0].pos.y, 150.0f);
 
     // Right of the activation line: held pre-armed, no volley.
+    GameEventQueue fireEvents = { 0 };
     targets[0].pos.x = (float)GAME_WIDTH + 2.0f;
-    UpdateAirTargetFire(targets, 1, GUNSHIP_FIRE_INTERVAL + 1.0f, (Vector2){ 100, 150 }, bullets, 8);
+    UpdateAirTargetFire(targets, 1, GUNSHIP_FIRE_INTERVAL + 1.0f, (Vector2){ 100, 150 }, bullets, 8, &fireEvents);
     for (int i = 0; i < 8; i++) CHECK(!bullets[i].active);
+    CHECK(fireEvents.count == 0);
 
     // Crossing the line releases the 3-way spread aimed at the player
-    // immediately (pre-armed), not one interval later.
+    // immediately (pre-armed), not one interval later. The whole fan is
+    // one fire event, not three.
     targets[0].pos.x = 400.0f;
-    UpdateAirTargetFire(targets, 1, 0.01f, (Vector2){ 100, 150 }, bullets, 8);
+    UpdateAirTargetFire(targets, 1, 0.01f, (Vector2){ 100, 150 }, bullets, 8, &fireEvents);
     int fired = 0;
     for (int i = 0; i < 8; i++) {
         if (bullets[i].active) fired++;
     }
     CHECK(fired == 3);
+    CHECK(fireEvents.count == 1 && fireEvents.items[0].type == GAME_EVENT_ENEMY_FIRED);
     CHECK(bullets[0].vel.x < 0 && bullets[1].vel.x < 0 && bullets[2].vel.x < 0);
     // Outer shots straddle the center shot, one to each side of the lane.
     CHECK(bullets[0].vel.y * bullets[2].vel.y < -1.0f);
@@ -289,8 +297,11 @@ static void TestSurfaceTargets(void) {
     // Past the activation line, one interval of dt fires both.
     targets[0].pos.x = 200.0f;
     targets[1].pos.x = 200.0f;
-    UpdateSurfaceTargetFire(targets, 2, 2, (Vector2){ 100, 50 }, (Vector2){ 2, 0 }, bullets, 4);
+    GameEventQueue fireEvents = { 0 };
+    UpdateSurfaceTargetFire(targets, 2, 2, (Vector2){ 100, 50 }, (Vector2){ 2, 0 }, bullets, 4, &fireEvents);
     CHECK(bullets[0].active);
+    // One fire event per installation that shot.
+    CHECK(fireEvents.count == 2 && fireEvents.items[0].type == GAME_EVENT_ENEMY_FIRED);
     UpdateSurfaceTargets(targets, 2, 1);
     CHECK(targets[0].pos.x < GAME_WIDTH + CASEMATE_RADIUS);
 
@@ -345,10 +356,12 @@ static void TestRelayNode(void) {
     }
     CHECK(owned == RELAY_NODE_MAX_DRONES);
 
-    // Relays never fire enemy bullets.
+    // Relays never fire enemy bullets (and so make no fire sound).
+    GameEventQueue fireEvents = { 0 };
     UpdateSurfaceTargetFire(surface, MAX_SURFACE_TARGETS, 10.0f, (Vector2){ 0, 0 }, (Vector2){ 0, 0 },
-        bullets, MAX_ENEMY_BULLETS);
+        bullets, MAX_ENEMY_BULLETS, &fireEvents);
     for (int i = 0; i < MAX_ENEMY_BULLETS; i++) CHECK(!bullets[i].active);
+    CHECK(fireEvents.count == 0);
 
     // Destroying a relay scores it; its drones stay alive (only the
     // reinforcement source is cut off).
@@ -371,7 +384,7 @@ static void TestMine(void) {
     CHECK(mines[0].type == SURFACE_TARGET_MINE && mines[0].hp == MINE_HP);
 
     // Mines never shoot.
-    UpdateSurfaceTargetFire(mines, 2, 10.0f, (Vector2){ 0, 0 }, (Vector2){ 0, 0 }, bullets, 4);
+    UpdateSurfaceTargetFire(mines, 2, 10.0f, (Vector2){ 0, 0 }, (Vector2){ 0, 0 }, bullets, 4, NULL);
     for (int i = 0; i < 4; i++) CHECK(!bullets[i].active);
 
     // Contact detonates the mine: it dies with a detonation event, not a
@@ -406,21 +419,24 @@ static void TestMobilePlatform(void) {
     NEAR(casemateX - targets[1].pos.x, OCEAN_SCROLL_SPEED);
 
     // Right of the activation line: held pre-armed, no fan.
+    GameEventQueue fireEvents = { 0 };
     targets[0].pos = (Vector2){ (float)GAME_WIDTH + 5.0f, 200.0f };
     UpdateSurfaceTargetFire(targets, 1, MOBILE_PLATFORM_FIRE_INTERVAL + 1.0f, (Vector2){ 100, 200 },
-        (Vector2){ 0, 0 }, bullets, 8);
+        (Vector2){ 0, 0 }, bullets, 8, &fireEvents);
     for (int i = 0; i < 8; i++) CHECK(!bullets[i].active);
+    CHECK(fireEvents.count == 0);
 
     // Crossing the line releases the pre-armed 3-shot fan aimed at the
-    // player immediately, spread vertically.
+    // player immediately, spread vertically. The fan is one fire event.
     targets[0].pos = (Vector2){ 400.0f, 200.0f };
     UpdateSurfaceTargetFire(targets, 1, 0.01f, (Vector2){ 100, 200 },
-        (Vector2){ 0, 0 }, bullets, 8);
+        (Vector2){ 0, 0 }, bullets, 8, &fireEvents);
     int fired = 0;
     for (int i = 0; i < 8; i++) {
         if (bullets[i].active) fired++;
     }
     CHECK(fired == 3);
+    CHECK(fireEvents.count == 1 && fireEvents.items[0].type == GAME_EVENT_ENEMY_FIRED);
     CHECK(bullets[0].vel.x < 0 && bullets[1].vel.x < 0 && bullets[2].vel.x < 0);
     // Outer shots straddle the center shot, one to each side of the lane.
     CHECK(bullets[0].vel.y * bullets[2].vel.y < -1.0f);
@@ -452,14 +468,14 @@ static void TestEnemyActivationLine(void) {
     // Right of the line: intervals elapse but every shot is held.
     casemate[0].pos.x = ENEMY_ACTIVATION_X + 1.0f;
     UpdateSurfaceTargetFire(casemate, 1, CASEMATE_FIRE_INTERVAL * 3.0f, (Vector2){ 100, 60 },
-        (Vector2){ 0, 0 }, bullets, 2);
+        (Vector2){ 0, 0 }, bullets, 2, NULL);
     CHECK(!bullets[0].active);
 
     // Crossing the line releases exactly one pre-armed shot immediately
     // (held at one interval, never a burst of banked shots).
     casemate[0].pos.x = ENEMY_ACTIVATION_X - 1.0f;
     UpdateSurfaceTargetFire(casemate, 1, 0.01f, (Vector2){ 100, 60 },
-        (Vector2){ 0, 0 }, bullets, 2);
+        (Vector2){ 0, 0 }, bullets, 2, NULL);
     CHECK(bullets[0].active);
     CHECK(!bullets[1].active);
 }
@@ -475,7 +491,7 @@ static void TestTurretLeadIsSoft(void) {
 
     EnemyBullet bullets[1] = { 0 };
     UpdateSurfaceTargetFire(turret, 1, TRACKING_TURRET_FIRE_INTERVAL,
-        (Vector2){ 100, 176 }, (Vector2){ 0, -120 }, bullets, 1);
+        (Vector2){ 100, 176 }, (Vector2){ 0, -120 }, bullets, 1, NULL);
     CHECK(bullets[0].active);
     CHECK(bullets[0].vel.x < 0);
     CHECK(bullets[0].vel.y < 0);
@@ -492,7 +508,7 @@ static void TestTurretAimClampedToPlayArea(void) {
 
     EnemyBullet bullets[1] = { 0 };
     UpdateSurfaceTargetFire(turret, 1, TRACKING_TURRET_FIRE_INTERVAL,
-        (Vector2){ 100, 10 }, (Vector2){ 0, -120 }, bullets, 1);
+        (Vector2){ 100, 10 }, (Vector2){ 0, -120 }, bullets, 1, NULL);
     CHECK(bullets[0].active);
     float timeToPlayerX = (100.0f - 400.0f) / bullets[0].vel.x;
     float yAtPlayerX = 20.0f + bullets[0].vel.y * timeToPlayerX;

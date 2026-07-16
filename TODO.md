@@ -352,15 +352,20 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       the backing-only template there (per-life deaths at 0.6s are too
       short for a music cut, so only the final death swaps the track)
 - [ ] Compose menu theme
-- [ ] Enemy-fire SFX: every enemy shot is currently silent — the SFX list
-      already names the Interceptor shot as the first candidate; decide
-      whether one shared shot sound covers all enemies (matching the
-      shared projectile) or the Gunship spread earns its own. The boss
-      added placeholders to replace here too: the mortar lob (reuses
-      torpedo-launch, which a player torpedo impact can cut short), the
-      mortar blast (reuses the explosion boom), the salvage pickup
-      jingle (reuses the UI blip), and the SAM launch (currently silent
-      like all enemy fire; the shootdown reuses the air pop)
+- [x] Enemy-fire SFX — decided and implemented: **one shared shot sound**
+      for every bullet-firing enemy (`enemy_shot.wav`, dark falling
+      square matching the shared red-diamond projectile), pushed as one
+      `GAME_EVENT_ENEMY_FIRED` per shot/volley (a Gunship or Mobile
+      Platform fan is one sound, not three) and only when a bullet
+      actually spawned; boss pods included. The SAM launch got its own
+      whoosh (`sam_launch.wav`, `GAME_EVENT_SAM_LAUNCHED`, gated on a
+      free cell so the sound and door flash always pair), and the mortar
+      blast got its own deep crump (`mortar_blast.wav`) instead of
+      borrowing the explosion boom. The mortar lob and salvage jingle
+      already had real sounds (`mortar_fire.wav`, `mortar_salvage.wav`).
+      Kept as-is deliberately: the SAM shootdown reuses the air pop (a
+      downed missile is just another small air kill). Volume balance
+      (enemy shot 0.30 base) needs the usual Windows playtest
 - [x] Define sound effects — nine for the current game: gun shot,
       torpedo launch, torpedo splash (unarmed hit), explosion (armed
       boom), air pop (drone kill), player death, relay drone launch

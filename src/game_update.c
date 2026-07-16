@@ -119,7 +119,8 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // Air return fire (Interceptor one-shot, Gunship spreads) shares the
     // enemy bullet pool with the surface installations.
     UpdateAirTargetFire(
-        state->airTargets, MAX_AIR_TARGETS, dt, state->player, state->enemyBullets, MAX_ENEMY_BULLETS
+        state->airTargets, MAX_AIR_TARGETS, dt, state->player, state->enemyBullets, MAX_ENEMY_BULLETS,
+        &state->gameEvents
     );
 
     // Gun-vs-air collision: brute-force O(bullets*targets) is fine at
@@ -165,7 +166,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     EmitMobilePlatformWake(state->surfaceTargets, MAX_SURFACE_TARGETS, state->wake, MAX_WAKE_PARTICLES, scrollDt);
     UpdateSurfaceTargetFire(
         state->surfaceTargets, MAX_SURFACE_TARGETS, dt, state->player, playerVelocity,
-        state->enemyBullets, MAX_ENEMY_BULLETS
+        state->enemyBullets, MAX_ENEMY_BULLETS, &state->gameEvents
     );
     UpdateRelayNodeLaunches(
         state->surfaceTargets, MAX_SURFACE_TARGETS, dt, state->airTargets, MAX_AIR_TARGETS,

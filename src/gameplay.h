@@ -281,7 +281,12 @@ typedef enum {
     GAME_EVENT_BOSS_DEFEATED,
     GAME_EVENT_MORTAR_FIRED,
     GAME_EVENT_MORTAR_BLAST,
-    GAME_EVENT_MORTAR_SALVAGED
+    GAME_EVENT_MORTAR_SALVAGED,
+    // One per shot/volley (a Gunship fan is one event, matching how the
+    // volley reads), shared by every bullet-firing enemy - the audible
+    // counterpart of the universal red-diamond projectile.
+    GAME_EVENT_ENEMY_FIRED,
+    GAME_EVENT_SAM_LAUNCHED
 } GameEventType;
 
 typedef struct {
@@ -327,7 +332,7 @@ bool TrySpawnInterceptor(AirTarget targets[], int count, float baseY);
 bool TrySpawnGunship(AirTarget targets[], int count, float baseY);
 void UpdateAirTargets(AirTarget targets[], int count, float dt);
 void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playerPos,
-    EnemyBullet bullets[], int bulletCount);
+    EnemyBullet bullets[], int bulletCount, GameEventQueue *events);
 void ResolveBulletAirTargetCollisions(Bullet bullets[], int bulletCount, AirTarget targets[], int targetCount,
     GameEventQueue *events);
 
@@ -364,7 +369,7 @@ void UpdateRelayNodeLaunches(SurfaceTarget targets[], int count, float dt, AirTa
     GameEventQueue *events);
 void UpdateSurfaceTargets(SurfaceTarget targets[], int count, float dt);
 void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vector2 playerPos, Vector2 playerVelocity,
-    EnemyBullet bullets[], int bulletCount);
+    EnemyBullet bullets[], int bulletCount, GameEventQueue *events);
 TorpedoImpact ResolveTorpedoSurfaceTargetCollision(Torpedo *torpedo, SurfaceTarget targets[], int targetCount,
     GameEventQueue *events);
 void ResolveTorpedoExplosion(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events);
