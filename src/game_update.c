@@ -4,7 +4,8 @@
 #include "stage_data.h"
 #include "raylib.h"
 
-void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool forceTorpedoFire) {
+void UpdateGame(GameState *state, const GameAssets *assets, float dt,
+    bool forceTorpedoFire, bool forceMortarFire) {
     state->gameEvents.count = 0;
     if (state->paused) return;
     float halfW = assets->playerTex.width / 2.0f;
@@ -213,7 +214,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool force
     // land-only mapping waits for Stage 2's land targets.
     if (state->mortarCooldown > 0.0f) state->mortarCooldown -= dt;
     bool fireMortar = state->hasMortar && !bossOwnsPlayer
-        && (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_X));
+        && (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_X) || forceMortarFire);
     if (!state->playerDestroyed && fireMortar && !state->mortarShell.active && state->mortarCooldown <= 0.0f) {
         Vector2 mortarSpawn = { state->player.x + halfW, state->player.y };
         FirePlayerMortar(&state->mortarShell, mortarSpawn, CalculateMortarReticle(mortarSpawn));

@@ -6,7 +6,9 @@
 
 // One full simulation step: input, run flow (death/respawn/restart),
 // spawning, movement, collision, scoring, and effect lifetimes.
-// forceTorpedoFire lets the CI smoke harness fire without a keypress.
-void UpdateGame(GameState *state, const GameAssets *assets, float dt, bool forceTorpedoFire);
+// Forced-fire flags let the CI smoke harness exercise manual weapons
+// deterministically without synthesizing keyboard input.
+void UpdateGame(GameState *state, const GameAssets *assets, float dt,
+    bool forceTorpedoFire, bool forceMortarFire);
 
 #endif
