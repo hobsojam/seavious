@@ -105,6 +105,9 @@ typedef struct {
     // Music trigger only for now: the boss fight structure (see TODO) will
     // own setting/clearing this when it exists.
     bool bossActive;
+    // Which stage this run is currently playing (1-based; resolved to
+    // compiled content via GetStageDescriptor in stage.h).
+    int stageNumber;
     // Stage script progress: total scroll distance is the trigger currency
     // for the compiled spawn table; the cursor walks the sorted events.
     // bossLock (map end reached) freezes scroll, and with it all
@@ -150,6 +153,11 @@ typedef struct {
 } GameState;
 
 void ResetRunState(GameState *state);
+// Starts the given stage within the current run: entity pools, scroll,
+// and the stage script rewind like a fresh start, while run progression
+// (score, lives, the salvaged mortar) carries over. ResetRunState is the
+// full forfeit: a fresh run at Stage 1.
+void BeginStage(GameState *state, int stageNumber);
 void BeginPlayerDeath(GameState *state);
 
 bool TrySpawnExplosion(ExplosionEffect effects[], Vector2 pos, ExplosionType type, float radius, float lifetime);

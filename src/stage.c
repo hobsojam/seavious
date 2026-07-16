@@ -36,18 +36,41 @@ static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
     }
 }
 
+int StageCount(void) {
+    return 1;
+}
+
+const StageDescriptor *GetStageDescriptor(int stageNumber) {
+    // Rebuilt on each call: the generated counts are const ints, not
+    // constant expressions, so a static initializer can't hold them.
+    // Every number clamps to Stage 1 until Stage 2 content lands.
+    (void)stageNumber;
+    static StageDescriptor stage1;
+    stage1 = (StageDescriptor){
+        .events = STAGE1_EVENTS,
+        .eventCount = STAGE1_EVENT_COUNT,
+        .terrain = STAGE1_TERRAIN,
+        .terrainCount = STAGE1_TERRAIN_COUNT,
+        .hardpoints = STAGE1_TERRAIN_HARDPOINTS,
+        .hardpointCount = STAGE1_TERRAIN_HARDPOINT_COUNT,
+        .lengthPx = STAGE1_LENGTH_PX,
+    };
+    return &stage1;
+}
+
 void UpdateStageScript(GameState *state, float dt) {
     if (state->bossLock) return;
 
+    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
     state->scrollDistance += OCEAN_SCROLL_SPEED * dt;
 
-    while (state->stageCursor < STAGE1_EVENT_COUNT
-           && (float)STAGE1_EVENTS[state->stageCursor].px <= state->scrollDistance) {
-        FireSpawnEvent(state, &STAGE1_EVENTS[state->stageCursor]);
+    while (state->stageCursor < stage->eventCount
+           && (float)stage->events[state->stageCursor].px <= state->scrollDistance) {
+        FireSpawnEvent(state, &stage->events[state->stageCursor]);
         state->stageCursor++;
     }
 
-    if (state->scrollDistance >= (float)STAGE1_LENGTH_PX) {
+    if (state->scrollDistance >= (float)stage->lengthPx) {
         // UpdateBossFight sees the lock and starts the fight (it owns
         // bossActive and with it the music hard-cuts).
         state->bossLock = true;

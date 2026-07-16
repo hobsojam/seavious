@@ -14,12 +14,15 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     float playerRadius = PLAYER_HIT_RADIUS;
 
     if ((state->gameOver || state->stageClear) && InputActionPressed(INPUT_RESTART)) {
-        // The scavenged mortar is run progression, not stage state: the
-        // stage-clear replay (standing in for Stage 2) keeps it, a game
-        // over forfeits it with the rest of the run.
-        bool keepMortar = state->stageClear && state->hasMortar;
-        ResetRunState(state);
-        state->hasMortar = keepMortar;
+        if (state->stageClear) {
+            // Stage clear advances the run: score, lives, and the
+            // salvaged mortar carry into the next stage, wrapping back
+            // to Stage 1 until more stages exist.
+            BeginStage(state, state->stageNumber % StageCount() + 1);
+        } else {
+            // Game over forfeits the run: fresh start at Stage 1.
+            ResetRunState(state);
+        }
         PushGameEvent(&state->gameEvents, (GameEvent){
             .type = GAME_EVENT_RUN_RESTARTED, .pos = state->player
         });
@@ -129,13 +132,17 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
         state->bullets, MAX_BULLETS, state->airTargets, MAX_AIR_TARGETS, &state->gameEvents
     );
 
+    // The current stage's compiled content (terrain for the torpedo lane
+    // checks below; events/length are the stage script's business).
+    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
+
     // Torpedo: manual second input, gated by both "one in flight at a
     // time" and a reload cooldown so it isn't unlimited-fire like the gun.
     if (state->torpedoCooldown > 0.0f) state->torpedoCooldown -= dt;
     bool fireTorpedo = (InputActionPressed(INPUT_FIRE_TORPEDO) || forceTorpedoFire) && !bossOwnsPlayer;
     if (!state->playerDestroyed && fireTorpedo && !state->torpedo.active && state->torpedoCooldown <= 0.0f) {
         Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
-        FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT,
+        FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn, stage->terrain, stage->terrainCount,
             state->scrollDistance);
         // The boss's armor clamps the range like a land edge would.
         state->torpedo.target = ClampReticleToRects(
@@ -153,7 +160,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // shoreline targets - and unarmed shots fizzle as a splash-less DIRECT.
     if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
         torpedoImpact = ResolveTorpedoTerrainCollision(
-            &state->torpedo, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT, state->scrollDistance
+            &state->torpedo, stage->terrain, stage->terrainCount, state->scrollDistance
         );
     }
 

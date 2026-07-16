@@ -1,5 +1,6 @@
 #include "game_render.h"
 #include "boss.h"
+#include "stage.h"
 #include "stage_data.h"
 #include "raylib.h"
 #include "rlgl.h"
@@ -278,15 +279,16 @@ static bool TerrainFootprintsTouch(StageTerrainFootprint first, StageTerrainFoot
 // touching group, so one transparent islet sprite replaces the visibly
 // stacked shore rings while targets still use the same stage coordinates.
 static void DrawStandaloneTerrain(const GameState *state, const GameAssets *assets) {
-    enum { MAX_STAGE1_TERRAIN = 32 };
-    if (STAGE1_TERRAIN_COUNT > MAX_STAGE1_TERRAIN) return;
+    enum { MAX_STAGE_TERRAIN = 32 };
+    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
+    if (stage->terrainCount > MAX_STAGE_TERRAIN) return;
 
-    bool visited[MAX_STAGE1_TERRAIN] = { false };
+    bool visited[MAX_STAGE_TERRAIN] = { false };
 
-    for (int start = 0; start < STAGE1_TERRAIN_COUNT; start++) {
+    for (int start = 0; start < stage->terrainCount; start++) {
         if (visited[start]) continue;
 
-        int pending[MAX_STAGE1_TERRAIN];
+        int pending[MAX_STAGE_TERRAIN];
         int next = 0;
         int pendingCount = 1;
         pending[0] = start;
@@ -295,14 +297,14 @@ static void DrawStandaloneTerrain(const GameState *state, const GameAssets *asse
 
         while (next < pendingCount) {
             int current = pending[next++];
-            Rectangle currentRect = TerrainScreenRect(STAGE1_TERRAIN[current], state->scrollDistance);
+            Rectangle currentRect = TerrainScreenRect(stage->terrain[current], state->scrollDistance);
             if (currentRect.x < minX) minX = currentRect.x;
             if (currentRect.y < minY) minY = currentRect.y;
             if (currentRect.x + currentRect.width > maxX) maxX = currentRect.x + currentRect.width;
             if (currentRect.y + currentRect.height > maxY) maxY = currentRect.y + currentRect.height;
 
-            for (int candidate = 0; candidate < STAGE1_TERRAIN_COUNT; candidate++) {
-                if (!visited[candidate] && TerrainFootprintsTouch(STAGE1_TERRAIN[current], STAGE1_TERRAIN[candidate])) {
+            for (int candidate = 0; candidate < stage->terrainCount; candidate++) {
+                if (!visited[candidate] && TerrainFootprintsTouch(stage->terrain[current], stage->terrain[candidate])) {
                     visited[candidate] = true;
                     pending[pendingCount++] = candidate;
                 }
@@ -315,8 +317,10 @@ static void DrawStandaloneTerrain(const GameState *state, const GameAssets *asse
             maxX - minX + shorelineMargin * 2.0f, maxY - minY + shorelineMargin * 2.0f
         };
         if (destination.x > (float)GAME_WIDTH + shorelineMargin || destination.x + destination.width < -shorelineMargin) continue;
-        unsigned int variantSeed = (unsigned int)STAGE1_TERRAIN[start].px * 17u
-            ^ (unsigned int)STAGE1_TERRAIN[start].y * 31u ^ (unsigned int)start;
+        // Islet art is still the Stage 1 set; per-stage art selection is
+        // Stage 2 content work, not descriptor plumbing.
+        unsigned int variantSeed = (unsigned int)stage->terrain[start].px * 17u
+            ^ (unsigned int)stage->terrain[start].y * 31u ^ (unsigned int)start;
         Texture2D islet = assets->stage1IsletTex[variantSeed % STAGE1_ISLET_VARIANT_COUNT];
         Rectangle source = { 0.0f, 0.0f, (float)islet.width, (float)islet.height };
         DrawTexturePro(islet, source, destination, (Vector2){ 0 }, 0.0f, WHITE);
@@ -324,10 +328,11 @@ static void DrawStandaloneTerrain(const GameState *state, const GameAssets *asse
 }
 
 static void DrawTerrainHardpoints(const GameState *state, const GameAssets *assets) {
+    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
     Rectangle source = { 0.0f, 0.0f, (float)assets->terrainHardpointTex.width,
         (float)assets->terrainHardpointTex.height };
-    for (int i = 0; i < STAGE1_TERRAIN_HARDPOINT_COUNT; i++) {
-        StageTerrainHardpoint hardpoint = STAGE1_TERRAIN_HARDPOINTS[i];
+    for (int i = 0; i < stage->hardpointCount; i++) {
+        StageTerrainHardpoint hardpoint = stage->hardpoints[i];
         Rectangle cell = TerrainScreenRect((StageTerrainFootprint){
             hardpoint.px, hardpoint.y, 32, 32
         }, state->scrollDistance);
@@ -374,18 +379,18 @@ static void DrawTerrainDetails(const GameState *state, const GameAssets *assets)
 
 enum { TERRAIN_CELL_SIZE = 32 };
 
-static bool TerrainCellOccupied(int px, int y) {
-    for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
-        StageTerrainFootprint footprint = STAGE1_TERRAIN[i];
+static bool TerrainCellOccupied(const StageDescriptor *stage, int px, int y) {
+    for (int i = 0; i < stage->terrainCount; i++) {
+        StageTerrainFootprint footprint = stage->terrain[i];
         if (px >= footprint.px && px < footprint.px + footprint.widthPx
             && y >= footprint.y && y < footprint.y + footprint.heightPx) return true;
     }
     return false;
 }
 
-static bool TerrainCellHasHardpoint(int px, int y) {
-    for (int i = 0; i < STAGE1_TERRAIN_HARDPOINT_COUNT; i++) {
-        if (STAGE1_TERRAIN_HARDPOINTS[i].px == px && STAGE1_TERRAIN_HARDPOINTS[i].y == y) return true;
+static bool TerrainCellHasHardpoint(const StageDescriptor *stage, int px, int y) {
+    for (int i = 0; i < stage->hardpointCount; i++) {
+        if (stage->hardpoints[i].px == px && stage->hardpoints[i].y == y) return true;
     }
     return false;
 }
@@ -406,8 +411,9 @@ static void DrawTerrainShoreEdge(Texture2D shore, Rectangle cell, int direction)
 // This is the base of an autotile system: large land masses and small islets
 // use one representation, while hardpoints are authored land features.
 static void DrawTerrain(const GameState *state, const GameAssets *assets) {
-    for (int i = 0; i < STAGE1_TERRAIN_COUNT; i++) {
-        StageTerrainFootprint footprint = STAGE1_TERRAIN[i];
+    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
+    for (int i = 0; i < stage->terrainCount; i++) {
+        StageTerrainFootprint footprint = stage->terrain[i];
         for (int y = footprint.y; y < footprint.y + footprint.heightPx; y += TERRAIN_CELL_SIZE) {
             for (int px = footprint.px; px < footprint.px + footprint.widthPx; px += TERRAIN_CELL_SIZE) {
                 StageTerrainFootprint cellFootprint = { px, y, TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE };
@@ -423,11 +429,11 @@ static void DrawTerrain(const GameState *state, const GameAssets *assets) {
                 };
                 DrawTexturePro(assets->terrainGroundTex, groundSource, cell, (Vector2){ 0 }, 0.0f, WHITE);
 
-                if (!TerrainCellOccupied(px, y - TERRAIN_CELL_SIZE)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 0);
-                if (!TerrainCellOccupied(px, y + TERRAIN_CELL_SIZE)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 1);
-                if (!TerrainCellOccupied(px - TERRAIN_CELL_SIZE, y)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 2);
-                if (!TerrainCellOccupied(px + TERRAIN_CELL_SIZE, y)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 3);
-                if (TerrainCellHasHardpoint(px, y)) DrawTexture(assets->terrainHardpointTex, (int)cell.x, (int)cell.y, WHITE);
+                if (!TerrainCellOccupied(stage, px, y - TERRAIN_CELL_SIZE)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 0);
+                if (!TerrainCellOccupied(stage, px, y + TERRAIN_CELL_SIZE)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 1);
+                if (!TerrainCellOccupied(stage, px - TERRAIN_CELL_SIZE, y)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 2);
+                if (!TerrainCellOccupied(stage, px + TERRAIN_CELL_SIZE, y)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 3);
+                if (TerrainCellHasHardpoint(stage, px, y)) DrawTexture(assets->terrainHardpointTex, (int)cell.x, (int)cell.y, WHITE);
             }
         }
     }
@@ -441,8 +447,9 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
 
     float halfW = assets->playerTex.width / 2.0f;
     Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
+    const StageDescriptor *currentStage = GetStageDescriptor(state->stageNumber);
     Vector2 torpedoReticle = CalculateTorpedoReticle(
-        torpedoSpawn, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT, state->scrollDistance
+        torpedoSpawn, currentStage->terrain, currentStage->terrainCount, state->scrollDistance
     );
     // The boss's armored hull clamps the reticle like a land edge, so a
     // shielded lane reads before firing.
@@ -773,9 +780,10 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         // Lighter dim than game over: the wreck and the docked mortar
         // stay readable behind the stage-clear card.
         DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (Color){ 0, 0, 0, 110 });
-        DrawText("STAGE 1 CLEAR", 120, 140, 24, (Color){ 232, 248, 248, 255 });
+        DrawText(TextFormat("STAGE %d CLEAR", state->stageNumber), 120, 140, 24,
+            (Color){ 232, 248, 248, 255 });
         DrawText("MORTAR TURRET SALVAGED", 152, 176, 12, (Color){ 232, 148, 44, 255 });
-        DrawText("PRESS R TO RESTART", 168, 200, 12, (Color){ 76, 224, 232, 255 });
+        DrawText("PRESS R TO CONTINUE", 164, 200, 12, (Color){ 76, 224, 232, 255 });
     } else if (state->respawnInvulnerability > 0.0f) {
         unsigned char blink = (unsigned char)(120 + 80 * sinf(GetTime() * 22.0f));
         DrawText("RESPAWNING", 180, 150, 12, (Color){ 76, 224, 232, blink });

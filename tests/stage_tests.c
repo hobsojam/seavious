@@ -260,7 +260,53 @@ static void TestFormationPatterns(void) {
     CHECK(SpawnSkimmerDroneV(tiny, 2, 176.0f) == 2);
 }
 
+static void TestStageDescriptor(void) {
+    CHECK(StageCount() >= 1);
+    const StageDescriptor *stage = GetStageDescriptor(1);
+    CHECK(stage != NULL);
+    CHECK(stage->events == STAGE1_EVENTS && stage->eventCount == STAGE1_EVENT_COUNT);
+    CHECK(stage->terrain == STAGE1_TERRAIN && stage->terrainCount == STAGE1_TERRAIN_COUNT);
+    CHECK(stage->hardpoints == STAGE1_TERRAIN_HARDPOINTS
+        && stage->hardpointCount == STAGE1_TERRAIN_HARDPOINT_COUNT);
+    CHECK(stage->lengthPx == STAGE1_LENGTH_PX);
+    // Out-of-range numbers clamp to a valid stage rather than failing,
+    // so the advance flow's wrap can never dereference nothing.
+    CHECK(GetStageDescriptor(0) != NULL);
+    CHECK(GetStageDescriptor(99) != NULL);
+}
+
+static void TestBeginStageCarriesRunProgression(void) {
+    GameState state;
+    ResetRunState(&state);
+    CHECK(state.stageNumber == 1);
+
+    state.score = 12345;
+    state.lives = 2;
+    state.hasMortar = true;
+    state.scrollDistance = 500.0f;
+    state.stageCursor = 7;
+    state.bossLock = true;
+    state.stageClear = true;
+    state.surfaceTargets[0].active = true;
+
+    BeginStage(&state, 2);
+    CHECK(state.stageNumber == 2);
+    // Run progression carries across the stage transition...
+    CHECK(state.score == 12345 && state.lives == 2 && state.hasMortar);
+    // ...while stage state rewinds like a fresh start.
+    CHECK(state.scrollDistance == 0.0f && state.stageCursor == 0);
+    CHECK(!state.bossLock && !state.stageClear);
+    CHECK(!state.surfaceTargets[0].active);
+
+    // A full reset forfeits everything back to a Stage 1 fresh run.
+    ResetRunState(&state);
+    CHECK(state.stageNumber == 1 && state.score == 0 && state.lives == 3);
+    CHECK(!state.hasMortar);
+}
+
 int main(void) {
+    TestStageDescriptor();
+    TestBeginStageCarriesRunProgression();
     TestTableInvariants();
     TestEventsFireOnceInOrder();
     TestRelayGlyphSpawns();

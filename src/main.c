@@ -7,7 +7,7 @@
 #include "input.h"
 #include "menu.h"
 #include "settings.h"
-#include "stage_data.h"
+#include "stage.h"
 #include "title.h"
 #include "raylib.h"
 #include <stdlib.h>
@@ -172,7 +172,7 @@ int main(void) {
         // Jump to the map end so the boss lock, the fight entrance, and
         // the music hard-cut all run headlessly in the remaining frames.
         if (smokeFrames > 0 && framesRun == 380 && !state.bossLock) {
-            state.scrollDistance = (float)STAGE1_LENGTH_PX;
+            state.scrollDistance = (float)GetStageDescriptor(state.stageNumber)->lengthPx;
         }
         // Force-walk the fight through states the short headless run
         // can't reach in real time, so their update+render paths (part
