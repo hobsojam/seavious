@@ -210,9 +210,9 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // Scavenged mortar: same manual gating as the torpedo (one shell in
     // flight + a cooldown), but the shot ignores every blocker - the shell
     // arcs over land and the boss's armor alike, which is its whole point.
-    // The landing blast provisionally splashes surface targets and boss
-    // parts (playtest call pending on water-class damage); the strict
-    // land-only mapping waits for Stage 2's land targets.
+    // The landing blast splashes surface targets and boss parts - kept
+    // by playtest (harder to aim than the torpedo earns the water-class
+    // overlap); Stage 2's land targets will additionally be mortar-only.
     if (state->mortarCooldown > 0.0f) state->mortarCooldown -= dt;
     bool fireMortar = state->hasMortar && !bossOwnsPlayer
         && (InputActionPressed(INPUT_FIRE_MORTAR) || forceMortarFire);
