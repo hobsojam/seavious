@@ -1,5 +1,6 @@
 #include "input.h"
 #include "raylib.h"
+#include <stddef.h>
 
 static const InputBinding BINDINGS[INPUT_ACTION_COUNT] = {
     [INPUT_MOVE_LEFT]    = { "MOVE LEFT",    "",                        { KEY_LEFT, KEY_A } },
