@@ -438,14 +438,23 @@ later): gun shot (every auto-fire shot, deliberately tiny and quiet),
 torpedo launch, torpedo splash (unarmed direct hit), explosion (armed
 boom), air pop (drone kill), player death, relay drone launch
 (broadcast warble), mine detonation (sharp contact crack, distinct from
-the torpedo boom), a UI blip on run restart, a short boss-mortar launch
-thump, and a two-note mortar-salvage pickup.
+the torpedo boom), a UI blip on run restart, a short mortar launch
+thump, a two-note mortar-salvage pickup, a **shared enemy shot** (a dark
+falling square, the audible counterpart of the universal red-diamond
+projectile — one sound for every bullet-firing enemy, played once per
+shot or volley so a Gunship fan is one sound, not three), a **SAM
+launch** whoosh off the boss's cell doors, and a **mortar blast** (a
+deep compact crump for boss and player shells alike, heavier and
+shorter than the rolling torpedo explosion).
 They're triggered through the `GameEventQueue`: the update code emits
 events (weapon fired, impact, death, restart) and `audio.c` maps events
 to sounds — the same pattern the destruction VFX already use, so gameplay
-code never touches the audio API. Surface-target destruction deliberately
-has no dedicated sound: it only ever happens inside a torpedo explosion,
-whose boom covers the moment.
+code never touches the audio API. Fire events are only pushed when a
+projectile actually spawned (a full pool fires nothing, so it sounds
+like nothing). Surface-target destruction deliberately has no dedicated
+sound: it only ever happens inside a torpedo explosion, whose boom
+covers the moment. The SAM shootdown deliberately reuses the air pop —
+a downed missile is just another small air kill.
 
 **Music structure**: Every track is three layers authored together from one
 shared OpenMPT template — a 2-bar drum loop that never changes, a 4-bar

@@ -39,6 +39,11 @@ static int CollectSfxDefs(GameAudio *audio, SfxDef defs[SFX_DEF_MAX]) {
     defs[n++] = (SfxDef){ &audio->uiBlip, "assets/audio/sfx/ui_blip.wav", 0.45f };
     defs[n++] = (SfxDef){ &audio->mortarFire, "assets/audio/sfx/mortar_fire.wav", 0.45f };
     defs[n++] = (SfxDef){ &audio->mortarSalvage, "assets/audio/sfx/mortar_salvage.wav", 0.50f };
+    // Enemy fire sits below the player's own weapons: it's ambience and
+    // threat-telegraph, not the star of the mix.
+    defs[n++] = (SfxDef){ &audio->enemyShot, "assets/audio/sfx/enemy_shot.wav", 0.30f };
+    defs[n++] = (SfxDef){ &audio->samLaunch, "assets/audio/sfx/sam_launch.wav", 0.45f };
+    defs[n++] = (SfxDef){ &audio->mortarBlast, "assets/audio/sfx/mortar_blast.wav", 0.65f };
     return n;
 }
 
@@ -141,8 +146,18 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
                 break;
             case GAME_EVENT_BOSS_PART_DESTROYED:
             case GAME_EVENT_BOSS_DEFEATED:
-            case GAME_EVENT_MORTAR_BLAST:
                 PlayIfValid(audio->explosion);
+                break;
+            case GAME_EVENT_MORTAR_BLAST:
+                // Own deeper crump (boss and player shells alike), no
+                // longer borrowing the torpedo boom.
+                PlayIfValid(audio->mortarBlast);
+                break;
+            case GAME_EVENT_ENEMY_FIRED:
+                PlayIfValid(audio->enemyShot);
+                break;
+            case GAME_EVENT_SAM_LAUNCHED:
+                PlayIfValid(audio->samLaunch);
                 break;
             case GAME_EVENT_BOSS_MISSILE_DOWNED:
                 // A downed SAM pops like any small air kill; the launch
@@ -161,6 +176,9 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
 }
 
 void UnloadGameAudio(GameAudio *audio) {
+    UnloadSound(audio->mortarBlast);
+    UnloadSound(audio->samLaunch);
+    UnloadSound(audio->enemyShot);
     UnloadSound(audio->mortarSalvage);
     UnloadSound(audio->mortarFire);
     UnloadSound(audio->uiBlip);

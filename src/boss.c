@@ -197,7 +197,9 @@ static void StartBossFight(GameState *state) {
     state->bossActive = true;
 }
 
-static void LaunchBossMissile(GameState *state, Vector2 from) {
+// Returns whether a cell was free to launch, so the door flash and the
+// launch sound only ever happen together.
+static bool LaunchBossMissile(GameState *state, Vector2 from) {
     BossState *boss = &state->boss;
     for (int i = 0; i < MAX_BOSS_MISSILES; i++) {
         if (boss->missiles[i].active) continue;
@@ -208,8 +210,9 @@ static void LaunchBossMissile(GameState *state, Vector2 from) {
             .active = true
         };
         TrySpawnExplosion(state->explosions, from, EXPLOSION_SURFACE_TARGET, 5.0f, 0.15f);
-        return;
+        return true;
     }
+    return false;
 }
 
 // Missiles steer toward the player at a capped turn rate, so a hard
@@ -338,19 +341,27 @@ static void FireBossGuns(GameState *state, float dt) {
             if (pod) {
                 // Pods fire turret-style aimed shots.
                 Vector2 dir = AimAt(from, state->player);
-                TrySpawnEnemyBullet(
+                bool spawned = TrySpawnEnemyBullet(
                     state->enemyBullets,
                     MAX_ENEMY_BULLETS,
                     (Vector2){ from.x + dir.x * muzzle, from.y + dir.y * muzzle },
                     (Vector2){ dir.x * ENEMY_BULLET_SPEED, dir.y * ENEMY_BULLET_SPEED }
                 );
+                if (spawned) {
+                    PushGameEvent(&state->gameEvents, (GameEvent){
+                        .type = GAME_EVENT_ENEMY_FIRED, .pos = from
+                    });
+                }
             } else {
                 // Hull sections are SAM batteries: the missile leaves the
                 // cell westward (out the player-facing door), then its
                 // own steering takes over. A cell-door flash marks the
-                // launch; like all enemy fire it is silent until the
-                // enemy-fire SFX task.
-                LaunchBossMissile(state, (Vector2){ from.x - muzzle, from.y });
+                // launch alongside its whoosh.
+                if (LaunchBossMissile(state, (Vector2){ from.x - muzzle, from.y })) {
+                    PushGameEvent(&state->gameEvents, (GameEvent){
+                        .type = GAME_EVENT_SAM_LAUNCHED, .pos = from
+                    });
+                }
             }
         }
     }

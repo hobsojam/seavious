@@ -19,6 +19,12 @@ music: refine in ChipTone later if a sound needs more character.
   ui_blip.wav         clean rising square, run-restart confirmation
   mortar_fire.wav     short low thump and arc, distinct from player torpedo
   mortar_salvage.wav  two-note bright pickup for salvaged mortar upgrade
+  enemy_shot.wav      shared enemy fire: dark falling square, one per
+                      shot/volley, deliberately duller than the player gun
+  sam_launch.wav      boss SAM leaving the cell: rising whoosh over a
+                      noise swell
+  mortar_blast.wav    mortar area blast: deep compact crump, heavier and
+                      shorter than the rolling torpedo explosion
 
 Run from anywhere:  python3 tools/gen-sfx.py [out_dir]
 """
@@ -202,6 +208,53 @@ def gen_mortar_salvage():
     return out
 
 
+def gen_enemy_shot():
+    # The audible counterpart of the universal red-diamond projectile: one
+    # shared sound for every bullet-firing enemy, one play per shot/volley.
+    # A dark falling square - the inverse gesture of the player's bright
+    # gun blip - kept short and dull because it recurs constantly.
+    duration = 0.09
+    n = int(SR * duration)
+    out = [0.0] * n
+    for i, t, phase in sweep_phase(n, lambda t: 460.0 * math.exp(-t * 20.0) + 130.0):
+        out[i] = 0.8 * envelope(t, duration, 34.0) * square(phase, duty=0.5)
+    return out
+
+
+def gen_sam_launch():
+    # The missile leaving the cell: a noise swell (exhaust) under a tone
+    # rising away, longer than a bullet zap but well short of the flight.
+    duration = 0.35
+    n = int(SR * duration)
+    rnd = random.Random(18)
+    out = [0.0] * n
+    prev = 0.0
+    for i, t, phase in sweep_phase(n, lambda t: 170.0 + 380.0 * min(t / 0.28, 1.0)):
+        prev += 0.30 * (rnd.uniform(-1.0, 1.0) - prev)
+        swell = min(t / 0.05, 1.0) * 1.6 * prev
+        tone = 0.55 * math.sin(2.0 * math.pi * phase)
+        out[i] = envelope(t, duration, 7.0) * (swell + tone)
+    return out
+
+
+def gen_mortar_blast():
+    # The mortar's area blast, boss and player shells alike: a deep
+    # compact crump - darker noise and a stronger sub than the rolling
+    # torpedo explosion, and clearly shorter, so the two never blur.
+    duration = 0.42
+    n = int(SR * duration)
+    rnd = random.Random(19)
+    out = [0.0] * n
+    prev = 0.0
+    for i in range(n):
+        t = i / SR
+        # Heavier lowpass than the explosion keeps the crump dark.
+        prev += 0.11 * (rnd.uniform(-1.0, 1.0) - prev)
+        sub = 0.85 * math.sin(2.0 * math.pi * 48.0 * t) * math.exp(-t * 10.0)
+        out[i] = envelope(t, duration, 9.0) * 3.4 * prev + sub
+    return out
+
+
 SOUNDS = {
     'gun_shot.wav': gen_gun_shot,
     'torpedo_launch.wav': gen_torpedo_launch,
@@ -214,6 +267,9 @@ SOUNDS = {
     'ui_blip.wav': gen_ui_blip,
     'mortar_fire.wav': gen_mortar_fire,
     'mortar_salvage.wav': gen_mortar_salvage,
+    'enemy_shot.wav': gen_enemy_shot,
+    'sam_launch.wav': gen_sam_launch,
+    'mortar_blast.wav': gen_mortar_blast,
 }
 
 

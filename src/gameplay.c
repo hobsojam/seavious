@@ -306,8 +306,17 @@ static Vector2 AimAtPlayer(Vector2 from, Vector2 playerPos) {
     return (Vector2){ toPlayer.x / distance, toPlayer.y / distance };
 }
 
+// One ENEMY_FIRED event per shot or volley that actually spawned a
+// bullet (a full pool fires nothing, so it sounds like nothing): a
+// Gunship/Mobile Platform fan is one event, matching how the volley
+// reads on screen.
+static void PushEnemyFired(GameEventQueue *events, Vector2 pos, bool spawned) {
+    if (!spawned) return;
+    PushGameEvent(events, (GameEvent){ .type = GAME_EVENT_ENEMY_FIRED, .pos = pos });
+}
+
 void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playerPos,
-    EnemyBullet bullets[], int bulletCount) {
+    EnemyBullet bullets[], int bulletCount, GameEventQueue *events) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) continue;
 
@@ -315,7 +324,7 @@ void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playe
             if (targets[i].hasFired || targets[i].pos.x > INTERCEPTOR_FIRE_X) continue;
             targets[i].hasFired = true;
             Vector2 aim = AimAtPlayer(targets[i].pos, playerPos);
-            TrySpawnEnemyBullet(
+            bool spawned = TrySpawnEnemyBullet(
                 bullets,
                 bulletCount,
                 (Vector2){
@@ -324,6 +333,7 @@ void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playe
                 },
                 (Vector2){ aim.x * INTERCEPTOR_SHOT_SPEED, aim.y * INTERCEPTOR_SHOT_SPEED }
             );
+            PushEnemyFired(events, targets[i].pos, spawned);
         } else if (targets[i].type == AIR_TARGET_GUNSHIP) {
             // Held fully pre-armed while approaching the activation line,
             // so the first spread comes right at the line.
@@ -335,12 +345,13 @@ void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playe
             while (targets[i].fireTimer >= GUNSHIP_FIRE_INTERVAL) {
                 targets[i].fireTimer -= GUNSHIP_FIRE_INTERVAL;
                 Vector2 aim = AimAtPlayer(targets[i].pos, playerPos);
+                bool spawned = false;
                 for (int shot = -1; shot <= 1; shot++) {
                     float angle = (float)shot * GUNSHIP_FAN_SPREAD_DEG * DEG2RAD;
                     float ca = cosf(angle);
                     float sa = sinf(angle);
                     Vector2 dir = { aim.x * ca - aim.y * sa, aim.x * sa + aim.y * ca };
-                    TrySpawnEnemyBullet(
+                    spawned |= TrySpawnEnemyBullet(
                         bullets,
                         bulletCount,
                         (Vector2){
@@ -350,6 +361,7 @@ void UpdateAirTargetFire(AirTarget targets[], int count, float dt, Vector2 playe
                         (Vector2){ dir.x * ENEMY_BULLET_SPEED, dir.y * ENEMY_BULLET_SPEED }
                     );
                 }
+                PushEnemyFired(events, targets[i].pos, spawned);
             }
         }
     }
@@ -692,7 +704,7 @@ static Vector2 CalculateInterceptVelocity(Vector2 spawn, Vector2 targetPos, Vect
 }
 
 void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vector2 playerPos, Vector2 playerVelocity,
-    EnemyBullet bullets[], int bulletCount) {
+    EnemyBullet bullets[], int bulletCount, GameEventQueue *events) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) continue;
         // Relay Nodes never attack directly (their launch behavior lives
@@ -714,6 +726,7 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
             targets[i].fireTimer += dt;
             while (targets[i].fireTimer >= MOBILE_PLATFORM_FIRE_INTERVAL) {
                 targets[i].fireTimer -= MOBILE_PLATFORM_FIRE_INTERVAL;
+                bool spawned = false;
                 for (int shot = -1; shot <= 1; shot++) {
                     float angle = (float)shot * MOBILE_PLATFORM_FAN_SPREAD_DEG * DEG2RAD;
                     float ca = cosf(angle);
@@ -722,7 +735,7 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
                         targets[i].aimDirection.x * ca - targets[i].aimDirection.y * sa,
                         targets[i].aimDirection.x * sa + targets[i].aimDirection.y * ca
                     };
-                    TrySpawnEnemyBullet(
+                    spawned |= TrySpawnEnemyBullet(
                         bullets,
                         bulletCount,
                         (Vector2){
@@ -732,6 +745,7 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
                         (Vector2){ dir.x * ENEMY_BULLET_SPEED, dir.y * ENEMY_BULLET_SPEED }
                     );
                 }
+                PushEnemyFired(events, targets[i].pos, spawned);
             }
             continue;
         }
@@ -758,7 +772,7 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
         targets[i].fireTimer += dt;
         while (targets[i].fireTimer >= fireInterval) {
             targets[i].fireTimer -= fireInterval;
-            TrySpawnEnemyBullet(
+            bool spawned = TrySpawnEnemyBullet(
                 bullets,
                 bulletCount,
                 (Vector2){
@@ -767,6 +781,7 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
                 },
                 velocity
             );
+            PushEnemyFired(events, targets[i].pos, spawned);
         }
     }
 }

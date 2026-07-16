@@ -22,6 +22,9 @@ typedef struct {
     Sound uiBlip;
     Sound mortarFire;
     Sound mortarSalvage;
+    Sound enemyShot;
+    Sound samLaunch;
+    Sound mortarBlast;
 } GameAudio;
 
 // Initializes the audio device and starts the stage theme at the given

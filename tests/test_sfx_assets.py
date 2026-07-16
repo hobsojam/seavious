@@ -31,6 +31,9 @@ FILES = {
     'ui_blip.wav': (0.07, 0.12),
     'mortar_fire.wav': (0.18, 0.22),
     'mortar_salvage.wav': (0.28, 0.32),
+    'enemy_shot.wav': (0.07, 0.12),
+    'sam_launch.wav': (0.30, 0.40),
+    'mortar_blast.wav': (0.38, 0.46),
 }
 
 failures = []
