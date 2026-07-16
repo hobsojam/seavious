@@ -672,6 +672,11 @@ port/raylib is fixed.
 Or just open the folder in Visual Studio 2022 — it detects `CMakeLists.txt`
 and `vcpkg.json` automatically (manifest mode) and configures itself.
 
+The exe embeds an application icon (the ship on ocean navy,
+`tools/gen-exe-icon.py` → `assets/icon/seavious.ico`, wired in via
+`src/seavious.rc` on Windows builds); the running window sets the same
+art at startup with `SetWindowIcon`.
+
 ## Controls
 
 Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px

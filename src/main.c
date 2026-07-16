@@ -25,6 +25,14 @@ int main(void) {
     InitWindow(GAME_WIDTH * WINDOW_SCALE, GAME_HEIGHT * WINDOW_SCALE, "Seavious");
     SetTargetFPS(60);
 
+    // Runtime window/taskbar icon; the exe file's own icon is the same
+    // art embedded via src/seavious.rc (both from tools/gen-exe-icon.py).
+    Image windowIcon = LoadImage("assets/icon/window_icon.png");
+    if (windowIcon.data != NULL) {
+        SetWindowIcon(windowIcon);
+        UnloadImage(windowIcon);
+    }
+
     GameSettings settings = LoadGameSettings(SETTINGS_FILE);
     GameAudio audio;
     LoadGameAudio(&audio, &settings);

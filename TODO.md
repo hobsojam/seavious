@@ -308,6 +308,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       from the two rear ski-points, anchored to the water (drift left at
       scroll speed), fade/shrink out over ~1.1s; spray and any bloom/glow
       polish stays with the VFX pass
+- [x] Application icon: ship on ocean navy, generated multi-size
+      (16/32/48/256) `assets/icon/seavious.ico` by `tools/gen-exe-icon.py`
+      from the player sprite, embedded via `src/seavious.rc` on Windows;
+      the running window sets the same art with `SetWindowIcon`
+      (`window_icon.png`); drift-tested by `tests/test_icon_asset.py`
 
 ## Audio
 
