@@ -174,13 +174,21 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       Placeholder SFX: mortar lob
       reuses torpedo-launch, salvage jingle reuses the UI blip (see
       Audio tasks)
-- [ ] Scavenged mortar weapon (Stage 2+, see README Core mechanic): lobbed
-      arc over land blockers, shorter fixed-range in-lane reticle that
-      ignores land edges, area blast on landing, strict land-only damage
-      class, own fire key + cooldown + green HUD status icon — now
-      unblocked (the Stage 1 boss and its salvage sequence are in);
-      practically pairs with the Stage 2 skeleton, since Stage 1 ends
-      before the player could ever fire it
+- [x] Scavenged mortar weapon (see README Core mechanic) — first pass in:
+      lobbed arc that ignores land/armor blockers, shorter fixed-range
+      green reticle (120px), area blast on landing, Left Shift/X fire key,
+      2.5s cooldown, green HUD dome icon, dome sprite riding the ship.
+      The salvage sets `hasMortar`; a stage-clear restart carries it into
+      the replay (the stand-in for Stage 2), game over forfeits it.
+      Remaining follow-ups below:
+- [ ] Playtest the mortar's provisional water-class damage (blast
+      currently hits surface targets + boss parts, since land targets
+      don't exist yet): confirm whether "harder to aim than the torpedo"
+      justifies keeping water damage permanently, and tune
+      range/cooldown/blast radius (120px / 2.5s / 22px first guesses)
+- [ ] Mortar strict land-only class + green land-target faction color —
+      lands together with the Stage 2 land-target roster (below), if the
+      playtest keeps the land-only rule
 - [ ] Design Stage 2 land-target roster (green mortar-class installations
       built on terrain) — the Stage 2 counterpart of the Stage 1 roster
       task above

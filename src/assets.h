@@ -24,6 +24,9 @@ typedef struct {
     Texture2D terrainGroundTex;
     Texture2D terrainShoreTex;
     Texture2D terrainHardpointTex;
+    Texture2D terrainBrushTex;
+    Texture2D terrainRockTex;
+    Texture2D terrainTidePoolTex;
     Texture2D oceanTex;
     Texture2D oceanOverlayTex;
 } GameAssets;

@@ -67,6 +67,17 @@
 #define TORPEDO_SPLASH_RADIUS 20.0f
 #define TORPEDO_DIRECT_HIT_RADIUS (TORPEDO_WIDTH / 2.0f)
 
+// Scavenged mortar (player weapon once salvaged from the Stage 1 boss):
+// a lobbed shell to a shorter fixed-range reticle that ignores land
+// edges entirely - arcing over blockers is the weapon's point - with an
+// area blast where it lands. One shell in flight + cooldown, like the
+// torpedo. Fire key: Left Shift or X (movement-style dual binding).
+#define PLAYER_MORTAR_COOLDOWN 2.5f
+#define PLAYER_MORTAR_MAX_RANGE 120.0f
+#define PLAYER_MORTAR_AIR_TIME 1.0f
+#define PLAYER_MORTAR_BLAST_RADIUS 22.0f
+#define PLAYER_MORTAR_BLAST_DURATION 0.30f
+
 #define MAX_SURFACE_TARGETS            8
 #define CASEMATE_RADIUS          9.0f
 #define CASEMATE_FIRE_INTERVAL   1.5f
@@ -216,6 +227,19 @@ typedef struct {
     Vector2 pos;
 } TorpedoImpact;
 
+// One lobbed mortar shell: launch -> target over a fixed air time (the
+// dodge window, telegraphed by the shadow at the target), then a short
+// area blast. Shared by the boss's turret and the player's scavenged one;
+// only the timings/radii and what the blast hurts differ.
+typedef struct {
+    Vector2 launch;
+    Vector2 target;
+    float t;
+    float blastT;
+    bool landed;
+    bool active;
+} MortarShell;
+
 typedef struct {
     Vector2 pos;
     float age;
@@ -344,5 +368,14 @@ void UpdateSurfaceTargetFire(SurfaceTarget targets[], int count, float dt, Vecto
 TorpedoImpact ResolveTorpedoSurfaceTargetCollision(Torpedo *torpedo, SurfaceTarget targets[], int targetCount,
     GameEventQueue *events);
 void ResolveTorpedoExplosion(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events);
+
+// Player mortar. The blast provisionally damages surface targets too
+// (playtest call pending: harder to land than the torpedo, so it may be
+// allowed to double up on the water class); the strict land-only mapping
+// waits for Stage 2's land-target roster.
+Vector2 CalculateMortarReticle(Vector2 spawn);
+void FirePlayerMortar(MortarShell *shell, Vector2 spawn, Vector2 target);
+bool UpdatePlayerMortarShell(MortarShell *shell, float dt, float scrollDt);
+void ResolveMortarBlastSurfaceTargets(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events);
 
 #endif

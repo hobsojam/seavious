@@ -576,6 +576,9 @@ void UpdateBossFight(GameState *state, float dt) {
                 });
                 boss->phase = BOSS_PHASE_CLEARED;
                 boss->phaseTimer = 0.0f;
+                // The dock is the pickup: the mortar is the player's from
+                // here on (and into the stage-clear replay).
+                state->hasMortar = true;
                 state->stageClear = true;
             }
             break;
