@@ -8,6 +8,20 @@ void ResetRunState(GameState *state) {
     memset(state, 0, sizeof *state);
     state->player = (Vector2){ PLAYER_START_X, PLAYER_START_Y };
     state->lives = 3;
+    state->stageNumber = 1;
+}
+
+void BeginStage(GameState *state, int stageNumber) {
+    // Run progression survives the stage transition; everything else
+    // rewinds exactly like a fresh run.
+    int score = state->score;
+    int lives = state->lives;
+    bool hasMortar = state->hasMortar;
+    ResetRunState(state);
+    state->score = score;
+    state->lives = lives;
+    state->hasMortar = hasMortar;
+    state->stageNumber = stageNumber;
 }
 
 void BeginPlayerDeath(GameState *state) {

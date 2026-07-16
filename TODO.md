@@ -63,8 +63,8 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       Stage 1 boss: the stage script raises the boss lock, `src/boss.c`
       owns the fight from there (entrance, part-driven fight, death
       chain, salvage, stage-clear overlay) including the `bossActive`
-      music flag; the stage-clear screen is a restart placeholder until
-      Stage 2 exists to advance into
+      music flag; stage clear now advances the run through the stage
+      descriptor (wrapping to Stage 1 until Stage 2 content ships)
 - [x] Stage/wave definition + sequencing — implemented:
       `tools/gen-stage-table.py` compiles `assets/stages/stage1.txt` into
       the committed `src/stage1_data.c` event table (drift-tested by
@@ -185,10 +185,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       fine as is. It keeps damaging surface targets + boss parts
       permanently (harder to aim than the torpedo earns the overlap),
       and the tuning stands (120px range / 2.5s cooldown / 22px blast)
-- [ ] Green land-target faction color + mortar-only reachability for
-      land targets — lands together with the Stage 2 land-target
-      roster (below); the mortar additionally keeps its water-class
-      damage per the playtest decision above
+- [x] Green land-target faction color + mortar-only reachability —
+      folded into the "Implement Stage 2 land roster" item below (the
+      mortar additionally keeps its water-class damage per the playtest
+      decision above)
 - [x] Pause menu + settings (see README "Pause menu & settings"): P opens
       Resume / Options / Controls / Restart Run / Quit over the frozen
       frame; Options = Music/SFX volume in 0–10 steps scaling the
@@ -219,16 +219,35 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       `H` under an actual installation — Stage 1's two decorative pads
       reverted to plain terrain (`#`, identical footprints), leaving the
       glyph/tooling/render path in place for Stage 2 land targets
-- [ ] Design Stage 2 land-target roster (green mortar-class installations
-      built on terrain, mounted on `H` hardpoint pads) — the Stage 2
-      counterpart of the Stage 1 roster task above
-- [ ] Stage list + per-stage boss concepts (beyond Stage 1)
-- [ ] Plan each level (enemy wave placement, pacing, terrain/visual variety
-      per stage — e.g. open ocean vs. storm vs. near islands) — Stage 1
-      beat chart designed (10 teaching beats, ~3 min at 40 px/s ≈ 7,200 px;
-      see README Level & stage design) and its first map draft committed
-      at `assets/stages/stage1.txt`; expect placement/density tuning once
-      the wave-script system makes it playable
+- [x] Design Stage 2 (see README "Stage 2 design", agreed in full):
+      three-lane exam in an archipelago; land roster = Mortar Battery
+      (~600) + Drone Bunker (~500), green, on `H` pads, mortar-only
+      (flak emplacement deferred); strait-run set-piece; fortress-atoll
+      boss with sea gates needing all three weapons; targeting-computer
+      salvage enabling lead torpedoes; ~7,600–8,000 px; Stage 3 slot
+      pencilled for the storm concept
+- [x] Stage descriptor refactor — engine reads the current stage through
+      `GameState.stageNumber` + `GetStageDescriptor()` (`stage.h`)
+      instead of naming `STAGE1_*`; stage clear advances the run via
+      `BeginStage` (score/lives/mortar carry, pools/scroll rewind,
+      wraps to Stage 1 until Stage 2 exists), game over forfeits via
+      `ResetRunState`; stage-clear overlay reads the stage number and
+      says CONTINUE. Unit-tested in `stage_tests.c`
+- [ ] Implement Stage 2 land roster: Mortar Battery (enemy MortarShell
+      lob + shadow telegraph, dies to one player mortar blast) and
+      Drone Bunker (land Relay Node); green faction color; sprites via
+      the generator idiom; new stage glyphs
+- [ ] Author `assets/stages/stage2.txt` (~10 beats per the README beat
+      intent: mortar tutorial opening, three-lane escalation, strait
+      run, breather, fortress-atoll boss lock) + generator/table wiring
+      as a second descriptor row
+- [ ] Fortress-atoll boss (Stage 2): AA pods (gun), ring batteries
+      (mortar), cycling sea gates (torpedo), core; salvage beat awards
+      the targeting computer → lead-aimed torpedoes (`FireLeadTorpedo`
+      already in `gameplay.c`)
+- [ ] Compose Stage 2 theme (+ boss variant) over the shared
+      drum/bass template
+- [ ] Plan remaining levels beyond Stage 2 (Stage 3 pencilled: storm)
 - [x] Ground target sprites (alien platforms/installations) — Relay Node,
       Mine, Casemate, Tracking Turret, and Mobile Platform first passes
       all done (see Art below). Land-based emplacement variants
@@ -239,7 +258,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       replace the code-drawn rounded-coastline rings in `game_render.c`
       (second pass: shallows/foam/beach/interior layers) with real
       tiles or per-island generated sprites, if the code-drawn look
-      ever falls short
+      ever falls short. Note: an unused cell-autotile prototype (ground
+      material + shore edges + per-cell hardpoint tiles) was removed
+      from `game_render.c` as dead code during the stage-descriptor
+      refactor — recover it from git history if this second pass happens
 - [x] Air enemy sprites (drone swarms) — Skimmer Drone, Interceptor, and
       Gunship first passes all done (see Art below)
 

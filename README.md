@@ -210,9 +210,9 @@ it's fitted to the player as the third weapon (see Core mechanic).
 
 **Stage 1 boss design (Leviathan)** (implemented in `src/boss.c`; the
 notes below are the design it follows — deviations, all deliberate:
-the stage-clear flow after the salvage is a restart placeholder until
-Stage 2 exists to advance into — the restart keeps the salvaged mortar,
-standing in for the Stage 2 handoff; the mortar's power-down is simply its
+the stage-clear flow advances the run to the next stage — score, lives,
+and the salvaged mortar carry over — wrapping back to Stage 1 until
+Stage 2 content ships; the mortar's power-down is simply its
 shells stopping, since the dome sprite is already colorless; hull
 contact is lethal while the boss lives — the player owns the left side
 of the arena because the right side kills — and the settled wreck goes
@@ -317,9 +317,10 @@ the mortar turret's red accents fade to dark — powered down, intact.
 The salvage beat is deliberately simple: the skimmer auto-pilots
 alongside, the turret dome lifts off the wreck and docks onto the
 skimmer's spine (a few seconds of sprite animation, no input), a pickup
-jingle plays, and the stage-clear flow takes over. Stage 2 then opens
-with the mortar equipped (today: the stage-clear replay of Stage 1 does,
-with the dome riding the skimmer's spine from the start of the run).
+jingle plays, and the stage-clear flow takes over. The next stage then
+opens with the mortar equipped, the dome riding the skimmer's spine from
+the start (the stage-advance flow wraps back to Stage 1 until Stage 2
+content ships).
 
 **Color palette**: No sky rendered — open water scrolls underneath the
 top-down camera. Environment is classic flat arcade water in the
@@ -362,7 +363,9 @@ range, not lock-on: once fired, that max-range point is anchored to the
 scrolling surface and drifts left with the water. The torpedo explodes on
 the first armed surface hit or at max range, while very close unarmed
 impacts only deal direct hit damage.
-Lead-targeting is kept as a future upgrade idea, not the baseline weapon.
+Lead-targeting is kept in code as an upgrade, not the baseline weapon —
+it is the planned Stage 2 boss salvage (see Stage 2 design: the
+targeting computer).
 
 From Stage 2 the grammar extends to a third weapon/target class: the
 **scavenged mortar**, taken from the Stage 1 boss's armored turret after
@@ -386,9 +389,10 @@ over surface targets. Land targets get the third faction color to
 complete the triad.
 *Implementation status*: the weapon is in and its behavior confirmed by
 playtest (flight, blast, reticle, HUD icon, 2.5s cooldown, 120px range
-vs the torpedo's 170px, 22px blast). Until Stage 2 exists, the salvaged
-mortar carries into the stage-clear replay of Stage 1 (a game over still
-forfeits it).
+vs the torpedo's 170px, 22px blast). Stage clear advances the run with
+the mortar (and score and lives) carried over — wrapping back to
+Stage 1 until Stage 2 content ships — while a game over forfeits it
+with the rest of the run.
 
 **Scoring (first pass)**: Points are awarded once, when a target is
 destroyed. The current mechanical proof implements the two live target
@@ -580,6 +584,41 @@ move after they fire; (7) Relay Node set-piece — priority targeting;
 (8) mine belt — positioning and torpedo economy; (9) Gunship + Mobile
 Platform finale; (10) empty-water breather, then boss lock.
 
+**Stage 2 design** (agreed, not yet implemented): Stage 1 was the
+dual-targeting tutorial on open ocean; Stage 2 is the **three-lane exam
+in an archipelago** — land becomes a weapon domain instead of an
+occasional obstacle. A dense island chain of channels, straits, and
+shorelines shapes play: Stage 1's "target tucked behind a shoreline is
+*permanently* shielded, fly past it" rule gets its second answer — *lob
+over it*. Stage 2 opens with defenseless land targets to teach the
+mortar the way Stage 1's lone drones taught the gun, then escalates
+into three simultaneous lanes: gun→air, torpedo→water, mortar→land,
+with terrain blocking torpedo lanes so the mortar's ignore-all-blockers
+property becomes tactical rather than novel. New enemy class (green,
+mounted on `H` hardpoints, mortar-only): the **Mortar Battery** — lobs
+arcing shells at the player with the shadow-telegraph language the
+Leviathan taught; symmetric warfare, one player mortar blast kills it
+(~600 points) — and the **Drone Bunker** — the Relay Node's land
+cousin, hatching skimmer drones from behind shorelines where the
+torpedo can't retaliate, forcing gun+mortar coordination (~500 points).
+(A flak emplacement punishing mortar-range hovering is deferred until
+playtests want more pressure.) Set-piece analogue of Stage 1's mine
+belt: the **strait run** — a narrow channel between long islands lined
+with batteries, where torpedo lanes are mostly dead and survival is
+mortar cadence plus dodging. Boss: a **fortress atoll** — the arena
+locks around a fortified island: gun-weak AA pods on towers, mortar-only
+shore batteries on the ring, and a core behind **sea gates** that cycle
+open at the waterline — the torpedo's moment; all three weapons required,
+the way the Leviathan made the original two literal. Salvage reward: a
+**targeting computer** enabling lead-aimed torpedoes (the
+`FireLeadTorpedo` math already preserved in `gameplay.c`), so Stage 2
+ends with an earned upgrade like Stage 1 did. Structure: same authored
+ASCII-map pipeline via a second generated table behind the stage
+descriptor, ~10 beats but longer (~7,600–8,000 px, ~3.3 min) since
+three-lane beats need more room than teaching beats; new stage theme
+over the shared drum/bass template. Stage 3's terrain-variety slot is
+pencilled for the storm concept.
+
 **Stage authoring format**: Stages are designed as ASCII maps — a text
 grid where columns are scroll distance and rows are lanes, a faithful 1:1
 picture of the horizontal ocean strip. Resolution: 1 character = 32 px,
@@ -717,8 +756,9 @@ Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.
 Hits before arming do only small direct impact damage, with no splash.
-After clearing the stage once, the replay starts with the scavenged
-mortar: Left Shift or X lobs a shell (one in flight at a time, 2.5s
+Clearing a stage advances the run (wrapping back to Stage 1 until
+Stage 2 ships); from then on the run has the scavenged mortar:
+Left Shift or X lobs a shell (one in flight at a time, 2.5s
 reload) to its own shorter green reticle, which ignores land and armor
 entirely — the shell arcs over them — and lands in an area blast that
 damages surface targets and boss parts.

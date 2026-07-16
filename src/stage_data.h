@@ -37,6 +37,20 @@ typedef struct {
     int y;         // top edge in play-area coordinates
 } StageTerrainHardpoint;
 
+// One stage's compiled content behind a single handle: the engine reads
+// the current stage through GameState.stageNumber + GetStageDescriptor
+// (stage.h) instead of naming STAGE1_* directly, so adding Stage 2 is a
+// new generated table plus one descriptor row - no engine changes.
+typedef struct {
+    const StageSpawnEvent *events;
+    int eventCount;
+    const StageTerrainFootprint *terrain;
+    int terrainCount;
+    const StageTerrainHardpoint *hardpoints;
+    int hardpointCount;
+    int lengthPx;
+} StageDescriptor;
+
 extern const StageSpawnEvent STAGE1_EVENTS[];
 extern const int STAGE1_EVENT_COUNT;
 extern const StageTerrainFootprint STAGE1_TERRAIN[];
