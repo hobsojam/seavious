@@ -3,7 +3,9 @@
 Retro top-down scrolling shooter, built in C with [raylib](https://www.raylib.com/).
 
 Renders internally at 512x384 to a `RenderTexture2D` with point
-(nearest-neighbor) filtering, then upscales 2x to a 1024x768 window — the
+(nearest-neighbor) filtering, then presents at the largest integer scale
+that fits the output — 2x in the default 1024x768 window, letterboxed
+larger scales in fullscreen (F11, borderless windowed) — the
 standard trick for a crisp pixel-art look at native resolution.
 
 ## Design
@@ -26,7 +28,11 @@ not a side-view/profile game like Scramble (no terrain-following, no
 crashing into silhouetted terrain). Chosen partly because a horizontal-scroll
 top-down playfield is naturally landscape-shaped, so it fits a normal
 desktop window without the letterboxing/side-panel problem a portrait
-playfield would have on most monitors.
+playfield would have on most monitors. Fullscreen doubles down on that
+choice: on a landscape monitor the horizontal playfield claims the whole
+screen, where a vertical scroller would live between giant pillarboxes —
+the same screen-fit argument that picked horizontal in the first place,
+now applied to the display instead of a window.
 
 **Player ship ("Skimmer")**: Low, wide-stance dart silhouette — forward-
 pointed nose cone, twin ski-like pontoons at the rear that visibly sit on/
@@ -568,6 +574,17 @@ and the action table is already the single hook point either would need.
 Back is Backspace, not Escape (raylib's default exit key closes the
 window).
 
+**Fullscreen**: borderless windowed (no video-mode switch, alt-tab
+friendly; exclusive fullscreen buys a 2D 60fps game nothing but jank),
+toggled by **F11** anywhere or the FULLSCREEN row on the options screen,
+persisted to `settings.cfg` like every other setting. Presentation is
+**integer-scaled and centered** with black bars: fractional scales make
+point-filtered pixels visibly uneven (some doubled, some tripled), so
+1080p shows the game at 2x, 1440p at 3x, 4K at 5x. If playtests find
+the 1080p borders too generous, fractional-fill is a deliberate two-line
+change away (`CalculatePresentRect` in `present.c`). The headless smoke
+run always stays windowed.
+
 **Structure**: Stage-based, with a boss fight at the end of each stage.
 Lives-based: enemy contact costs one life, the ship explodes briefly, then
 respawns with brief invulnerability if any lives remain; game over triggers
@@ -770,7 +787,8 @@ art at startup with `SetWindowIcon`.
 ## Controls
 
 The game boots to a title screen: Start / Options / Controls / Quit
-(Up/Down + Enter, same navigation as the pause menu).
+(Up/Down + Enter, same navigation as the pause menu). F11 toggles
+fullscreen at any time (also on the options screen).
 Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px
 is reserved HUD space). Gun auto-fires forward and downs the Skimmer
 Drones (dark dart-diamond craft with a pulsing magenta core) that fly in

@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 enum { ROOT_RESUME, ROOT_OPTIONS, ROOT_CONTROLS, ROOT_RESTART, ROOT_QUIT, ROOT_COUNT };
-enum { OPTIONS_MUSIC, OPTIONS_SFX, OPTIONS_BACK, OPTIONS_COUNT };
+enum { OPTIONS_MUSIC, OPTIONS_SFX, OPTIONS_FULLSCREEN, OPTIONS_BACK, OPTIONS_COUNT };
 
 static const char *ROOT_LABELS[ROOT_COUNT] = {
     "RESUME", "OPTIONS", "CONTROLS", "RESTART RUN", "QUIT"
@@ -55,6 +55,10 @@ bool UpdateOptionsScreen(int *cursor, GameSettings *settings, bool *settingsChan
         if (input.left && *volume > 0) (*volume)--;
         if (input.right && *volume < SETTINGS_VOLUME_MAX) (*volume)++;
         *settingsChanged = *volume != before;
+    }
+    if (*cursor == OPTIONS_FULLSCREEN && (input.left || input.right)) {
+        settings->fullscreen = !settings->fullscreen;
+        *settingsChanged = true;
     }
     return input.back || (input.select && *cursor == OPTIONS_BACK);
 }
@@ -131,13 +135,18 @@ static void DrawVolumeRow(const char *label, int value, int y, bool selected) {
 }
 
 void DrawOptionsScreen(int cursor, const GameSettings *settings) {
-    DrawMenuPanel("OPTIONS", 118, 108);
-    DrawVolumeRow("MUSIC", settings->musicVolume, 150, cursor == OPTIONS_MUSIC);
-    DrawVolumeRow("SFX", settings->sfxVolume, 168, cursor == OPTIONS_SFX);
+    DrawMenuPanel("OPTIONS", 110, 126);
+    DrawVolumeRow("MUSIC", settings->musicVolume, 142, cursor == OPTIONS_MUSIC);
+    DrawVolumeRow("SFX", settings->sfxVolume, 160, cursor == OPTIONS_SFX);
+    bool fullscreenSelected = cursor == OPTIONS_FULLSCREEN;
+    if (fullscreenSelected) DrawText(">", 162, 178, 10, MENU_AMBER);
+    DrawText("FULLSCREEN", 176, 178, 10, fullscreenSelected ? MENU_PALE : MENU_CYAN);
+    DrawText(settings->fullscreen ? "ON" : "OFF", 280, 178, 10,
+        fullscreenSelected ? MENU_AMBER : MENU_INACTIVE);
     bool backSelected = cursor == OPTIONS_BACK;
-    if (backSelected) DrawText(">", 162, 190, 10, MENU_AMBER);
-    DrawText("BACK", 176, 190, 10, backSelected ? MENU_PALE : MENU_CYAN);
-    DrawText("LEFT/RIGHT TO ADJUST", 176, 208, 8, MENU_INACTIVE);
+    if (backSelected) DrawText(">", 162, 200, 10, MENU_AMBER);
+    DrawText("BACK", 176, 200, 10, backSelected ? MENU_PALE : MENU_CYAN);
+    DrawText("LEFT/RIGHT TO ADJUST", 176, 218, 8, MENU_INACTIVE);
 }
 
 void DrawControlsScreen(void) {

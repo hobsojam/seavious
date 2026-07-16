@@ -18,12 +18,20 @@ static void TestDefaultsAndClamp(void) {
     CHECK(settings.musicVolume == SETTINGS_VOLUME_MAX);
     CHECK(settings.sfxVolume == SETTINGS_VOLUME_MAX);
 
+    CHECK(!settings.fullscreen);
+
     ApplyGameSetting(&settings, "music_volume", -3);
     CHECK(settings.musicVolume == 0);
     ApplyGameSetting(&settings, "sfx_volume", 99);
     CHECK(settings.sfxVolume == SETTINGS_VOLUME_MAX);
     ApplyGameSetting(&settings, "unknown_key", 5);
     CHECK(settings.musicVolume == 0 && settings.sfxVolume == SETTINGS_VOLUME_MAX);
+
+    // Any nonzero value reads as fullscreen-on (hand-edited files).
+    ApplyGameSetting(&settings, "fullscreen", 5);
+    CHECK(settings.fullscreen);
+    ApplyGameSetting(&settings, "fullscreen", 0);
+    CHECK(!settings.fullscreen);
 }
 
 static void TestMissingFileYieldsDefaults(void) {
@@ -34,11 +42,12 @@ static void TestMissingFileYieldsDefaults(void) {
 
 static void TestSaveLoadRoundtrip(void) {
     const char *path = "settings_test_roundtrip.cfg";
-    GameSettings saved = { .musicVolume = 3, .sfxVolume = 7 };
+    GameSettings saved = { .musicVolume = 3, .sfxVolume = 7, .fullscreen = true };
     CHECK(SaveGameSettings(&saved, path));
     GameSettings loaded = LoadGameSettings(path);
     CHECK(loaded.musicVolume == 3);
     CHECK(loaded.sfxVolume == 7);
+    CHECK(loaded.fullscreen);
     remove(path);
 }
 

@@ -196,6 +196,12 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       (key=value, next to the exe, `src/settings.c`); Controls screen
       renders from the central action→keys table (`src/input.c`) that
       gameplay now reads all input through
+- [x] Fullscreen (see README "Fullscreen"): borderless windowed via F11
+      or the options-screen FULLSCREEN row, persisted to `settings.cfg`;
+      presentation integer-scales and centers the 512x384 canvas on
+      whatever the output is (`src/present.c`, unit-tested) — 2x window
+      unchanged, 1080p/1440p/4K at 2x/3x/5x letterboxed. Fractional-fill
+      kept as a deliberate playtest option
 - [ ] Key remapping UI — deferred (thin payoff with five dual-bound
       actions); the `input.c` binding table is the hook: make it mutable,
       add a capture flow + conflict rule, persist to `settings.cfg`

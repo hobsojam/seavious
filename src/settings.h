@@ -14,6 +14,7 @@
 typedef struct {
     int musicVolume;
     int sfxVolume;
+    bool fullscreen; // borderless windowed; applied by main.c
 } GameSettings;
 
 GameSettings DefaultGameSettings(void);

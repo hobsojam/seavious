@@ -20,6 +20,7 @@ add_executable(seavious
     src/input.c
     src/main.c
     src/menu.c
+    src/present.c
     src/settings.c
     src/stage.c
     src/stage1_data.c
@@ -59,6 +60,7 @@ if(BUILD_TESTING)
         src/gameplay.c
         src/input.c
         src/menu.c
+        src/present.c
         src/settings.c
         src/title.c
     )
