@@ -11,6 +11,7 @@
 typedef enum {
     EXPLOSION_AIR_TARGET,
     EXPLOSION_SURFACE_TARGET,
+    EXPLOSION_LAND_TARGET,
     EXPLOSION_PLAYER
 } ExplosionType;
 
@@ -140,6 +141,9 @@ typedef struct {
     float torpedoImpactTimer;
 
     SurfaceTarget surfaceTargets[MAX_SURFACE_TARGETS];
+    // Stage 2 land class: world-anchored installations on terrain
+    // hardpoints, reachable by the player's mortar alone.
+    LandTarget landTargets[MAX_LAND_TARGETS];
 
     // Scavenged mortar: hasMortar is run progression, not stage state -
     // the salvage raises it, a stage-clear replay (standing in for Stage 2

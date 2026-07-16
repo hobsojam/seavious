@@ -169,6 +169,14 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
         state->surfaceTargets, MAX_SURFACE_TARGETS, dt, state->airTargets, MAX_AIR_TARGETS,
         &state->gameEvents
     );
+    // Land installations: anchored drift on scrollDt like the terrain
+    // they mount, fire control on real dt like every other enemy.
+    UpdateLandTargets(state->landTargets, MAX_LAND_TARGETS, scrollDt);
+    UpdateMortarBatteries(state->landTargets, MAX_LAND_TARGETS, dt, state->player, &state->gameEvents);
+    UpdateDroneBunkerLaunches(
+        state->landTargets, MAX_LAND_TARGETS, dt, state->airTargets, MAX_AIR_TARGETS,
+        &state->gameEvents
+    );
     UpdateEnemyBullets(state->enemyBullets, MAX_ENEMY_BULLETS, dt);
 
     // Torpedo-vs-surface collision — the gun deliberately has no case
@@ -227,6 +235,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
             .type = GAME_EVENT_MORTAR_BLAST, .pos = blast
         });
         ResolveMortarBlastSurfaceTargets(blast, state->surfaceTargets, MAX_SURFACE_TARGETS, &state->gameEvents);
+        ResolveMortarBlastLandTargets(blast, state->landTargets, MAX_LAND_TARGETS, &state->gameEvents);
         ResolveBossSplashDamage(&state->boss, blast, &state->gameEvents);
     }
     // Player hits resolve before the destruction-effects pass so a mine
@@ -254,7 +263,11 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
         ResolveBossContactDamage(&state->boss, state->player, playerRadius)
         || ResolveMortarBlastPlayerHit(&state->boss, state->player, playerRadius)
     );
-    if (playerVulnerable && (enemyBulletHit || missileHit || contactHit || bossHit)) {
+    // Land-battery blasts kill like the boss's shells; the installations
+    // themselves never contact-kill (flying over land is always safe).
+    bool landBlastHit = playerVulnerable
+        && ResolveLandMortarBlastPlayerHit(state->landTargets, MAX_LAND_TARGETS, state->player, playerRadius);
+    if (playerVulnerable && (enemyBulletHit || missileHit || contactHit || bossHit || landBlastHit)) {
         TrySpawnExplosion(state->explosions, state->player, EXPLOSION_PLAYER, 20.0f, PLAYER_DEATH_DURATION);
         BeginPlayerDeath(state);
     }

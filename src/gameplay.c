@@ -78,6 +78,9 @@ int ScoreGameEvents(const GameEventQueue *events) {
             else score += SCORE_BOSS_HULL_SECTION;
         } else if (event->type == GAME_EVENT_BOSS_MISSILE_DOWNED) {
             score += SCORE_BOSS_MISSILE;
+        } else if (event->type == GAME_EVENT_LAND_TARGET_DESTROYED) {
+            if (event->target.landTarget == LAND_TARGET_MORTAR_BATTERY) score += SCORE_MORTAR_BATTERY;
+            if (event->target.landTarget == LAND_TARGET_DRONE_BUNKER) score += SCORE_DRONE_BUNKER;
         }
     }
     return score;
@@ -879,6 +882,173 @@ void ResolveMortarBlastSurfaceTargets(Vector2 pos, SurfaceTarget targets[], int 
         float hitDist = targets[i].radius + PLAYER_MORTAR_BLAST_RADIUS;
         if (DistanceSquared(pos, targets[i].pos) <= hitDist * hitDist) {
             DamageSurfaceTarget(&targets[i], 1, events);
+        }
+    }
+}
+
+// Spawning prefers a slot whose shell has also finished, so pool reuse
+// can't clip a dead battery's still-flying shell out of the air.
+static int FreeLandTargetSlot(const LandTarget targets[], int count) {
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active && !targets[i].shell.active) return i;
+    }
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active) return i;
+    }
+    return -1;
+}
+
+static bool TrySpawnLandTarget(LandTarget targets[], int count, LandTargetType type,
+    float radius, int hp, float y) {
+    int slot = FreeLandTargetSlot(targets, count);
+    if (slot < 0) return false;
+    // If every free slot still carries a flying shell, the new
+    // installation inherits it: the shell finishes its arc untouched and
+    // the battery simply can't lob until it clears.
+    MortarShell carried = targets[slot].shell;
+    targets[slot] = (LandTarget){
+        .type = type,
+        .pos = { GAME_WIDTH + radius, y },
+        .radius = radius,
+        .hp = hp,
+        .active = true
+    };
+    targets[slot].shell = carried;
+    return true;
+}
+
+bool TrySpawnMortarBattery(LandTarget targets[], int count, float laneY) {
+    return TrySpawnLandTarget(targets, count, LAND_TARGET_MORTAR_BATTERY,
+        MORTAR_BATTERY_RADIUS, MORTAR_BATTERY_HP, laneY);
+}
+
+bool TrySpawnDroneBunker(LandTarget targets[], int count, float laneY) {
+    return TrySpawnLandTarget(targets, count, LAND_TARGET_DRONE_BUNKER,
+        DRONE_BUNKER_RADIUS, DRONE_BUNKER_HP, laneY);
+}
+
+bool DamageLandTarget(LandTarget *target, int damage, GameEventQueue *events) {
+    if (target == NULL || !target->active || damage <= 0) return false;
+    target->hp -= damage;
+    if (target->hp > 0) return false;
+    target->active = false;
+    PushGameEvent(events, (GameEvent){
+        .type = GAME_EVENT_LAND_TARGET_DESTROYED,
+        .pos = target->pos,
+        .target.landTarget = target->type
+    });
+    return true;
+}
+
+void UpdateLandTargets(LandTarget targets[], int count, float dt) {
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active) continue;
+        // Anchored drift: same clock as the terrain cell it mounted on.
+        targets[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
+        if (targets[i].pos.x < -targets[i].radius) targets[i].active = false;
+    }
+}
+
+void UpdateMortarBatteries(LandTarget targets[], int count, float dt, Vector2 playerPos,
+    GameEventQueue *events) {
+    for (int i = 0; i < count; i++) {
+        LandTarget *battery = &targets[i];
+        MortarShell *shell = &battery->shell;
+
+        // Shells advance whether or not the battery still stands: one
+        // already in the air when it dies still comes down (boss rule).
+        if (shell->active) {
+            if (!shell->landed) {
+                shell->t += dt;
+                if (shell->t >= LAND_MORTAR_AIR_TIME) {
+                    shell->landed = true;
+                    shell->blastT = LAND_MORTAR_BLAST_DURATION;
+                    PushGameEvent(events, (GameEvent){
+                        .type = GAME_EVENT_MORTAR_BLAST, .pos = shell->target
+                    });
+                }
+            } else {
+                shell->blastT -= dt;
+                if (shell->blastT <= 0.0f) shell->active = false;
+            }
+        }
+
+        if (!battery->active || battery->type != LAND_TARGET_MORTAR_BATTERY) continue;
+        // Held fully pre-armed while approaching the activation line, so
+        // the first lob comes right at the line.
+        if (battery->pos.x > ENEMY_ACTIVATION_X) {
+            battery->fireTimer = MORTAR_BATTERY_FIRE_INTERVAL;
+            continue;
+        }
+        battery->fireTimer += dt;
+        if (battery->fireTimer < MORTAR_BATTERY_FIRE_INTERVAL || shell->active) {
+            // Cap the bank at one interval so a shell still in flight
+            // can't queue an instant double-lob behind it.
+            if (battery->fireTimer > MORTAR_BATTERY_FIRE_INTERVAL) {
+                battery->fireTimer = MORTAR_BATTERY_FIRE_INTERVAL;
+            }
+            continue;
+        }
+        Vector2 target = playerPos;
+        if (target.x < 0.0f) target.x = 0.0f;
+        if (target.x > (float)GAME_WIDTH) target.x = (float)GAME_WIDTH;
+        if (target.y < 0.0f) target.y = 0.0f;
+        if (target.y > (float)PLAY_HEIGHT) target.y = (float)PLAY_HEIGHT;
+        *shell = (MortarShell){
+            .launch = battery->pos,
+            .target = target,
+            .active = true
+        };
+        battery->fireTimer = 0.0f;
+        PushGameEvent(events, (GameEvent){
+            .type = GAME_EVENT_MORTAR_FIRED, .pos = battery->pos
+        });
+    }
+}
+
+bool ResolveLandMortarBlastPlayerHit(const LandTarget targets[], int count, Vector2 playerPos,
+    float playerRadius) {
+    for (int i = 0; i < count; i++) {
+        const MortarShell *shell = &targets[i].shell;
+        if (!shell->active || !shell->landed || shell->blastT <= 0.0f) continue;
+        float hitDist = LAND_MORTAR_BLAST_RADIUS + playerRadius;
+        if (DistanceSquared(playerPos, shell->target) <= hitDist * hitDist) return true;
+    }
+    return false;
+}
+
+void UpdateDroneBunkerLaunches(LandTarget targets[], int count, float dt, AirTarget airTargets[],
+    int airCount, GameEventQueue *events) {
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active || targets[i].type != LAND_TARGET_DRONE_BUNKER) continue;
+        targets[i].fireTimer += dt;
+        // Same launch discipline as the Relay Node: pre-armed at the
+        // line, held at the interval while blocked so a freed drone slot
+        // refills immediately.
+        if (targets[i].pos.x > ENEMY_ACTIVATION_X) targets[i].fireTimer = DRONE_BUNKER_LAUNCH_INTERVAL;
+        if (targets[i].fireTimer < DRONE_BUNKER_LAUNCH_INTERVAL) continue;
+        targets[i].fireTimer = DRONE_BUNKER_LAUNCH_INTERVAL;
+        if (targets[i].pos.x > ENEMY_ACTIVATION_X) continue;
+        // Owner ids share one namespace with the Relay Nodes; bunkers
+        // sit past the surface pool's index range.
+        int ownerId = 1 + MAX_SURFACE_TARGETS + i;
+        if (CountOwnedDrones(airTargets, airCount, ownerId) >= DRONE_BUNKER_MAX_DRONES) continue;
+        if (TrySpawnSkimmerDroneFrom(airTargets, airCount, targets[i].pos, ownerId)) {
+            targets[i].fireTimer = 0.0f;
+            PushGameEvent(events, (GameEvent){
+                .type = GAME_EVENT_DRONE_LAUNCHED, .pos = targets[i].pos
+            });
+        }
+    }
+}
+
+void ResolveMortarBlastLandTargets(Vector2 pos, LandTarget targets[], int targetCount,
+    GameEventQueue *events) {
+    for (int i = 0; i < targetCount; i++) {
+        if (!targets[i].active) continue;
+        float hitDist = targets[i].radius + PLAYER_MORTAR_BLAST_RADIUS;
+        if (DistanceSquared(pos, targets[i].pos) <= hitDist * hitDist) {
+            DamageLandTarget(&targets[i], 1, events);
         }
     }
 }

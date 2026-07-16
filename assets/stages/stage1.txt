@@ -13,12 +13,15 @@
 ;     W  V of 5 drones (leader anchored)      R  Relay Node
 ;     i  Interceptor (straight, fires once)   P  Mobile Platform
 ;     G  Gunship (3-way spread)
+;   land installations (Stage 2+; the glyph's cell compiles as terrain
+;   + hardpoint pad + spawn, so the pad always has something on it):
+;     B  Mortar Battery   K  Drone Bunker
 ;   terrain:
 ;     #  land footprint (blocks torpedoes; contiguous runs merge)
 ;     H  land hardpoint (terrain cell with a fortified mounting pad).
 ;        Author one ONLY under an installation that actually mounts
-;        there (Stage 2+ land targets): an empty "could hold a turret"
-;        pad is visual noise, so Stage 1 has none.
+;        there: an empty "could hold a turret" pad is visual noise, so
+;        Stage 1 has none (B/K glyphs make bare H mostly unnecessary).
 
 ; beat 1 — first contact: lone drones and a distant islet (16s)
 @0

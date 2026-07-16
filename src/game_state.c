@@ -104,6 +104,12 @@ void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect
             // Launch puff at the dome; the shell/shadow/blast themselves
             // are code-drawn VFX from the shell state, not effects.
             TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, 6.0f, 0.18f);
+        } else if (event->type == GAME_EVENT_LAND_TARGET_DESTROYED) {
+            // Green burst for the land family; no wreck - the scorched
+            // hardpoint pad it stood on stays behind as the marker.
+            float radius = event->target.landTarget == LAND_TARGET_DRONE_BUNKER
+                ? DRONE_BUNKER_RADIUS : MORTAR_BATTERY_RADIUS;
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_LAND_TARGET, radius + 5.0f, 0.38f);
         }
     }
 }

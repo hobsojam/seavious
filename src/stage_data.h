@@ -16,7 +16,11 @@ typedef enum {
     STAGE_SPAWN_TRACKING_TURRET,
     STAGE_SPAWN_RELAY_NODE,
     STAGE_SPAWN_MINE,
-    STAGE_SPAWN_MOBILE_PLATFORM
+    STAGE_SPAWN_MOBILE_PLATFORM,
+    // Land glyphs also compile their cell as terrain + hardpoint pad
+    // (the installation brings its mounting pad with it).
+    STAGE_SPAWN_MORTAR_BATTERY,
+    STAGE_SPAWN_DRONE_BUNKER
 } StageSpawnKind;
 
 typedef struct {

@@ -15,6 +15,8 @@ typedef struct {
     Texture2D relayNodeTex;
     Texture2D mineTex;
     Texture2D mobilePlatformTex;
+    Texture2D mortarBatteryTex;
+    Texture2D droneBunkerTex;
     Texture2D leviathanHullTex;
     Texture2D leviathanPodTex;
     Texture2D leviathanHullSectionTex;

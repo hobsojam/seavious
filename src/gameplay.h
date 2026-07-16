@@ -114,6 +114,32 @@
 #define MOBILE_PLATFORM_WAKE_INTERVAL    0.07f
 #define SCORE_MOBILE_PLATFORM 500
 
+// Stage 2 land class (green, mounted on terrain hardpoints): reachable
+// by the mortar alone - no gun or torpedo collision path exists, the
+// same structural separation that keeps bullets off surface targets.
+// Land targets never contact-kill (flying over land is always safe, the
+// "no terrain crashes" rule extended to what stands on it).
+#define MAX_LAND_TARGETS 8
+
+// Mortar Battery: the enemy counterpart of the player's mortar - lobs
+// an arcing shell (red, enemy ordnance) at the player with the shadow
+// telegraph the Leviathan taught. One shell in flight per battery.
+#define MORTAR_BATTERY_RADIUS 10.0f
+#define MORTAR_BATTERY_FIRE_INTERVAL 3.5f
+#define MORTAR_BATTERY_HP 1
+#define LAND_MORTAR_AIR_TIME 1.2f
+#define LAND_MORTAR_BLAST_RADIUS 24.0f
+#define LAND_MORTAR_BLAST_DURATION 0.30f
+#define SCORE_MORTAR_BATTERY 600
+
+// Drone Bunker: the Relay Node's land cousin - hatches Skimmer Drones
+// from behind shorelines where the torpedo can't retaliate.
+#define DRONE_BUNKER_RADIUS 11.0f
+#define DRONE_BUNKER_LAUNCH_INTERVAL 3.0f
+#define DRONE_BUNKER_MAX_DRONES 3
+#define DRONE_BUNKER_HP 1
+#define SCORE_DRONE_BUNKER 500
+
 // Stage 1 boss (Leviathan) parts: the dual-targeting rule made literal.
 // Pods are gun-weak (magenta, air-class), hull sections are torpedo-weak
 // (amber, surface-class), and the core - revealed once both hull
@@ -267,6 +293,25 @@ typedef struct {
 } SurfaceTarget;
 
 typedef enum {
+    LAND_TARGET_MORTAR_BATTERY,
+    LAND_TARGET_DRONE_BUNKER
+} LandTargetType;
+
+// World-anchored like surface targets (drifts with the scroll, so it
+// stays glued to the terrain cell it mounted on). The battery's shell
+// lives in its slot; spawning prefers slots whose shell has also died
+// so a mid-air shell isn't clipped by pool reuse.
+typedef struct {
+    LandTargetType type;
+    Vector2 pos;
+    float radius;
+    int hp;
+    float fireTimer;
+    MortarShell shell;
+    bool active;
+} LandTarget;
+
+typedef enum {
     GAME_EVENT_AIR_TARGET_DESTROYED,
     GAME_EVENT_SURFACE_TARGET_DESTROYED,
     GAME_EVENT_GUN_FIRED,
@@ -286,7 +331,8 @@ typedef enum {
     // volley reads), shared by every bullet-firing enemy - the audible
     // counterpart of the universal red-diamond projectile.
     GAME_EVENT_ENEMY_FIRED,
-    GAME_EVENT_SAM_LAUNCHED
+    GAME_EVENT_SAM_LAUNCHED,
+    GAME_EVENT_LAND_TARGET_DESTROYED
 } GameEventType;
 
 typedef struct {
@@ -295,6 +341,7 @@ typedef struct {
     union {
         AirTargetType airTarget;
         SurfaceTargetType surfaceTarget;
+        LandTargetType landTarget;
         TorpedoImpactType torpedoImpact;
         BossPartId bossPart;
     } target;
@@ -382,5 +429,24 @@ Vector2 CalculateMortarReticle(Vector2 spawn);
 void FirePlayerMortar(MortarShell *shell, Vector2 spawn, Vector2 target);
 bool UpdatePlayerMortarShell(MortarShell *shell, float dt, float scrollDt);
 void ResolveMortarBlastSurfaceTargets(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events);
+
+// Stage 2 land class (see the constants block above). Batteries and
+// bunkers hold pre-armed at the shared activation line like every other
+// acting enemy; only the player's mortar blast can damage them.
+bool TrySpawnMortarBattery(LandTarget targets[], int count, float laneY);
+bool TrySpawnDroneBunker(LandTarget targets[], int count, float laneY);
+bool DamageLandTarget(LandTarget *target, int damage, GameEventQueue *events);
+void UpdateLandTargets(LandTarget targets[], int count, float dt);
+// Battery fire control + shell flight: lobs at the player's (clamped)
+// position, pushes MORTAR_FIRED on launch and MORTAR_BLAST on landing.
+// Shells keep flying after their battery dies (boss rule).
+void UpdateMortarBatteries(LandTarget targets[], int count, float dt, Vector2 playerPos,
+    GameEventQueue *events);
+bool ResolveLandMortarBlastPlayerHit(const LandTarget targets[], int count, Vector2 playerPos,
+    float playerRadius);
+void UpdateDroneBunkerLaunches(LandTarget targets[], int count, float dt, AirTarget airTargets[],
+    int airCount, GameEventQueue *events);
+void ResolveMortarBlastLandTargets(Vector2 pos, LandTarget targets[], int targetCount,
+    GameEventQueue *events);
 
 #endif

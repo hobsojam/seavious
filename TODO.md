@@ -233,10 +233,19 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       wraps to Stage 1 until Stage 2 exists), game over forfeits via
       `ResetRunState`; stage-clear overlay reads the stage number and
       says CONTINUE. Unit-tested in `stage_tests.c`
-- [ ] Implement Stage 2 land roster: Mortar Battery (enemy MortarShell
-      lob + shadow telegraph, dies to one player mortar blast) and
-      Drone Bunker (land Relay Node); green faction color; sprites via
-      the generator idiom; new stage glyphs
+- [x] Implement Stage 2 land roster — engine-side complete (awaits
+      `stage2.txt` for real placement): LandTarget pool, mortar-only
+      damage (no gun/torpedo path exists structurally), no contact-kill;
+      Mortar Battery (600 pts, enemy MortarShell lob + red shadow
+      telegraph, one shell in flight, shells outlive their battery) and
+      Drone Bunker (500 pts, land Relay Node, cap 3, owner ids offset
+      past the surface pool); green faction color + green destruction
+      burst (pad stays as the marker, no wreck); sprites via generators
+      (`gen-mortar-battery.py`, `gen-drone-bunker.py`); `B`/`K` map
+      glyphs compile cell as terrain + pad + spawn in one. Unit-tested
+      in `gameplay_tests.c`, glyph compilation in `test_stage_table.py`,
+      smoke-run injection covers update/render paths. Balance numbers
+      (3.5s/3.0s cadences, 1 HP each) need the Stage 2 playtest
 - [ ] Author `assets/stages/stage2.txt` (~10 beats per the README beat
       intent: mortar tutorial opening, three-lane escalation, strait
       run, breather, fortress-atoll boss lock) + generator/table wiring

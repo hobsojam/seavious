@@ -286,6 +286,135 @@ static void TestPlayerMortar(void) {
     CHECK(events.count == 1);
 }
 
+static void TestMortarBattery(void) {
+    LandTarget land[1] = { 0 };
+    GameEventQueue events = { 0 };
+    CHECK(TrySpawnMortarBattery(land, 1, 120.0f));
+    CHECK(land[0].type == LAND_TARGET_MORTAR_BATTERY && land[0].hp == MORTAR_BATTERY_HP);
+
+    // Anchored drift at scroll speed (glued to its terrain cell).
+    float startX = land[0].pos.x;
+    UpdateLandTargets(land, 1, 1.0f);
+    NEAR(startX - land[0].pos.x, OCEAN_SCROLL_SPEED);
+
+    // Right of the activation line: held pre-armed, no lob.
+    land[0].pos = (Vector2){ (float)GAME_WIDTH + 5.0f, 120.0f };
+    UpdateMortarBatteries(land, 1, MORTAR_BATTERY_FIRE_INTERVAL * 2.0f, (Vector2){ 100, 200 }, &events);
+    CHECK(!land[0].shell.active && events.count == 0);
+
+    // Crossing the line lobs immediately at the player: one fire event.
+    land[0].pos = (Vector2){ 400.0f, 120.0f };
+    UpdateMortarBatteries(land, 1, 0.01f, (Vector2){ 100, 200 }, &events);
+    CHECK(land[0].shell.active && !land[0].shell.landed);
+    NEAR(land[0].shell.target.x, 100.0f);
+    NEAR(land[0].shell.target.y, 200.0f);
+    CHECK(events.count == 1 && events.items[0].type == GAME_EVENT_MORTAR_FIRED);
+
+    // A full interval later the shell has landed (one blast event), and
+    // no second shell double-lobbed behind it.
+    events.count = 0;
+    UpdateMortarBatteries(land, 1, MORTAR_BATTERY_FIRE_INTERVAL, (Vector2){ 100, 200 }, &events);
+    CHECK(land[0].shell.landed);
+    CHECK(events.count == 1 && events.items[0].type == GAME_EVENT_MORTAR_BLAST);
+
+    // The landed blast kills a player standing in it, misses one outside.
+    CHECK(ResolveLandMortarBlastPlayerHit(land, 1, (Vector2){ 100, 200 }, PLAYER_HIT_RADIUS));
+    CHECK(!ResolveLandMortarBlastPlayerHit(land, 1, (Vector2){ 300, 60 }, PLAYER_HIT_RADIUS));
+
+    // Blast expiry frees the tube; the banked interval relobs at once.
+    events.count = 0;
+    UpdateMortarBatteries(land, 1, LAND_MORTAR_BLAST_DURATION, (Vector2){ 100, 200 }, &events);
+    CHECK(land[0].shell.active && !land[0].shell.landed);
+    CHECK(events.count == 1 && events.items[0].type == GAME_EVENT_MORTAR_FIRED);
+}
+
+static void TestLandTargetDeathAndShellPersistence(void) {
+    LandTarget land[1] = { 0 };
+    GameEventQueue events = { 0 };
+    CHECK(TrySpawnMortarBattery(land, 1, 100.0f));
+    land[0].pos = (Vector2){ 300.0f, 100.0f };
+    land[0].fireTimer = MORTAR_BATTERY_FIRE_INTERVAL;
+    UpdateMortarBatteries(land, 1, 0.001f, (Vector2){ 80, 90 }, &events);
+    CHECK(land[0].shell.active);
+
+    // The battery dies (scoring once); its shell keeps falling.
+    events.count = 0;
+    CHECK(DamageLandTarget(&land[0], 1, &events));
+    CHECK(!land[0].active);
+    CHECK(events.count == 1 && events.items[0].type == GAME_EVENT_LAND_TARGET_DESTROYED);
+    CHECK(ScoreGameEvents(&events) == SCORE_MORTAR_BATTERY);
+    events.count = 0;
+    UpdateMortarBatteries(land, 1, LAND_MORTAR_AIR_TIME, (Vector2){ 80, 90 }, &events);
+    CHECK(land[0].shell.landed);
+    CHECK(events.count == 1 && events.items[0].type == GAME_EVENT_MORTAR_BLAST);
+
+    // Pool reuse prefers a slot with no live shell; when only shell-
+    // carrying slots are free, the newcomer inherits the shell untouched.
+    LandTarget pool[2] = { 0 };
+    pool[0].shell.active = true;
+    CHECK(TrySpawnDroneBunker(pool, 2, 90.0f));
+    CHECK(pool[1].active && !pool[0].active);
+    CHECK(TrySpawnMortarBattery(pool, 2, 60.0f)); // only slot 0 left
+    CHECK(pool[0].active && pool[0].shell.active);
+}
+
+static void TestDroneBunker(void) {
+    LandTarget land[1] = { 0 };
+    AirTarget air[4] = { 0 };
+    GameEventQueue events = { 0 };
+    CHECK(TrySpawnDroneBunker(land, 1, 200.0f));
+    CHECK(land[0].type == LAND_TARGET_DRONE_BUNKER && land[0].hp == DRONE_BUNKER_HP);
+
+    // Pre-armed hold right of the line: intervals elapse, nothing hatches.
+    land[0].pos = (Vector2){ (float)GAME_WIDTH + 5.0f, 200.0f };
+    UpdateDroneBunkerLaunches(land, 1, DRONE_BUNKER_LAUNCH_INTERVAL * 2.0f, air, 4, &events);
+    CHECK(events.count == 0);
+
+    // First drone right at the line; owner ids sit past the surface
+    // pool's relay range so the two namespaces can't collide.
+    land[0].pos = (Vector2){ 400.0f, 200.0f };
+    UpdateDroneBunkerLaunches(land, 1, 0.01f, air, 4, &events);
+    CHECK(events.count == 1 && events.items[0].type == GAME_EVENT_DRONE_LAUNCHED);
+    int owned = 0;
+    for (int i = 0; i < 4; i++) {
+        if (!air[i].active) continue;
+        CHECK(air[i].ownerId == 1 + MAX_SURFACE_TARGETS);
+        owned++;
+    }
+    CHECK(owned == 1);
+
+    // The cap holds at DRONE_BUNKER_MAX_DRONES...
+    for (int burst = 0; burst < 5; burst++) {
+        UpdateDroneBunkerLaunches(land, 1, DRONE_BUNKER_LAUNCH_INTERVAL, air, 4, &events);
+    }
+    owned = 0;
+    for (int i = 0; i < 4; i++) {
+        if (air[i].active) owned++;
+    }
+    CHECK(owned == DRONE_BUNKER_MAX_DRONES);
+    // ...and a freed slot refills immediately (held at the interval).
+    air[0].active = false;
+    UpdateDroneBunkerLaunches(land, 1, 0.0f, air, 4, &events);
+    owned = 0;
+    for (int i = 0; i < 4; i++) {
+        if (air[i].active) owned++;
+    }
+    CHECK(owned == DRONE_BUNKER_MAX_DRONES);
+
+    // Dies to one player mortar blast; a blast outside the radius misses.
+    GameEventQueue killEvents = { 0 };
+    ResolveMortarBlastLandTargets(land[0].pos, land, 1, &killEvents);
+    CHECK(!land[0].active);
+    CHECK(ScoreGameEvents(&killEvents) == SCORE_DRONE_BUNKER);
+    LandTarget spared[1] = { 0 };
+    CHECK(TrySpawnMortarBattery(spared, 1, 60.0f));
+    spared[0].pos = (Vector2){ 100.0f, 60.0f };
+    ResolveMortarBlastLandTargets(
+        (Vector2){ 100.0f + PLAYER_MORTAR_BLAST_RADIUS + MORTAR_BATTERY_RADIUS + 5.0f, 60.0f },
+        spared, 1, &killEvents);
+    CHECK(spared[0].active);
+}
+
 static void TestSurfaceTargets(void) {
     SurfaceTarget targets[2] = { 0 };
     CHECK(TrySpawnCasemate(targets, 2, 30));
@@ -525,6 +654,9 @@ int main(void) {
     TestTorpedoes();
     TestTerrain();
     TestPlayerMortar();
+    TestMortarBattery();
+    TestLandTargetDeathAndShellPersistence();
+    TestDroneBunker();
     TestSurfaceTargets();
     TestRelayNode();
     TestMine();
