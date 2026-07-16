@@ -138,6 +138,26 @@ int main(void) {
                 .active = true
             };
         }
+        // Stage 2 land class ahead of its stage: a battery and a bunker on
+        // quiet lanes run the land drift/fire/launch/render paths
+        // headlessly. Blast landings fall inside respawn invulnerability
+        // windows, so the scripted lives timeline below still holds.
+        if (smokeFrames > 0 && framesRun == 30) {
+            state.landTargets[0] = (LandTarget){
+                .type = LAND_TARGET_MORTAR_BATTERY,
+                .pos = { 430.0f, 90.0f },
+                .radius = MORTAR_BATTERY_RADIUS,
+                .hp = MORTAR_BATTERY_HP,
+                .active = true
+            };
+            state.landTargets[1] = (LandTarget){
+                .type = LAND_TARGET_DRONE_BUNKER,
+                .pos = { 430.0f, 260.0f },
+                .radius = DRONE_BUNKER_RADIUS,
+                .hp = DRONE_BUNKER_HP,
+                .active = true
+            };
+        }
         // A mine dropped onto the player exercises the contact-detonation
         // path (blast + SFX + no score) before the forced bullet hits below.
         if (smokeFrames > 0 && framesRun == 60) {

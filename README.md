@@ -197,6 +197,32 @@ the drifting-vessel niche already belongs to the Mobile Platform.
   self-propulsion shares the scroll clock, so the boss lock freezes it
   with the rest of the water traffic.
 
+Land (green, mortar targets, Stage 2 — implemented engine-side, awaiting
+`stage2.txt` to be authored; family language: green accents on dark
+stonework, installations *built on terrain*, each bringing its hardpoint
+pad with it via the `B`/`K` map glyphs). Reachable by the player's
+mortar alone — no gun or torpedo collision path exists, the same
+structural separation that keeps bullets off surface targets — and they
+never contact-kill: flying over land stays safe ("no terrain crashes"
+extended to what stands on it). Destroyed installations burst green and
+leave their scorched pad behind rather than a drifting wreck.
+- *Mortar Battery* — the land flagship: the enemy counterpart of the
+  player's scavenged mortar, lobbing an arcing red shell (enemy
+  ordnance is always red) at the player's position with the
+  shrinking/growing shadow telegraph the Leviathan taught. One shell in
+  flight per battery, 3.5s cadence held pre-armed at the activation
+  line, shells already flying keep falling after the battery dies (boss
+  rule). Sprite (first-pass programmatic, 24x24): round stone
+  emplacement, green pad ring, steel dome with a dark mortar mouth and
+  pale armed-core pixel. 1 HP to the player's mortar blast, 600 points.
+- *Drone Bunker* — the Relay Node's land cousin: hatches Skimmer Drones
+  (cap 3 of its own alive, 3.0s cadence, freed slots refill immediately)
+  from behind shorelines where the torpedo can't retaliate, forcing
+  gun+mortar coordination. Owner ids share the relay namespace, offset
+  past the surface pool range. Sprite (first-pass programmatic, 24x24):
+  low stone blockhouse, dark hatch rimmed in green, green marker stripe.
+  1 HP to the mortar blast, 500 points.
+
 Stage 1 boss: *Leviathan-class dreadnought*, partially breaching the
 surface, with separate gun-weak pods and torpedo-weak hull sections as
 destructible parts — the dual-targeting mechanic made literal in one fight.
@@ -409,6 +435,8 @@ future enemies.
 | Gunship | 500 | Implemented |
 | Mobile Platform | 500 | Implemented |
 | Mine | 100 | Implemented (torpedo kill only; contact detonation scores nothing) |
+| Mortar Battery | 600 | Implemented (Stage 2 land class, mortar-only) |
+| Drone Bunker | 500 | Implemented (Stage 2 land class, mortar-only) |
 | Boss part | 1,000 (pods, SAM batteries), 2,000 (core) | Implemented; boss-clear bonus later |
 | Boss SAM missile (shot down) | 50 | Implemented |
 
@@ -584,7 +612,9 @@ move after they fire; (7) Relay Node set-piece — priority targeting;
 (8) mine belt — positioning and torpedo economy; (9) Gunship + Mobile
 Platform finale; (10) empty-water breather, then boss lock.
 
-**Stage 2 design** (agreed, not yet implemented): Stage 1 was the
+**Stage 2 design** (agreed; the land roster below is implemented
+engine-side — see the roster section — while the map, boss, theme, and
+salvage reward remain to be built): Stage 1 was the
 dual-targeting tutorial on open ocean; Stage 2 is the **three-lane exam
 in an archipelago** — land becomes a weapon domain instead of an
 occasional obstacle. A dense island chain of channels, straits, and
@@ -636,9 +666,12 @@ cleanly: ground glyphs and land are world positions on the water, air
 glyphs fire their spawn when their column reaches the right screen edge —
 the same column meaning either way. Hardpoint pads (`H`, a terrain cell
 with a fortified mounting pad) are only authored — and therefore only
-painted — where an installation actually mounts (Stage 2+ land targets):
-an empty "this could hold a turret" pad is visual noise, so Stage 1
-carries none. Pipeline follows the repo's
+painted — where an installation actually mounts: an empty "this could
+hold a turret" pad is visual noise, so Stage 1 carries none. The land
+installation glyphs (`B` Mortar Battery, `K` Drone Bunker) enforce this
+by construction: each compiles its cell as terrain + hardpoint pad +
+spawn event at once, so a pad can never be empty and an installation
+can never float off land. Pipeline follows the repo's
 generator idiom (XM tracks, sprites): the map (`assets/stages/stage1.txt`)
 is compiled by a `tools/` script into a committed C spawn-event table the
 engine consumes directly — no text parsing at runtime — with a drift test

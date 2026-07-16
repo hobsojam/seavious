@@ -42,7 +42,14 @@ GLYPH_KINDS = {
     'R': 'STAGE_SPAWN_RELAY_NODE',
     'm': 'STAGE_SPAWN_MINE',
     'P': 'STAGE_SPAWN_MOBILE_PLATFORM',
+    'B': 'STAGE_SPAWN_MORTAR_BATTERY',
+    'K': 'STAGE_SPAWN_DRONE_BUNKER',
 }
+
+# Land installations bring their mounting pad with them: the glyph's cell
+# compiles as terrain + hardpoint + spawn event, so a pad can never be
+# authored empty and an installation can never float off land.
+LAND_GLYPHS = frozenset('BK')
 
 
 def parse_map(path):
@@ -81,6 +88,10 @@ def parse_map(path):
             elif ch == 'H':
                 terrain_cells.add((px, row))
                 hardpoints.append((px, row))
+            elif ch in LAND_GLYPHS:
+                terrain_cells.add((px, row))
+                hardpoints.append((px, row))
+                events.append((px, row, GLYPH_KINDS[ch]))
             elif ch in GLYPH_KINDS:
                 events.append((px, row, GLYPH_KINDS[ch]))
             else:

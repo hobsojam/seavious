@@ -24,6 +24,7 @@ AMBER = (232, 148, 44)      # ground family
 MAGENTA = (216, 72, 192)    # air family
 WHITE_HOT = (255, 246, 216) # explosion-center palette (boss core)
 CYAN = (76, 224, 232)       # player faction (ship tech, title wordmark)
+GREEN = (108, 224, 96)      # land family (Stage 2 installations)
 # family color None = deliberately faction-less (the boss mortar: bare
 # steel means "no weapon works on this", so both faction colors must be
 # absent, not merely unrequired)
@@ -35,6 +36,8 @@ GENERATORS = {
     'gen-mobile-platform.py': [('mobile_platform.png', 36, 18, AMBER)],
     'gen-gunship.py': [('gunship.png', 32, 24, MAGENTA)],
     'gen-title-logo.py': [('title_logo.png', 384, 68, CYAN)],
+    'gen-mortar-battery.py': [('mortar_battery.png', 24, 24, GREEN)],
+    'gen-drone-bunker.py': [('drone_bunker.png', 24, 24, GREEN)],
     'gen-leviathan.py': [
         ('leviathan_hull.png', 200, 120, AMBER),
         ('leviathan_pod.png', 20, 20, MAGENTA),

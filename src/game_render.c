@@ -327,6 +327,60 @@ static void DrawStandaloneTerrain(const GameState *state, const GameAssets *asse
     }
 }
 
+// Stage 2 land installations: drawn on their terrain pads, above the
+// terrain/pad layer and below everything moving on the water.
+static void DrawLandTargets(const GameState *state, const GameAssets *assets) {
+    for (int i = 0; i < MAX_LAND_TARGETS; i++) {
+        if (!state->landTargets[i].active) continue;
+        Texture2D tex = state->landTargets[i].type == LAND_TARGET_DRONE_BUNKER
+            ? assets->droneBunkerTex : assets->mortarBatteryTex;
+        DrawTexture(tex,
+            (int)(state->landTargets[i].pos.x - tex.width / 2.0f),
+            (int)(state->landTargets[i].pos.y - tex.height / 2.0f),
+            WHITE);
+    }
+}
+
+// Land-battery shells speak the boss's red mortar language verbatim:
+// shadow telegraph on the surface, arcing shell and blast at the top.
+static void DrawLandMortarShadows(const GameState *state) {
+    for (int i = 0; i < MAX_LAND_TARGETS; i++) {
+        const MortarShell *shell = &state->landTargets[i].shell;
+        if (!shell->active || shell->landed) continue;
+        float u = shell->t / LAND_MORTAR_AIR_TIME;
+        float radius = 2.0f + 5.0f * fabsf(cosf(PI * u));
+        DrawCircleV(shell->target, radius, (Color){ 8, 10, 14, 110 });
+        DrawCircleLines((int)shell->target.x, (int)shell->target.y, radius + 1.0f,
+            (Color){ 232, 60, 60, (unsigned char)(40.0f + 150.0f * u) });
+    }
+}
+
+static void DrawLandMortarShells(const GameState *state) {
+    for (int i = 0; i < MAX_LAND_TARGETS; i++) {
+        const MortarShell *shell = &state->landTargets[i].shell;
+        if (!shell->active) continue;
+        if (!shell->landed) {
+            float u = shell->t / LAND_MORTAR_AIR_TIME;
+            float arc = sinf(PI * u);
+            Vector2 pos = {
+                shell->launch.x + (shell->target.x - shell->launch.x) * u,
+                shell->launch.y + (shell->target.y - shell->launch.y) * u - 40.0f * arc
+            };
+            DrawPoly(pos, 4, 3.0f + 3.0f * arc, 0.0f, (Color){ 232, 60, 60, 255 });
+            DrawPixelV(pos, (Color){ 255, 250, 240, 255 });
+        } else {
+            float p = 1.0f - shell->blastT / LAND_MORTAR_BLAST_DURATION;
+            unsigned char fade = (unsigned char)(210.0f * (1.0f - p * 0.7f));
+            DrawCircleV(shell->target, LAND_MORTAR_BLAST_RADIUS * (0.4f + 0.6f * p),
+                (Color){ 232, 90, 40, fade });
+            DrawCircleLines((int)shell->target.x, (int)shell->target.y,
+                LAND_MORTAR_BLAST_RADIUS * (0.6f + 0.4f * p),
+                (Color){ 232, 60, 60, (unsigned char)(220.0f * (1.0f - p)) });
+            DrawCircleV(shell->target, 8.0f * (1.0f - p), (Color){ 255, 246, 216, fade });
+        }
+    }
+}
+
 static void DrawTerrainHardpoints(const GameState *state, const GameAssets *assets) {
     const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
     Rectangle source = { 0.0f, 0.0f, (float)assets->terrainHardpointTex.width,
@@ -452,6 +506,8 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     DrawStandaloneTerrain(state, assets);
     DrawTerrainDetails(state, assets);
     DrawTerrainHardpoints(state, assets);
+    DrawLandTargets(state, assets);
+    DrawLandMortarShadows(state);
 
     // Reticle marks maximum torpedo range, not a target lock. It stands
     // down with the rest of the weapons once the salvage autopilot flies.
@@ -642,6 +698,7 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
             ? (Color){ 255, 100, 216, alpha }
             : (Color){ 255, 180, 72, alpha };
         if (state->explosions[i].type == EXPLOSION_PLAYER) edge = (Color){ 96, 232, 255, alpha };
+        if (state->explosions[i].type == EXPLOSION_LAND_TARGET) edge = (Color){ 140, 255, 120, alpha };
         DrawCircleLines((int)state->explosions[i].pos.x, (int)state->explosions[i].pos.y, radius, edge);
         DrawCircleV(state->explosions[i].pos, radius * 0.35f, (Color){ 255, 242, 196, alpha });
     }
@@ -649,6 +706,7 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     // Mortar shells at their arc apex are the highest thing in the scene,
     // and the docking dome flies over the player: top of the world layer.
     DrawBossAirborne(state, assets);
+    DrawLandMortarShells(state);
 
     // The player's shell arcs at the same height as the boss's - same
     // lob-and-blast language, green for player ordnance.

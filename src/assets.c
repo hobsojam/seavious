@@ -72,6 +72,13 @@ GameAssets LoadGameAssets(void) {
     assets.mobilePlatformTex = LoadTexture("assets/sprites/mobile_platform.png");
     SetTextureFilter(assets.mobilePlatformTex, TEXTURE_FILTER_POINT);
 
+    // Stage 2 land class (green family): installations on terrain pads.
+    assets.mortarBatteryTex = LoadTexture("assets/sprites/mortar_battery.png");
+    SetTextureFilter(assets.mortarBatteryTex, TEXTURE_FILTER_POINT);
+
+    assets.droneBunkerTex = LoadTexture("assets/sprites/drone_bunker.png");
+    SetTextureFilter(assets.droneBunkerTex, TEXTURE_FILTER_POINT);
+
     // Leviathan boss set: the hull base plus its four layered part
     // sprites (see README "Stage 1 boss design").
     assets.leviathanHullTex = LoadTexture("assets/sprites/leviathan_hull.png");
@@ -143,6 +150,8 @@ void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->leviathanHullSectionTex);
     UnloadTexture(assets->leviathanPodTex);
     UnloadTexture(assets->leviathanHullTex);
+    UnloadTexture(assets->droneBunkerTex);
+    UnloadTexture(assets->mortarBatteryTex);
     UnloadTexture(assets->mobilePlatformTex);
     UnloadTexture(assets->mineTex);
     UnloadTexture(assets->relayNodeTex);

@@ -33,6 +33,12 @@ static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
         case STAGE_SPAWN_MOBILE_PLATFORM:
             TrySpawnMobilePlatform(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
             break;
+        case STAGE_SPAWN_MORTAR_BATTERY:
+            TrySpawnMortarBattery(state->landTargets, MAX_LAND_TARGETS, event->laneY);
+            break;
+        case STAGE_SPAWN_DRONE_BUNKER:
+            TrySpawnDroneBunker(state->landTargets, MAX_LAND_TARGETS, event->laneY);
+            break;
     }
 }
 
