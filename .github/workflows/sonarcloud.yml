@@ -53,7 +53,7 @@ jobs:
           -DVCPKG_OVERLAY_PORTS="$GITHUB_WORKSPACE/vcpkg-overlays"
 
       - name: Install Sonar build wrapper
-        uses: SonarSource/sonarqube-scan-action/install-build-wrapper@v8
+        uses: SonarSource/sonarqube-scan-action/install-build-wrapper@v8.1.0
 
       - name: Build under Sonar build wrapper
         run: >
@@ -75,7 +75,7 @@ jobs:
           python3 -m coverage xml -o coverage-python.xml
 
       - name: Scan with SonarCloud
-        uses: SonarSource/sonarqube-scan-action@v8
+        uses: SonarSource/sonarqube-scan-action@v8.1.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
