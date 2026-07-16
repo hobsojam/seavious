@@ -40,6 +40,11 @@ int StageCount(void) {
     return 1;
 }
 
+int NextStageNumber(int stageNumber) {
+    if (stageNumber < 1 || stageNumber >= StageCount()) return 1;
+    return stageNumber + 1;
+}
+
 const StageDescriptor *GetStageDescriptor(int stageNumber) {
     // Rebuilt on each call: the generated counts are const ints, not
     // constant expressions, so a static initializer can't hold them.

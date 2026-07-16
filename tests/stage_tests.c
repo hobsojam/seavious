@@ -269,10 +269,75 @@ static void TestStageDescriptor(void) {
     CHECK(stage->hardpoints == STAGE1_TERRAIN_HARDPOINTS
         && stage->hardpointCount == STAGE1_TERRAIN_HARDPOINT_COUNT);
     CHECK(stage->lengthPx == STAGE1_LENGTH_PX);
-    // Out-of-range numbers clamp to a valid stage rather than failing,
-    // so the advance flow's wrap can never dereference nothing.
-    CHECK(GetStageDescriptor(0) != NULL);
-    CHECK(GetStageDescriptor(99) != NULL);
+    // Out-of-range numbers clamp to real Stage 1 content rather than
+    // failing, so the advance flow's wrap can never dereference nothing.
+    const StageDescriptor *below = GetStageDescriptor(0);
+    CHECK(below != NULL && below->events == STAGE1_EVENTS
+        && below->lengthPx == STAGE1_LENGTH_PX);
+    const StageDescriptor *above = GetStageDescriptor(99);
+    CHECK(above != NULL && above->terrain == STAGE1_TERRAIN
+        && above->eventCount == STAGE1_EVENT_COUNT);
+}
+
+static void TestNextStageNumberWraps(void) {
+    // With N stages the CONTINUE sequence is 1, 2, ..., N, back to 1.
+    // Written as a property over StageCount so it keeps holding when
+    // Stage 2 raises the count.
+    for (int s = 1; s <= StageCount(); s++) {
+        int next = NextStageNumber(s);
+        CHECK(next >= 1 && next <= StageCount());
+        if (s < StageCount()) CHECK(next == s + 1);
+        else CHECK(next == 1);
+    }
+    // Nonsense inputs recover to Stage 1 instead of walking off the table.
+    CHECK(NextStageNumber(0) == 1);
+    CHECK(NextStageNumber(-3) == 1);
+    CHECK(NextStageNumber(99) == 1);
+}
+
+static void TestStageScriptRunsAgainAfterAdvance(void) {
+    GameState state;
+    ResetRunState(&state);
+
+    // Play "through" Stage 1: jump to the map end and raise the lock.
+    state.scrollDistance = (float)STAGE1_LENGTH_PX;
+    state.stageCursor = STAGE1_EVENT_COUNT;
+    UpdateStageScript(&state, 0.001f);
+    CHECK(state.bossLock);
+    state.score = 900;
+    state.hasMortar = true;
+    state.stageClear = true;
+
+    // The advance: exactly what the stage-clear CONTINUE input does.
+    BeginStage(&state, NextStageNumber(state.stageNumber));
+    CHECK(state.stageNumber == 1); // wraps: Stage 1 is the only stage today
+    CHECK(state.score == 900 && state.hasMortar);
+    CHECK(!state.bossLock && !state.stageClear);
+    CHECK(state.player.x == PLAYER_START_X && state.player.y == PLAYER_START_Y);
+    CHECK(state.boss.phase == BOSS_PHASE_INACTIVE);
+
+    // The rewound script fires the first event again...
+    state.scrollDistance = (float)STAGE1_EVENTS[0].px - 0.5f;
+    UpdateStageScript(&state, 1.0f / OCEAN_SCROLL_SPEED);
+    CHECK(state.stageCursor >= 1);
+    CHECK(CountActiveAir(&state) + CountActiveSurface(&state) > 0);
+
+    // ...and the boss lock rises again at this stage's end.
+    state.scrollDistance = (float)GetStageDescriptor(state.stageNumber)->lengthPx;
+    UpdateStageScript(&state, 0.001f);
+    CHECK(state.bossLock);
+}
+
+static void TestStageScriptClampsUnknownStageNumber(void) {
+    // A stage number past the table (future save data, a bug) must play
+    // Stage 1 content through the clamp, not read a missing descriptor.
+    GameState state;
+    ResetRunState(&state);
+    state.stageNumber = 99;
+    state.scrollDistance = (float)STAGE1_EVENTS[0].px - 0.5f;
+    UpdateStageScript(&state, 1.0f / OCEAN_SCROLL_SPEED);
+    CHECK(state.stageCursor >= 1);
+    CHECK(CountActiveAir(&state) + CountActiveSurface(&state) > 0);
 }
 
 static void TestBeginStageCarriesRunProgression(void) {
@@ -306,7 +371,10 @@ static void TestBeginStageCarriesRunProgression(void) {
 
 int main(void) {
     TestStageDescriptor();
+    TestNextStageNumberWraps();
     TestBeginStageCarriesRunProgression();
+    TestStageScriptRunsAgainAfterAdvance();
+    TestStageScriptClampsUnknownStageNumber();
     TestTableInvariants();
     TestEventsFireOnceInOrder();
     TestRelayGlyphSpawns();

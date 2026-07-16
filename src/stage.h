@@ -15,5 +15,8 @@ void UpdateStageScript(GameState *state, float dt);
 // dereference nothing.
 int StageCount(void);
 const StageDescriptor *GetStageDescriptor(int stageNumber);
+// The stage-clear CONTINUE target: the next stage, wrapping the last
+// back to Stage 1.
+int NextStageNumber(int stageNumber);
 
 #endif

@@ -18,7 +18,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
             // Stage clear advances the run: score, lives, and the
             // salvaged mortar carry into the next stage, wrapping back
             // to Stage 1 until more stages exist.
-            BeginStage(state, state->stageNumber % StageCount() + 1);
+            BeginStage(state, NextStageNumber(state->stageNumber));
         } else {
             // Game over forfeits the run: fresh start at Stage 1.
             ResetRunState(state);
