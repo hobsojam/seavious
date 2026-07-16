@@ -12,4 +12,8 @@
 int CalculatePresentScale(int screenWidth, int screenHeight);
 Rectangle CalculatePresentRect(int screenWidth, int screenHeight);
 
+// Reconcile the persisted fullscreen preference with the current window
+// state. The toggle callback keeps this decision testable without a window.
+bool SyncFullscreenSetting(bool fullscreen, bool borderlessActive, void (*toggle)(void));
+
 #endif

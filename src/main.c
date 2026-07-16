@@ -26,9 +26,8 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 // friendly); the setting is the source of truth and this converges the
 // window to it, so boot, F11, and the options row share one path.
 static void ApplyFullscreenSetting(const GameSettings *settings) {
-    if (settings->fullscreen != IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE)) {
-        ToggleBorderlessWindowed();
-    }
+    SyncFullscreenSetting(settings->fullscreen,
+        IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE), ToggleBorderlessWindowed);
 }
 
 int main(void) {
@@ -51,8 +50,9 @@ int main(void) {
     }
 
     GameSettings settings = LoadGameSettings(SETTINGS_FILE);
-    // The headless smoke run stays windowed regardless of the setting.
-    if (smokeFrames == 0) ApplyFullscreenSetting(&settings);
+    // The smoke run uses the default setting (windowed), but still follows
+    // the same initialization path as a real launch.
+    ApplyFullscreenSetting(&settings);
     GameAudio audio;
     LoadGameAudio(&audio, &settings);
 

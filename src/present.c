@@ -19,3 +19,9 @@ Rectangle CalculatePresentRect(int screenWidth, int screenHeight) {
         height
     };
 }
+
+bool SyncFullscreenSetting(bool fullscreen, bool borderlessActive, void (*toggle)(void)) {
+    if (fullscreen == borderlessActive) return false;
+    toggle();
+    return true;
+}

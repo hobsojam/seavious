@@ -213,6 +213,23 @@ static void TestPresentRect(void) {
     NEAR(tiny.y, -92.0f);
 }
 
+static int fullscreenToggles;
+
+static void CountFullscreenToggle(void) {
+    fullscreenToggles++;
+}
+
+static void TestFullscreenSynchronization(void) {
+    fullscreenToggles = 0;
+    CHECK(!SyncFullscreenSetting(false, false, CountFullscreenToggle));
+    CHECK(!SyncFullscreenSetting(true, true, CountFullscreenToggle));
+    CHECK(fullscreenToggles == 0);
+
+    CHECK(SyncFullscreenSetting(true, false, CountFullscreenToggle));
+    CHECK(SyncFullscreenSetting(false, true, CountFullscreenToggle));
+    CHECK(fullscreenToggles == 2);
+}
+
 static void TestPauseMenuResults(void) {
     PauseMenu menu;
     ResetPauseMenu(&menu);
@@ -248,6 +265,7 @@ int main(void) {
     TestTitleAmbientSimulation();
     TestOptionsFullscreenToggle();
     TestPresentRect();
+    TestFullscreenSynchronization();
     TestPauseMenuResults();
     return failures != 0;
 }
