@@ -13,7 +13,8 @@ music: refine in ChipTone later if a sound needs more character.
   torpedo_splash.wav  soft noise plip for unarmed direct hits
   explosion.wav       the armed-torpedo boom: heavy noise + sub thump
   air_pop.wav         drone kill: quick square drop + noise burst
-  player_death.wav    long dramatic square dive with a noise swell
+  player_death.wav    the biggest boom in the game: hard burst into a long
+                      rolling explosion + deep sub, faint power-down dive
   relay_launch.wav    Relay Node drone launch: broadcast-y double warble
   mine_detonation.wav contact-mine blast: sharp bright crack + metal ring
   ui_blip.wav         clean rising square, run-restart confirmation
@@ -130,14 +131,24 @@ def gen_air_pop():
 
 
 def gen_player_death():
+    # The run's worst moment gets the biggest boom in the game: a hard
+    # initial burst into a long rolling explosion over a deep sub, with a
+    # faint falling sine buried under the noise for a hint of "power
+    # dying". Explosion-first on purpose - the original square-dive
+    # version read as a beep, not a blast (playtest feedback).
     duration = 0.65
     n = int(SR * duration)
     rnd = random.Random(15)
     out = [0.0] * n
-    for i, t, phase in sweep_phase(n, lambda t: 880.0 * math.exp(-t * 4.5) + 55.0):
-        tone = square(phase, duty=0.5)
-        swell = rnd.uniform(-1.0, 1.0) * min(t / 0.3, 1.0) * 0.5
-        out[i] = envelope(t, duration, 4.0) * (0.65 * tone + swell)
+    prev = 0.0
+    for i, t, phase in sweep_phase(n, lambda t: 320.0 * math.exp(-t * 5.0) + 40.0):
+        noise = rnd.uniform(-1.0, 1.0)
+        prev += 0.16 * (noise - prev)
+        burst = noise * math.exp(-t * 40.0) * 0.9
+        roll = 2.8 * prev
+        dive = 0.22 * math.sin(2.0 * math.pi * phase) * math.exp(-t * 5.0)
+        sub = 0.7 * math.sin(2.0 * math.pi * 50.0 * t) * math.exp(-t * 6.0)
+        out[i] = envelope(t, duration, 5.0) * (roll + burst + dive) + sub
     return out
 
 
