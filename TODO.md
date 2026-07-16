@@ -204,9 +204,14 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       as a second binding column
 - [ ] Link the options/controls screens from the title screen when one
       exists (menu theme already reserved, see Audio)
+- [x] Hardpoint pads only where something mounts (decision): an empty
+      "could hold a turret" pad is visual noise, so the map only authors
+      `H` under an actual installation — Stage 1's two decorative pads
+      reverted to plain terrain (`#`, identical footprints), leaving the
+      glyph/tooling/render path in place for Stage 2 land targets
 - [ ] Design Stage 2 land-target roster (green mortar-class installations
-      built on terrain) — the Stage 2 counterpart of the Stage 1 roster
-      task above
+      built on terrain, mounted on `H` hardpoint pads) — the Stage 2
+      counterpart of the Stage 1 roster task above
 - [ ] Stage list + per-stage boss concepts (beyond Stage 1)
 - [ ] Plan each level (enemy wave placement, pacing, terrain/visual variety
       per stage — e.g. open ocean vs. storm vs. near islands) — Stage 1
