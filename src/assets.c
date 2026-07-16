@@ -21,6 +21,27 @@ static Texture2D LoadTerrainTile(const char *path, int width, int height, bool c
     return texture;
 }
 
+static Texture2D LoadChromaKeyTerrainTile(const char *path, int width, int height) {
+    Image image = LoadImage(path);
+    // The generated hardpoint is kept on a magenta key.  Use a range rather
+    // than an exact color match: PNG conversion can shift the keyed pixels
+    // by a few values, which would otherwise expose a pink square in game.
+    ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    Color *pixels = image.data;
+    int pixelCount = image.width * image.height;
+    for (int i = 0; i < pixelCount; i++) {
+        if (pixels[i].r > 220 && pixels[i].g < 80 && pixels[i].b > 180) {
+            pixels[i].a = 0;
+        }
+    }
+    ImageCrop(&image, GetImageAlphaBorder(image, 0.1f));
+    ImageResizeNN(&image, width, height);
+    Texture2D texture = LoadTextureFromImage(image);
+    UnloadImage(image);
+    SetTextureFilter(texture, TEXTURE_FILTER_POINT);
+    return texture;
+}
+
 GameAssets LoadGameAssets(void) {
     GameAssets assets = { 0 };
 
@@ -81,7 +102,7 @@ GameAssets LoadGameAssets(void) {
     }
     assets.terrainGroundTex = LoadTerrainTile("assets/tiles/terrain_ground.png", 128, 128, false);
     assets.terrainShoreTex = LoadTerrainTile("assets/tiles/terrain_shore_top.png", 128, 16, true);
-    assets.terrainHardpointTex = LoadTerrainTile("assets/tiles/terrain_hardpoint.png", 32, 32, false);
+    assets.terrainHardpointTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_island_hardpoint.png", 32, 32);
 
     assets.oceanTex = LoadTexture("assets/tiles/ocean.png");
     SetTextureFilter(assets.oceanTex, TEXTURE_FILTER_POINT);

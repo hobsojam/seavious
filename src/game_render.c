@@ -297,6 +297,20 @@ static void DrawStandaloneTerrain(const GameState *state, const GameAssets *asse
     }
 }
 
+static void DrawTerrainHardpoints(const GameState *state, const GameAssets *assets) {
+    Rectangle source = { 0.0f, 0.0f, (float)assets->terrainHardpointTex.width,
+        (float)assets->terrainHardpointTex.height };
+    for (int i = 0; i < STAGE1_TERRAIN_HARDPOINT_COUNT; i++) {
+        StageTerrainHardpoint hardpoint = STAGE1_TERRAIN_HARDPOINTS[i];
+        Rectangle cell = TerrainScreenRect((StageTerrainFootprint){
+            hardpoint.px, hardpoint.y, 32, 32
+        }, state->scrollDistance);
+        if (cell.x > GAME_WIDTH || cell.x + cell.width < 0.0f) continue;
+        Rectangle pad = { cell.x + 4.0f, cell.y + 4.0f, 24.0f, 24.0f };
+        DrawTexturePro(assets->terrainHardpointTex, source, pad, (Vector2){ 0 }, 0.0f, WHITE);
+    }
+}
+
 enum { TERRAIN_CELL_SIZE = 32 };
 
 static bool TerrainCellOccupied(int px, int y) {
@@ -428,7 +442,8 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         );
     }
 
-    DrawTerrain(state, assets);
+    DrawStandaloneTerrain(state, assets);
+    DrawTerrainHardpoints(state, assets);
 
     // Reticle marks maximum torpedo range, not a target lock. It stands
     // down with the rest of the weapons once the salvage autopilot flies.
