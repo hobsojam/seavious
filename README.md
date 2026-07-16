@@ -483,7 +483,8 @@ drive. `boss1_theme_a.xm` ("siren" — a high wailing descent, also over
 the minor backing) doubles as a lament on the game-over screen; the
 per-life death (0.6s) is deliberately too short to swap music, so only
 the final death changes the track. `stage1_theme_b.xm` ("driver") is
-reserved for future modal screens (menus, high-score entry).
+the title/menu theme (it was reserved for modal screens from the start;
+the title screen is the first).
 `stage1_drums_bass.xm`/`boss1_drums_bass.xm` are the authoring
 templates the tunes were composed over; they aren't played in-game.
 
@@ -505,10 +506,24 @@ the layout doesn't need to change later just to add that. Chosen as a
 reserved bar rather than an overlay so the HUD never competes with the
 glow/bloom-heavy playfield for readability.
 
+**Title screen**: the game boots to a title screen — the SEAVIOUS
+wordmark over live scrolling ocean, with the "driver" theme playing.
+The logo is **wordmark-first** (arcade-correct: the lettering is the
+identity): big blocky 5×7 capitals scaled 8×, generated to
+`assets/sprites/title_logo.png` by `tools/gen-title-logo.py` — player
+cyan with a pale top highlight and a **wave cutting through the lower
+third** (foam line, deeper cyan below the waterline), making the SEA in
+Seavious literal. The ship appears as the logo's *supporting element*,
+not the logo: scaled 2.5×, banked a subtle 12° (a full 45° rotation of
+a top-down sprite reads as tilted, not dynamic — the perspective is
+baked in), drifting slowly under the wordmark with a real wake trail
+underlining the title. Menu: Start / Options / Controls / Quit,
+sharing the pause menu's options and controls sub-screens
+(`menu.c`) so the two hosts can't drift apart.
+
 **Pause menu & settings**: P opens a pause menu (Resume / Options /
 Controls / Restart Run / Quit) drawn in the HUD palette over the frozen
-frame — the host for configuration until a title screen exists to link
-it from. Options holds **Music** and **SFX volume** as 0–10 steps that
+frame. Options holds **Music** and **SFX volume** as 0–10 steps that
 *scale the authored mix* (10 = the levels tuned in `audio.c`, 0 = muted),
 so balance decisions stay in code and the setting is only a user trim;
 changes apply live (with a blip at the new SFX level) and persist to
@@ -678,6 +693,8 @@ and `vcpkg.json` automatically (manifest mode) and configures itself.
 
 ## Controls
 
+The game boots to a title screen: Start / Options / Controls / Quit
+(Up/Down + Enter, same navigation as the pause menu).
 Arrow keys / WASD to move, within the 512x352 play area (the bottom 32px
 is reserved HUD space). Gun auto-fires forward and downs the Skimmer
 Drones (dark dart-diamond craft with a pulsing magenta core) that fly in

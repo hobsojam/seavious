@@ -29,6 +29,7 @@ typedef struct {
     Texture2D terrainTidePoolTex;
     Texture2D oceanTex;
     Texture2D oceanOverlayTex;
+    Texture2D titleLogoTex;
 } GameAssets;
 
 GameAssets LoadGameAssets(void);

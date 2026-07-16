@@ -23,6 +23,7 @@ add_executable(seavious
     src/settings.c
     src/stage.c
     src/stage1_data.c
+    src/title.c
 )
 
 # TEMPORARY: a stale Windows-side file handle has the exact path

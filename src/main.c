@@ -8,6 +8,7 @@
 #include "menu.h"
 #include "settings.h"
 #include "stage_data.h"
+#include "title.h"
 #include "raylib.h"
 #include <stdlib.h>
 
@@ -39,6 +40,10 @@ int main(void) {
 
     PauseMenu menu;
     ResetPauseMenu(&menu);
+    TitleScreen title;
+    ResetTitleScreen(&title);
+    // Boot lands on the title screen; START begins a fresh run.
+    bool onTitle = true;
     bool quit = false;
 
     // Set by the headless CI smoke test so the real game loop exits cleanly
@@ -49,21 +54,47 @@ int main(void) {
 
     while (!WindowShouldClose() && !quit) {
         float dt = GetFrameTime();
+
+        // Captured before the title screen may start a run, so the
+        // Enter/Space press that selects START can't leak into this same
+        // frame's gameplay input (it would fire a torpedo immediately).
+        bool runGameFrame = !onTitle;
+
+        if (onTitle) {
+            bool settingsChanged = false;
+            TitleResult titleResult = UpdateTitleScreen(&title, &assets, &settings, &settingsChanged, dt);
+            // The smoke run renders the title for a few frames, then
+            // auto-starts (no input injection headlessly).
+            if (smokeFrames > 0 && framesRun == 8) titleResult = TITLE_RESULT_START;
+            if (settingsChanged) {
+                ApplyAudioSettings(&audio, &settings);
+                SaveGameSettings(&settings, SETTINGS_FILE);
+                if (IsSoundValid(audio.uiBlip)) PlaySound(audio.uiBlip);
+            }
+            if (titleResult == TITLE_RESULT_START) {
+                ResetRunState(&state);
+                onTitle = false;
+                if (IsSoundValid(audio.uiBlip)) PlaySound(audio.uiBlip);
+            } else if (titleResult == TITLE_RESULT_QUIT) {
+                quit = true;
+            }
+        }
+
         // The smoke run holds pause open across a few frames after it
         // jumps to the islet, covering the real pause/resume path and
         // (with the forced screens below) the menu render paths, all
         // without input injection.
         bool smokePauseToggle = smokeFrames > 0 && (framesRun == 210 || framesRun == 216);
-        if (InputActionPressed(INPUT_PAUSE_MENU) || smokePauseToggle) {
+        if (runGameFrame && (InputActionPressed(INPUT_PAUSE_MENU) || smokePauseToggle)) {
             state.paused = !state.paused;
             if (state.paused) ResetPauseMenu(&menu);
             SetGameAudioPaused(&audio, state.paused);
         }
         if (smokeFrames > 0 && framesRun == 212) menu.screen = MENU_SCREEN_OPTIONS;
         if (smokeFrames > 0 && framesRun == 214) menu.screen = MENU_SCREEN_CONTROLS;
-        UpdateGameMusic(&audio, &state);
+        UpdateGameMusic(&audio, &state, onTitle);
 
-        if (smokeFrames > 0 && framesRun == 0) {
+        if (smokeFrames > 0 && framesRun == 9) {
             state.surfaceTargets[0] = (SurfaceTarget){
                 .type = SURFACE_TARGET_CASEMATE,
                 .pos = { state.player.x + 150.0f, state.player.y },
@@ -170,37 +201,43 @@ int main(void) {
         }
         if (smokeFrames > 0 && framesRun == 470) state.stageClear = true;
 
-        UpdateGame(&state, &assets, dt,
-            smokeFrames > 0 && framesRun == 0,
-            smokeFrames > 0 && framesRun == 100);
-        PlayGameSfx(&audio, &state.gameEvents);
+        if (runGameFrame) {
+            UpdateGame(&state, &assets, dt,
+                smokeFrames > 0 && framesRun == 9,
+                smokeFrames > 0 && framesRun == 100);
+            PlayGameSfx(&audio, &state.gameEvents);
 
-        // Menu runs after the (frozen) simulation step so a selection
-        // that unpauses can't leak its key press into this same frame's
-        // gameplay input (Enter would restart on the game-over screen,
-        // Space would fire a torpedo).
-        if (state.paused) {
-            bool settingsChanged = false;
-            MenuResult menuResult = UpdatePauseMenu(&menu, &settings, &settingsChanged);
-            if (settingsChanged) {
-                ApplyAudioSettings(&audio, &settings);
-                SaveGameSettings(&settings, SETTINGS_FILE);
-                // Click at the new level so the SFX volume is audible while
-                // adjusting (the music stream stays paused with the sim).
-                if (IsSoundValid(audio.uiBlip)) PlaySound(audio.uiBlip);
-            }
-            if (menuResult == MENU_RESULT_RESTART) ResetRunState(&state);
-            if (menuResult == MENU_RESULT_RESUME || menuResult == MENU_RESULT_RESTART) {
-                state.paused = false;
-                SetGameAudioPaused(&audio, false);
-            } else if (menuResult == MENU_RESULT_QUIT) {
-                quit = true;
+            // Menu runs after the (frozen) simulation step so a selection
+            // that unpauses can't leak its key press into this same frame's
+            // gameplay input (Enter would restart on the game-over screen,
+            // Space would fire a torpedo).
+            if (state.paused) {
+                bool settingsChanged = false;
+                MenuResult menuResult = UpdatePauseMenu(&menu, &settings, &settingsChanged);
+                if (settingsChanged) {
+                    ApplyAudioSettings(&audio, &settings);
+                    SaveGameSettings(&settings, SETTINGS_FILE);
+                    // Click at the new level so the SFX volume is audible while
+                    // adjusting (the music stream stays paused with the sim).
+                    if (IsSoundValid(audio.uiBlip)) PlaySound(audio.uiBlip);
+                }
+                if (menuResult == MENU_RESULT_RESTART) ResetRunState(&state);
+                if (menuResult == MENU_RESULT_RESUME || menuResult == MENU_RESULT_RESTART) {
+                    state.paused = false;
+                    SetGameAudioPaused(&audio, false);
+                } else if (menuResult == MENU_RESULT_QUIT) {
+                    quit = true;
+                }
             }
         }
 
         BeginTextureMode(target);
-            DrawGame(&state, &assets);
-            if (state.paused) DrawPauseMenu(&menu, &settings);
+            if (onTitle) {
+                DrawTitleScreen(&title, &assets, &settings);
+            } else {
+                DrawGame(&state, &assets);
+                if (state.paused) DrawPauseMenu(&menu, &settings);
+            }
         EndTextureMode();
 
         BeginDrawing();

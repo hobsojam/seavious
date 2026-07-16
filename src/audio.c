@@ -52,6 +52,7 @@ void ApplyAudioSettings(GameAudio *audio, const GameSettings *settings) {
     if (IsMusicValid(audio->stage)) SetMusicVolume(audio->stage, musicLevel);
     if (IsMusicValid(audio->boss)) SetMusicVolume(audio->boss, musicLevel);
     if (IsMusicValid(audio->lament)) SetMusicVolume(audio->lament, musicLevel);
+    if (IsMusicValid(audio->menu)) SetMusicVolume(audio->menu, musicLevel);
 
     float sfxScale = (float)settings->sfxVolume / (float)SETTINGS_VOLUME_MAX;
     SfxDef defs[SFX_DEF_MAX];
@@ -66,6 +67,9 @@ void LoadGameAudio(GameAudio *audio, const GameSettings *settings) {
     audio->stage = LoadMusicStream("assets/audio/stage1_theme_a.xm");
     audio->boss = LoadMusicStream("assets/audio/boss1_theme_b.xm");
     audio->lament = LoadMusicStream("assets/audio/boss1_theme_a.xm");
+    // "Driver" was reserved for modal screens from the start (see README
+    // Music structure); the title screen is the first one.
+    audio->menu = LoadMusicStream("assets/audio/stage1_theme_b.xm");
     audio->current = &audio->stage;
 
     SfxDef defs[SFX_DEF_MAX];
@@ -78,8 +82,9 @@ void LoadGameAudio(GameAudio *audio, const GameSettings *settings) {
     if (IsMusicValid(audio->stage)) PlayMusicStream(audio->stage);
 }
 
-void UpdateGameMusic(GameAudio *audio, const GameState *state) {
-    Music *want = state->gameOver ? &audio->lament
+void UpdateGameMusic(GameAudio *audio, const GameState *state, bool titleScreen) {
+    Music *want = titleScreen ? &audio->menu
+                : state->gameOver ? &audio->lament
                 : state->bossActive ? &audio->boss
                 : &audio->stage;
     if (want != audio->current) {
@@ -190,6 +195,7 @@ void UnloadGameAudio(GameAudio *audio) {
     UnloadSound(audio->torpedoSplash);
     UnloadSound(audio->torpedoLaunch);
     UnloadSound(audio->gunShot);
+    UnloadMusicStream(audio->menu);
     UnloadMusicStream(audio->lament);
     UnloadMusicStream(audio->boss);
     UnloadMusicStream(audio->stage);

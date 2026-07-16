@@ -23,20 +23,38 @@ void ResetPauseMenu(PauseMenu *menu) {
     menu->cursor = 0;
 }
 
-static int StepCursor(int cursor, int count) {
+int MenuStepCursor(int cursor, int count) {
     if (InputActionPressed(INPUT_MOVE_UP)) cursor = (cursor + count - 1) % count;
     if (InputActionPressed(INPUT_MOVE_DOWN)) cursor = (cursor + 1) % count;
     return cursor;
 }
 
-static bool MenuSelectPressed(void) {
+bool MenuSelectPressed(void) {
     return IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER) || IsKeyPressed(KEY_SPACE);
 }
 
 // Backspace, not Escape: raylib's default exit key is Escape, so binding
 // "back" there would close the window instead.
-static bool MenuBackPressed(void) {
+bool MenuBackPressed(void) {
     return IsKeyPressed(KEY_BACKSPACE);
+}
+
+bool UpdateOptionsScreen(int *cursor, GameSettings *settings, bool *settingsChanged) {
+    *cursor = MenuStepCursor(*cursor, OPTIONS_COUNT);
+    int *volume = *cursor == OPTIONS_MUSIC ? &settings->musicVolume
+                : *cursor == OPTIONS_SFX ? &settings->sfxVolume
+                : NULL;
+    if (volume != NULL) {
+        int before = *volume;
+        if (InputActionPressed(INPUT_MOVE_LEFT) && *volume > 0) (*volume)--;
+        if (InputActionPressed(INPUT_MOVE_RIGHT) && *volume < SETTINGS_VOLUME_MAX) (*volume)++;
+        *settingsChanged = *volume != before;
+    }
+    return MenuBackPressed() || (MenuSelectPressed() && *cursor == OPTIONS_BACK);
+}
+
+bool UpdateControlsScreen(void) {
+    return MenuBackPressed() || MenuSelectPressed();
 }
 
 MenuResult UpdatePauseMenu(PauseMenu *menu, GameSettings *settings, bool *settingsChanged) {
@@ -44,7 +62,7 @@ MenuResult UpdatePauseMenu(PauseMenu *menu, GameSettings *settings, bool *settin
 
     switch (menu->screen) {
         case MENU_SCREEN_ROOT: {
-            menu->cursor = StepCursor(menu->cursor, ROOT_COUNT);
+            menu->cursor = MenuStepCursor(menu->cursor, ROOT_COUNT);
             if (MenuBackPressed()) return MENU_RESULT_RESUME;
             if (!MenuSelectPressed()) return MENU_RESULT_NONE;
             switch (menu->cursor) {
@@ -56,30 +74,18 @@ MenuResult UpdatePauseMenu(PauseMenu *menu, GameSettings *settings, bool *settin
             }
             return MENU_RESULT_NONE;
         }
-        case MENU_SCREEN_OPTIONS: {
-            menu->cursor = StepCursor(menu->cursor, OPTIONS_COUNT);
-            int *volume = menu->cursor == OPTIONS_MUSIC ? &settings->musicVolume
-                        : menu->cursor == OPTIONS_SFX ? &settings->sfxVolume
-                        : NULL;
-            if (volume != NULL) {
-                int before = *volume;
-                if (InputActionPressed(INPUT_MOVE_LEFT) && *volume > 0) (*volume)--;
-                if (InputActionPressed(INPUT_MOVE_RIGHT) && *volume < SETTINGS_VOLUME_MAX) (*volume)++;
-                *settingsChanged = *volume != before;
-            }
-            if (MenuBackPressed() || (MenuSelectPressed() && menu->cursor == OPTIONS_BACK)) {
+        case MENU_SCREEN_OPTIONS:
+            if (UpdateOptionsScreen(&menu->cursor, settings, settingsChanged)) {
                 menu->screen = MENU_SCREEN_ROOT;
                 menu->cursor = ROOT_OPTIONS;
             }
             return MENU_RESULT_NONE;
-        }
-        case MENU_SCREEN_CONTROLS: {
-            if (MenuBackPressed() || MenuSelectPressed()) {
+        case MENU_SCREEN_CONTROLS:
+            if (UpdateControlsScreen()) {
                 menu->screen = MENU_SCREEN_ROOT;
                 menu->cursor = ROOT_CONTROLS;
             }
             return MENU_RESULT_NONE;
-        }
     }
     return MENU_RESULT_NONE;
 }
@@ -117,17 +123,17 @@ static void DrawVolumeRow(const char *label, int value, int y, bool selected) {
     DrawText(TextFormat("%2d", value), 334, y, 10, selected ? MENU_PALE : MENU_INACTIVE);
 }
 
-static void DrawOptionsMenu(const PauseMenu *menu, const GameSettings *settings) {
+void DrawOptionsScreen(int cursor, const GameSettings *settings) {
     DrawMenuPanel("OPTIONS", 118, 108);
-    DrawVolumeRow("MUSIC", settings->musicVolume, 150, menu->cursor == OPTIONS_MUSIC);
-    DrawVolumeRow("SFX", settings->sfxVolume, 168, menu->cursor == OPTIONS_SFX);
-    bool backSelected = menu->cursor == OPTIONS_BACK;
+    DrawVolumeRow("MUSIC", settings->musicVolume, 150, cursor == OPTIONS_MUSIC);
+    DrawVolumeRow("SFX", settings->sfxVolume, 168, cursor == OPTIONS_SFX);
+    bool backSelected = cursor == OPTIONS_BACK;
     if (backSelected) DrawText(">", 162, 190, 10, MENU_AMBER);
     DrawText("BACK", 176, 190, 10, backSelected ? MENU_PALE : MENU_CYAN);
     DrawText("LEFT/RIGHT TO ADJUST", 176, 208, 8, MENU_INACTIVE);
 }
 
-static void DrawControlsMenu(void) {
+void DrawControlsScreen(void) {
     const int rowHeight = 12;
     // Rows: the keyless gun line, one per action, plus one extra line per
     // action that carries a detail note.
@@ -169,7 +175,7 @@ static void DrawControlsMenu(void) {
 void DrawPauseMenu(const PauseMenu *menu, const GameSettings *settings) {
     switch (menu->screen) {
         case MENU_SCREEN_ROOT: DrawRootMenu(menu); break;
-        case MENU_SCREEN_OPTIONS: DrawOptionsMenu(menu, settings); break;
-        case MENU_SCREEN_CONTROLS: DrawControlsMenu(); break;
+        case MENU_SCREEN_OPTIONS: DrawOptionsScreen(menu->cursor, settings); break;
+        case MENU_SCREEN_CONTROLS: DrawControlsScreen(); break;
     }
 }

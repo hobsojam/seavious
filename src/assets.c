@@ -119,10 +119,14 @@ GameAssets LoadGameAssets(void) {
     SetTextureFilter(assets.oceanOverlayTex, TEXTURE_FILTER_POINT);
     SetTextureWrap(assets.oceanOverlayTex, TEXTURE_WRAP_REPEAT);
 
+    assets.titleLogoTex = LoadTexture("assets/sprites/title_logo.png");
+    SetTextureFilter(assets.titleLogoTex, TEXTURE_FILTER_POINT);
+
     return assets;
 }
 
 void UnloadGameAssets(GameAssets *assets) {
+    UnloadTexture(assets->titleLogoTex);
     UnloadTexture(assets->oceanOverlayTex);
     UnloadTexture(assets->oceanTex);
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {

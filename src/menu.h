@@ -3,10 +3,11 @@
 
 #include "settings.h"
 
-// Pause menu: the host for the options (audio volumes) and controls
-// screens until a title screen exists to link them from. Pure UI state -
-// nothing here touches the run; the caller owns pausing, applying and
-// saving settings, restarting, and quitting.
+// Pause menu: one host for the options (audio volumes) and controls
+// screens; the title screen is the other, through the shared sub-screen
+// functions below. Pure UI state - nothing here touches the run; the
+// caller owns pausing, applying and saving settings, restarting, and
+// quitting.
 typedef enum {
     MENU_SCREEN_ROOT,
     MENU_SCREEN_OPTIONS,
@@ -31,5 +32,16 @@ void ResetPauseMenu(PauseMenu *menu);
 // frame (the caller applies it to the audio and saves the file).
 MenuResult UpdatePauseMenu(PauseMenu *menu, GameSettings *settings, bool *settingsChanged);
 void DrawPauseMenu(const PauseMenu *menu, const GameSettings *settings);
+
+// Shared menu-navigation chords and sub-screens, used by both the pause
+// menu and the title screen so the two hosts can never drift apart.
+bool MenuSelectPressed(void);
+bool MenuBackPressed(void);
+int MenuStepCursor(int cursor, int count);
+// Sub-screen updates return true when the user backs out to the host.
+bool UpdateOptionsScreen(int *cursor, GameSettings *settings, bool *settingsChanged);
+void DrawOptionsScreen(int cursor, const GameSettings *settings);
+bool UpdateControlsScreen(void);
+void DrawControlsScreen(void);
 
 #endif
