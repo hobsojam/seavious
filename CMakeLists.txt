@@ -72,9 +72,14 @@ if(BUILD_TESTING)
 endif()
 
 add_custom_command(TARGET seavious POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/assets
-        $<TARGET_FILE_DIR:seavious>/assets
+    # copy_directory only compares timestamps.  A zero-byte asset left by
+    # an interrupted Windows/WSL build can therefore be treated as current
+    # and shipped beside the executable.  The script compares contents and
+    # replaces those placeholders, while retaining the asset subdirectories.
+    COMMAND ${CMAKE_COMMAND}
+        -DASSET_SOURCE_DIR=${CMAKE_SOURCE_DIR}/assets
+        -DASSET_DEST_DIR=$<TARGET_FILE_DIR:seavious>/assets
+        -P ${CMAKE_SOURCE_DIR}/tools/copy-assets.cmake
     COMMENT "Copying assets next to the built executable"
 )
 
