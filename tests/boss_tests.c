@@ -397,6 +397,7 @@ static void TestDefeatAndSalvageFlow(void) {
     }
     CHECK(state.boss.phase == BOSS_PHASE_CLEARED);
     CHECK(state.stageClear);
+    CHECK(state.hasMortar);
     Vector2 mortar = BossMortarPosition(&state.boss);
     CHECK(fabsf(state.player.x - (mortar.x - 44.0f)) < 1.0f);
     CHECK(fabsf(state.player.y - mortar.y) < 1.0f);

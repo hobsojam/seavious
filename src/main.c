@@ -95,14 +95,10 @@ int main(void) {
         if (smokeFrames > 0 && (framesRun == 120 || framesRun == 240 || framesRun == 360)) {
             state.enemyBullets[0] = (EnemyBullet){ .pos = state.player, .active = true };
         }
-        // Grant the scavenged mortar and lob a shell directly (no input
-        // injection), so the player-mortar flight/blast update, the green
-        // reticle/shadow/shell render paths, and the split HUD all run.
+        // Grant the scavenged mortar; the forced input passed into UpdateGame
+        // below fires it through the normal cooldown/event path.
         if (smokeFrames > 0 && framesRun == 100) {
             state.hasMortar = true;
-            Vector2 mortarSpawn = { state.player.x + 12.0f, state.player.y };
-            FirePlayerMortar(&state.mortarShell, mortarSpawn, CalculateMortarReticle(mortarSpawn));
-            state.mortarCooldown = PLAYER_MORTAR_COOLDOWN;
         }
         // Jump the scroll so beat 7's islet is on screen: the terrain
         // rendering (organic coastline, beach rings, grain) draws
@@ -161,7 +157,9 @@ int main(void) {
         }
         if (smokeFrames > 0 && framesRun == 470) state.stageClear = true;
 
-        UpdateGame(&state, &assets, dt, smokeFrames > 0 && framesRun == 0);
+        UpdateGame(&state, &assets, dt,
+            smokeFrames > 0 && framesRun == 0,
+            smokeFrames > 0 && framesRun == 100);
         PlayGameSfx(&audio, &state.gameEvents);
 
         BeginTextureMode(target);
