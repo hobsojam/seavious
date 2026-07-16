@@ -496,6 +496,23 @@ the layout doesn't need to change later just to add that. Chosen as a
 reserved bar rather than an overlay so the HUD never competes with the
 glow/bloom-heavy playfield for readability.
 
+**Pause menu & settings**: P opens a pause menu (Resume / Options /
+Controls / Restart Run / Quit) drawn in the HUD palette over the frozen
+frame — the host for configuration until a title screen exists to link
+it from. Options holds **Music** and **SFX volume** as 0–10 steps that
+*scale the authored mix* (10 = the levels tuned in `audio.c`, 0 = muted),
+so balance decisions stay in code and the setting is only a user trim;
+changes apply live (with a blip at the new SFX level) and persist to
+`settings.cfg`, a plain key=value text file next to the exe (the game
+already assumes CWD = exe dir for `assets/`). The **Controls** screen
+renders itself from the central action→keys table in `input.c` that
+gameplay reads all input through, so the listing can never drift from
+the real bindings. Key remapping and gamepad support are deliberately
+deferred: with five actions all dual-bound the payoff is thin today,
+and the action table is already the single hook point either would need.
+Back is Backspace, not Escape (raylib's default exit key closes the
+window).
+
 **Structure**: Stage-based, with a boss fight at the end of each stage.
 Lives-based: enemy contact costs one life, the ship explodes briefly, then
 respawns with brief invulnerability if any lives remain; game over triggers
@@ -657,7 +674,11 @@ drifting with the water; gun bullets pass right over them (the
 dual-targeting rule). The torpedo reticle sits far ahead on the current
 surface lane and marks maximum range, clamped before the right edge of the
 screen and against terrain or armored boss hull. Press P to pause the
-simulation and music for inspection or screenshots; press P again to resume.
+simulation and music and open the pause menu (Resume / Options /
+Controls / Restart Run / Quit — navigate with Up/Down, select with
+Enter or Space, step back with Backspace); press P again to resume
+directly. Options holds Music and SFX volume; the Controls screen
+lists every binding.
 Firing launches a straight torpedo down that lane: after a short
 arming distance it explodes on the first surface target it hits, or at the
 saved reticle point as it drifts with the water if nothing is hit first.

@@ -1,5 +1,6 @@
 build/
 out/
+settings.cfg
 vcpkg_installed/
 .vs/
 *.user

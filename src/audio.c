@@ -12,39 +12,65 @@
 // too loud overall against the game.
 #define MUSIC_VOLUME 0.5f
 
-static Sound LoadSfx(const char *path, float volume) {
-    Sound sound = LoadSound(path);
-    if (IsSoundValid(sound)) SetSoundVolume(sound, volume);
-    return sound;
+#define SFX_DEF_MAX 16
+
+typedef struct {
+    Sound *sound;
+    const char *path;
+    float baseVolume;
+} SfxDef;
+
+// The single source of the authored SFX mix: loading and the user volume
+// trim both walk this table. Per-sound volumes balance against the music:
+// the constant auto-fire gun stays far in the background, big one-shots
+// (explosion, death) are allowed to punch through; the mine detonation
+// plays under the simultaneous player-death sound (contact detonation
+// always costs the ship), so it sits a step below that 0.80.
+static int CollectSfxDefs(GameAudio *audio, SfxDef defs[SFX_DEF_MAX]) {
+    int n = 0;
+    defs[n++] = (SfxDef){ &audio->gunShot, "assets/audio/sfx/gun_shot.wav", 0.25f };
+    defs[n++] = (SfxDef){ &audio->torpedoLaunch, "assets/audio/sfx/torpedo_launch.wav", 0.55f };
+    defs[n++] = (SfxDef){ &audio->torpedoSplash, "assets/audio/sfx/torpedo_splash.wav", 0.50f };
+    defs[n++] = (SfxDef){ &audio->explosion, "assets/audio/sfx/explosion.wav", 0.70f };
+    defs[n++] = (SfxDef){ &audio->airPop, "assets/audio/sfx/air_pop.wav", 0.50f };
+    defs[n++] = (SfxDef){ &audio->playerDeath, "assets/audio/sfx/player_death.wav", 0.80f };
+    defs[n++] = (SfxDef){ &audio->relayLaunch, "assets/audio/sfx/relay_launch.wav", 0.40f };
+    defs[n++] = (SfxDef){ &audio->mineDetonation, "assets/audio/sfx/mine_detonation.wav", 0.60f };
+    defs[n++] = (SfxDef){ &audio->uiBlip, "assets/audio/sfx/ui_blip.wav", 0.45f };
+    defs[n++] = (SfxDef){ &audio->mortarFire, "assets/audio/sfx/mortar_fire.wav", 0.45f };
+    defs[n++] = (SfxDef){ &audio->mortarSalvage, "assets/audio/sfx/mortar_salvage.wav", 0.50f };
+    return n;
 }
 
-void LoadGameAudio(GameAudio *audio) {
+void ApplyAudioSettings(GameAudio *audio, const GameSettings *settings) {
+    float musicLevel = MUSIC_VOLUME * (float)settings->musicVolume / (float)SETTINGS_VOLUME_MAX;
+    if (IsMusicValid(audio->stage)) SetMusicVolume(audio->stage, musicLevel);
+    if (IsMusicValid(audio->boss)) SetMusicVolume(audio->boss, musicLevel);
+    if (IsMusicValid(audio->lament)) SetMusicVolume(audio->lament, musicLevel);
+
+    float sfxScale = (float)settings->sfxVolume / (float)SETTINGS_VOLUME_MAX;
+    SfxDef defs[SFX_DEF_MAX];
+    int count = CollectSfxDefs(audio, defs);
+    for (int i = 0; i < count; i++) {
+        if (IsSoundValid(*defs[i].sound)) SetSoundVolume(*defs[i].sound, defs[i].baseVolume * sfxScale);
+    }
+}
+
+void LoadGameAudio(GameAudio *audio, const GameSettings *settings) {
     InitAudioDevice();
     audio->stage = LoadMusicStream("assets/audio/stage1_theme_a.xm");
     audio->boss = LoadMusicStream("assets/audio/boss1_theme_b.xm");
     audio->lament = LoadMusicStream("assets/audio/boss1_theme_a.xm");
-    if (IsMusicValid(audio->stage)) SetMusicVolume(audio->stage, MUSIC_VOLUME);
-    if (IsMusicValid(audio->boss)) SetMusicVolume(audio->boss, MUSIC_VOLUME);
-    if (IsMusicValid(audio->lament)) SetMusicVolume(audio->lament, MUSIC_VOLUME);
     audio->current = &audio->stage;
-    if (IsMusicValid(audio->stage)) PlayMusicStream(audio->stage);
 
-    // Per-sound volumes balance against the music: the constant auto-fire
-    // gun stays far in the background, big one-shots (explosion, death)
-    // are allowed to punch through.
-    audio->gunShot = LoadSfx("assets/audio/sfx/gun_shot.wav", 0.25f);
-    audio->torpedoLaunch = LoadSfx("assets/audio/sfx/torpedo_launch.wav", 0.55f);
-    audio->torpedoSplash = LoadSfx("assets/audio/sfx/torpedo_splash.wav", 0.50f);
-    audio->explosion = LoadSfx("assets/audio/sfx/explosion.wav", 0.70f);
-    audio->airPop = LoadSfx("assets/audio/sfx/air_pop.wav", 0.50f);
-    audio->playerDeath = LoadSfx("assets/audio/sfx/player_death.wav", 0.80f);
-    audio->relayLaunch = LoadSfx("assets/audio/sfx/relay_launch.wav", 0.40f);
-    // Plays under the simultaneous player-death sound (contact detonation
-    // always costs the ship), so it sits a step below that 0.80.
-    audio->mineDetonation = LoadSfx("assets/audio/sfx/mine_detonation.wav", 0.60f);
-    audio->uiBlip = LoadSfx("assets/audio/sfx/ui_blip.wav", 0.45f);
-    audio->mortarFire = LoadSfx("assets/audio/sfx/mortar_fire.wav", 0.45f);
-    audio->mortarSalvage = LoadSfx("assets/audio/sfx/mortar_salvage.wav", 0.50f);
+    SfxDef defs[SFX_DEF_MAX];
+    int count = CollectSfxDefs(audio, defs);
+    for (int i = 0; i < count; i++) {
+        *defs[i].sound = LoadSound(defs[i].path);
+    }
+
+    ApplyAudioSettings(audio, settings);
+    if (IsMusicValid(audio->stage)) PlayMusicStream(audio->stage);
 }
 
 void UpdateGameMusic(GameAudio *audio, const GameState *state) {
