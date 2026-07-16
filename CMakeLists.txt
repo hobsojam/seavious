@@ -97,4 +97,7 @@ add_custom_command(TARGET seavious POST_BUILD
 
 if(WIN32)
     target_link_libraries(seavious PRIVATE winmm)
+    # Embeds the generated application icon (see tools/gen-exe-icon.py).
+    enable_language(RC)
+    target_sources(seavious PRIVATE src/seavious.rc)
 endif()
