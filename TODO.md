@@ -377,7 +377,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       `assets/audio/sfx/*.wav`, validated by `tests/test_sfx_assets.py`)
       and wired through the GameEventQueue in `audio.c`; volume balance
       and sound character need a Windows playtest — refine individual
-      sounds in ChipTone if the synth versions fall short
+      sounds in ChipTone if the synth versions fall short. First such
+      refinement done: player death regenerated explosion-first (hard
+      burst + rolling noise + deep sub, faint power-down dive) after
+      the playtest heard the original square-dive as a beep
 
 ## Infra
 
