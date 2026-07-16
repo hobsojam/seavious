@@ -202,8 +202,18 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [ ] Gamepad support (raylib gamepad API) — likely worth more than key
       remapping for a shmup; hooks into the same `input.c` action table
       as a second binding column
-- [ ] Link the options/controls screens from the title screen when one
-      exists (menu theme already reserved, see Audio)
+- [x] Title screen (see README "Title screen"): boots to the SEAVIOUS
+      wordmark logo (`tools/gen-title-logo.py` → `title_logo.png`, wave
+      cut through the letters) over live scrolling ocean, the 2.5x ship
+      banked 12° drifting under it with a real wake trail, Theme B
+      "driver" playing, and a Start / Options / Controls / Quit menu
+      sharing the pause menu's sub-screens. Menu/title state machines
+      are pure over an injected MenuInput struct and unit-tested in
+      `tests/title_tests.c` (navigation, options adjust/clamp, back-out
+      cursor restore, ambient scroll/wake simulation, pause results)
+- [x] Link the options/controls screens from the title screen — done
+      with the title screen above (shared sub-screen functions in
+      `menu.c`)
 - [x] Hardpoint pads only where something mounts (decision): an empty
       "could hold a turret" pad is visual noise, so the map only authors
       `H` under an actual installation — Stage 1's two decorative pads
@@ -361,7 +371,9 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       high wailing descent) repurposed as the game-over lament, replacing
       the backing-only template there (per-life deaths at 0.6s are too
       short for a music cut, so only the final death swaps the track)
-- [ ] Compose menu theme
+- [x] Compose menu theme — resolved by wiring Theme B ("driver") as the
+      title/menu theme, the exact reservation it was kept for; composing
+      a dedicated menu tune stays optional polish
 - [x] Enemy-fire SFX — decided and implemented: **one shared shot sound**
       for every bullet-firing enemy (`enemy_shot.wav`, dark falling
       square matching the shared red-diamond projectile), pushed as one

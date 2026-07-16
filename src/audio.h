@@ -9,7 +9,8 @@ typedef struct {
     Music stage;
     Music boss;
     Music lament;
-    Music *current;  // points at one of the three streams above
+    Music menu;      // "driver" theme, title/menu screens
+    Music *current;  // points at one of the four streams above
 
     Sound gunShot;
     Sound torpedoLaunch;
@@ -34,7 +35,9 @@ void LoadGameAudio(GameAudio *audio, const GameSettings *settings);
 // Re-applies the user volume trims (0..10 per channel) on top of the
 // authored mix; called at load and whenever the options screen changes one.
 void ApplyAudioSettings(GameAudio *audio, const GameSettings *settings);
-void UpdateGameMusic(GameAudio *audio, const GameState *state);
+// Hard-cut track selection: the menu theme while the title screen is up,
+// otherwise lament/boss/stage by game state.
+void UpdateGameMusic(GameAudio *audio, const GameState *state, bool titleScreen);
 // Pauses or resumes the current music stream with the simulation.
 void SetGameAudioPaused(GameAudio *audio, bool paused);
 // Plays one-shot SFX for this frame's game events (fired weapons, impacts,
