@@ -580,7 +580,11 @@ enemies, and air spawn triggers — so lane pressure between air and ground
 stays visible while designing. The two glyph semantics share the grid
 cleanly: ground glyphs and land are world positions on the water, air
 glyphs fire their spawn when their column reaches the right screen edge —
-the same column meaning either way. Pipeline follows the repo's
+the same column meaning either way. Hardpoint pads (`H`, a terrain cell
+with a fortified mounting pad) are only authored — and therefore only
+painted — where an installation actually mounts (Stage 2+ land targets):
+an empty "this could hold a turret" pad is visual noise, so Stage 1
+carries none. Pipeline follows the repo's
 generator idiom (XM tracks, sprites): the map (`assets/stages/stage1.txt`)
 is compiled by a `tools/` script into a committed C spawn-event table the
 engine consumes directly — no text parsing at runtime — with a drift test

@@ -146,13 +146,20 @@ def emit(events, terrain, hardpoints, length_px, out_path, source_rel):
         '',
         'const StageTerrainHardpoint STAGE1_TERRAIN_HARDPOINTS[] = {',
     ]
-    for px, row in hardpoints:
-        lines.append(f'    {{ {px}, {row * COLUMN_PX} }},')
+    if hardpoints:
+        for px, row in hardpoints:
+            lines.append(f'    {{ {px}, {row * COLUMN_PX} }},')
+        count_expr = ('sizeof(STAGE1_TERRAIN_HARDPOINTS) / '
+                      'sizeof(STAGE1_TERRAIN_HARDPOINTS[0])')
+    else:
+        # An empty initializer list isn't valid C; keep one zeroed row
+        # and pin the count to 0 so nothing ever reads it.
+        lines.append('    { 0, 0 }, // placeholder: no hardpoints authored')
+        count_expr = '0'
     lines += [
         '};',
         '',
-        'const int STAGE1_TERRAIN_HARDPOINT_COUNT = '
-        'sizeof(STAGE1_TERRAIN_HARDPOINTS) / sizeof(STAGE1_TERRAIN_HARDPOINTS[0]);',
+        f'const int STAGE1_TERRAIN_HARDPOINT_COUNT = {count_expr};',
         '',
         f'const int STAGE1_LENGTH_PX = {length_px};',
         '',
