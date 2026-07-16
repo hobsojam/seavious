@@ -181,14 +181,14 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       The salvage sets `hasMortar`; a stage-clear restart carries it into
       the replay (the stand-in for Stage 2), game over forfeits it.
       Remaining follow-ups below:
-- [ ] Playtest the mortar's provisional water-class damage (blast
-      currently hits surface targets + boss parts, since land targets
-      don't exist yet): confirm whether "harder to aim than the torpedo"
-      justifies keeping water damage permanently, and tune
-      range/cooldown/blast radius (120px / 2.5s / 22px first guesses)
-- [ ] Mortar strict land-only class + green land-target faction color —
-      lands together with the Stage 2 land-target roster (below), if the
-      playtest keeps the land-only rule
+- [x] Playtest the mortar's water-class damage — settled: the mortar is
+      fine as is. It keeps damaging surface targets + boss parts
+      permanently (harder to aim than the torpedo earns the overlap),
+      and the tuning stands (120px range / 2.5s cooldown / 22px blast)
+- [ ] Green land-target faction color + mortar-only reachability for
+      land targets — lands together with the Stage 2 land-target
+      roster (below); the mortar additionally keeps its water-class
+      damage per the playtest decision above
 - [x] Pause menu + settings (see README "Pause menu & settings"): P opens
       Resume / Options / Controls / Restart Run / Quit over the frozen
       frame; Options = Music/SFX volume in 0–10 steps scaling the
@@ -383,7 +383,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 - [x] Verify the CMake + vcpkg build actually compiles on Windows — builds
       and runs (first playable confirmation 2026-07-12)
-- [ ] Consider reporting the raylib 6.0 bug upstream: with
+- [x] Consider reporting the raylib 6.0 bug upstream — decided against:
+      not confident enough in the diagnosis (equally likely a local
+      misunderstanding of the build config); the local workaround
+      stands and the notes below stay for context. Original notes: with
       `-DCUSTOMIZE_BUILD=ON` (which the vcpkg port passes),
       `cmake/ParseConfigHeader.cmake` treats every uncommented
       `#define SUPPORT_X 0` in `config.h` as default ON, silently enabling

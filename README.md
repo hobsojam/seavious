@@ -376,20 +376,19 @@ the torpedo's — does not clamp at land edges, an area blast where it
 lands, its own manual-fire key (Left Shift or X — a dedicated key, not a
 weapon toggle: the strict class mapping means the target already dictates
 the weapon, so a mode switch would be pure overhead), and its own
-cooldown/HUD icon. Class mapping is intended to stay strict in all three
-lanes: gun→air, torpedo→water surface, mortar→land targets only — arcade
-readability beats blast physics, the same rule that lets gun bullets pass
-over surface targets. Land targets (possible from Stage 2, since only the
-mortar can touch them) get the third faction color to complete the triad.
-*Implementation status*: the weapon is in (first pass — flight, blast,
-reticle, HUD icon, 2.5s cooldown, 120px range vs the torpedo's 170px),
-and since no land targets exist yet its blast **provisionally damages
-surface targets** (and boss parts, at torpedo rates) so it can be
-playtested — the working theory is it may keep water-class damage
-permanently as the harder-to-aim alternative to the torpedo; that call is
-deferred to playtesting. Until Stage 2 exists, the salvaged mortar
-carries into the stage-clear replay of Stage 1 (a game over still
-forfeits it), so the upgrade is testable end-to-end.
+cooldown/HUD icon. Class mapping (settled by playtest): gun→air only,
+torpedo→water surface only, and the mortar **damages surface targets
+too** (and boss parts, at torpedo rates) — being harder to aim than the
+torpedo earns it the overlap on the water class, while land targets
+(Stage 2+) will be reachable by the mortar alone. Arcade readability
+still beats blast physics — the same rule that lets gun bullets pass
+over surface targets. Land targets get the third faction color to
+complete the triad.
+*Implementation status*: the weapon is in and its behavior confirmed by
+playtest (flight, blast, reticle, HUD icon, 2.5s cooldown, 120px range
+vs the torpedo's 170px, 22px blast). Until Stage 2 exists, the salvaged
+mortar carries into the stage-clear replay of Stage 1 (a game over still
+forfeits it).
 
 **Scoring (first pass)**: Points are awarded once, when a target is
 destroyed. The current mechanical proof implements the two live target
@@ -696,8 +695,7 @@ After clearing the stage once, the replay starts with the scavenged
 mortar: Left Shift or X lobs a shell (one in flight at a time, 2.5s
 reload) to its own shorter green reticle, which ignores land and armor
 entirely — the shell arcs over them — and lands in an area blast that
-(provisionally, pending playtesting) damages surface targets and boss
-parts.
+damages surface targets and boss parts.
 Land (sand islets drifting with the water) never collides with the ship
 or gun, but blocks torpedoes: the reticle clamps to a land edge in the
 lane, armed torpedoes detonate against it (splash can still catch

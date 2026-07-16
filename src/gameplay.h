@@ -374,10 +374,10 @@ TorpedoImpact ResolveTorpedoSurfaceTargetCollision(Torpedo *torpedo, SurfaceTarg
     GameEventQueue *events);
 void ResolveTorpedoExplosion(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events);
 
-// Player mortar. The blast provisionally damages surface targets too
-// (playtest call pending: harder to land than the torpedo, so it may be
-// allowed to double up on the water class); the strict land-only mapping
-// waits for Stage 2's land-target roster.
+// Player mortar. The blast damages surface targets too - settled by
+// playtest: harder to land than the torpedo, so it earns the overlap on
+// the water class. Stage 2's land targets will additionally be
+// mortar-only.
 Vector2 CalculateMortarReticle(Vector2 spawn);
 void FirePlayerMortar(MortarShell *shell, Vector2 spawn, Vector2 target);
 bool UpdatePlayerMortarShell(MortarShell *shell, float dt, float scrollDt);
