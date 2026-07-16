@@ -1,5 +1,6 @@
 #include "game_update.h"
 #include "boss.h"
+#include "input.h"
 #include "stage.h"
 #include "stage_data.h"
 #include "raylib.h"
@@ -12,8 +13,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     float halfH = assets->playerTex.height / 2.0f;
     float playerRadius = PLAYER_HIT_RADIUS;
 
-    if ((state->gameOver || state->stageClear)
-        && (IsKeyPressed(KEY_R) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER))) {
+    if ((state->gameOver || state->stageClear) && InputActionPressed(INPUT_RESTART)) {
         // The scavenged mortar is run progression, not stage state: the
         // stage-clear replay (standing in for Stage 2) keeps it, a game
         // over forfeits it with the rest of the run.
@@ -48,10 +48,10 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
         float inputX = 0.0f;
         float inputY = 0.0f;
         if (!bossOwnsPlayer) {
-            if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))  inputX -= 1.0f;
-            if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) inputX += 1.0f;
-            if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W))    inputY -= 1.0f;
-            if (IsKeyDown(KEY_DOWN) || IsKeyDown(KEY_S))  inputY += 1.0f;
+            if (InputActionDown(INPUT_MOVE_LEFT))  inputX -= 1.0f;
+            if (InputActionDown(INPUT_MOVE_RIGHT)) inputX += 1.0f;
+            if (InputActionDown(INPUT_MOVE_UP))    inputY -= 1.0f;
+            if (InputActionDown(INPUT_MOVE_DOWN))  inputY += 1.0f;
         }
         Vector2 playerBeforeMove = state->player;
         MovePlayer(&state->player, inputX, inputY, PLAYER_SPEED, dt, halfW, halfH);
@@ -131,7 +131,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // Torpedo: manual second input, gated by both "one in flight at a
     // time" and a reload cooldown so it isn't unlimited-fire like the gun.
     if (state->torpedoCooldown > 0.0f) state->torpedoCooldown -= dt;
-    bool fireTorpedo = (IsKeyPressed(KEY_SPACE) || forceTorpedoFire) && !bossOwnsPlayer;
+    bool fireTorpedo = (InputActionPressed(INPUT_FIRE_TORPEDO) || forceTorpedoFire) && !bossOwnsPlayer;
     if (!state->playerDestroyed && fireTorpedo && !state->torpedo.active && state->torpedoCooldown <= 0.0f) {
         Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
         FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn, STAGE1_TERRAIN, STAGE1_TERRAIN_COUNT,
@@ -214,7 +214,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // land-only mapping waits for Stage 2's land targets.
     if (state->mortarCooldown > 0.0f) state->mortarCooldown -= dt;
     bool fireMortar = state->hasMortar && !bossOwnsPlayer
-        && (IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_X) || forceMortarFire);
+        && (InputActionPressed(INPUT_FIRE_MORTAR) || forceMortarFire);
     if (!state->playerDestroyed && fireMortar && !state->mortarShell.active && state->mortarCooldown <= 0.0f) {
         Vector2 mortarSpawn = { state->player.x + halfW, state->player.y };
         FirePlayerMortar(&state->mortarShell, mortarSpawn, CalculateMortarReticle(mortarSpawn));

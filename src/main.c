@@ -4,6 +4,9 @@
 #include "game_render.h"
 #include "game_state.h"
 #include "game_update.h"
+#include "input.h"
+#include "menu.h"
+#include "settings.h"
 #include "stage_data.h"
 #include "raylib.h"
 #include <stdlib.h>
@@ -22,8 +25,9 @@ int main(void) {
     InitWindow(GAME_WIDTH * WINDOW_SCALE, GAME_HEIGHT * WINDOW_SCALE, "Seavious");
     SetTargetFPS(60);
 
+    GameSettings settings = LoadGameSettings(SETTINGS_FILE);
     GameAudio audio;
-    LoadGameAudio(&audio);
+    LoadGameAudio(&audio, &settings);
 
     RenderTexture2D target = LoadRenderTexture(GAME_WIDTH, GAME_HEIGHT);
     SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
@@ -33,21 +37,30 @@ int main(void) {
     GameState state;
     ResetRunState(&state);
 
+    PauseMenu menu;
+    ResetPauseMenu(&menu);
+    bool quit = false;
+
     // Set by the headless CI smoke test so the real game loop exits cleanly
     // after a deterministic number of frames and writes its gcov data.
     const char *smokeFramesValue = getenv("SEAVIOUS_SMOKE_FRAMES");
     int smokeFrames = smokeFramesValue == NULL ? 0 : atoi(smokeFramesValue);
     int framesRun = 0;
 
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose() && !quit) {
         float dt = GetFrameTime();
-        // The smoke run toggles pause just after it jumps to the islet,
-        // covering the real pause/resume path without input injection.
-        bool smokePauseToggle = smokeFrames > 0 && (framesRun == 210 || framesRun == 211);
-        if (IsKeyPressed(KEY_P) || smokePauseToggle) {
+        // The smoke run holds pause open across a few frames after it
+        // jumps to the islet, covering the real pause/resume path and
+        // (with the forced screens below) the menu render paths, all
+        // without input injection.
+        bool smokePauseToggle = smokeFrames > 0 && (framesRun == 210 || framesRun == 216);
+        if (InputActionPressed(INPUT_PAUSE_MENU) || smokePauseToggle) {
             state.paused = !state.paused;
+            if (state.paused) ResetPauseMenu(&menu);
             SetGameAudioPaused(&audio, state.paused);
         }
+        if (smokeFrames > 0 && framesRun == 212) menu.screen = MENU_SCREEN_OPTIONS;
+        if (smokeFrames > 0 && framesRun == 214) menu.screen = MENU_SCREEN_CONTROLS;
         UpdateGameMusic(&audio, &state);
 
         if (smokeFrames > 0 && framesRun == 0) {
@@ -162,8 +175,32 @@ int main(void) {
             smokeFrames > 0 && framesRun == 100);
         PlayGameSfx(&audio, &state.gameEvents);
 
+        // Menu runs after the (frozen) simulation step so a selection
+        // that unpauses can't leak its key press into this same frame's
+        // gameplay input (Enter would restart on the game-over screen,
+        // Space would fire a torpedo).
+        if (state.paused) {
+            bool settingsChanged = false;
+            MenuResult menuResult = UpdatePauseMenu(&menu, &settings, &settingsChanged);
+            if (settingsChanged) {
+                ApplyAudioSettings(&audio, &settings);
+                SaveGameSettings(&settings, SETTINGS_FILE);
+                // Click at the new level so the SFX volume is audible while
+                // adjusting (the music stream stays paused with the sim).
+                if (IsSoundValid(audio.uiBlip)) PlaySound(audio.uiBlip);
+            }
+            if (menuResult == MENU_RESULT_RESTART) ResetRunState(&state);
+            if (menuResult == MENU_RESULT_RESUME || menuResult == MENU_RESULT_RESTART) {
+                state.paused = false;
+                SetGameAudioPaused(&audio, false);
+            } else if (menuResult == MENU_RESULT_QUIT) {
+                quit = true;
+            }
+        }
+
         BeginTextureMode(target);
             DrawGame(&state, &assets);
+            if (state.paused) DrawPauseMenu(&menu, &settings);
         EndTextureMode();
 
         BeginDrawing();

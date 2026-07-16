@@ -17,7 +17,10 @@ add_executable(seavious
     src/game_state.c
     src/game_update.c
     src/gameplay.c
+    src/input.c
     src/main.c
+    src/menu.c
+    src/settings.c
     src/stage.c
     src/stage1_data.c
 )
@@ -49,6 +52,15 @@ if(BUILD_TESTING)
     target_include_directories(stage_tests PRIVATE src)
     target_link_libraries(stage_tests PRIVATE raylib glfw)
     add_test(NAME stage_tests COMMAND stage_tests)
+
+    add_executable(settings_tests
+        tests/settings_tests.c
+        src/input.c
+        src/settings.c
+    )
+    target_include_directories(settings_tests PRIVATE src)
+    target_link_libraries(settings_tests PRIVATE raylib glfw)
+    add_test(NAME settings_tests COMMAND settings_tests)
 
     add_executable(boss_tests
         tests/boss_tests.c

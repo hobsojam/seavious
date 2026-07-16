@@ -189,6 +189,21 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [ ] Mortar strict land-only class + green land-target faction color —
       lands together with the Stage 2 land-target roster (below), if the
       playtest keeps the land-only rule
+- [x] Pause menu + settings (see README "Pause menu & settings"): P opens
+      Resume / Options / Controls / Restart Run / Quit over the frozen
+      frame; Options = Music/SFX volume in 0–10 steps scaling the
+      authored mix, applied live and persisted to `settings.cfg`
+      (key=value, next to the exe, `src/settings.c`); Controls screen
+      renders from the central action→keys table (`src/input.c`) that
+      gameplay now reads all input through
+- [ ] Key remapping UI — deferred (thin payoff with five dual-bound
+      actions); the `input.c` binding table is the hook: make it mutable,
+      add a capture flow + conflict rule, persist to `settings.cfg`
+- [ ] Gamepad support (raylib gamepad API) — likely worth more than key
+      remapping for a shmup; hooks into the same `input.c` action table
+      as a second binding column
+- [ ] Link the options/controls screens from the title screen when one
+      exists (menu theme already reserved, see Audio)
 - [ ] Design Stage 2 land-target roster (green mortar-class installations
       built on terrain) — the Stage 2 counterpart of the Stage 1 roster
       task above
