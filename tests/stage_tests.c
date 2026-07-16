@@ -328,6 +328,34 @@ static void TestStageScriptRunsAgainAfterAdvance(void) {
     CHECK(state.bossLock);
 }
 
+static void TestContinueRun(void) {
+    GameState state;
+    ResetRunState(&state);
+
+    // Stage clear: the run continues into the next stage with progression
+    // carried, announced by the restart event.
+    state.score = 4200;
+    state.hasMortar = true;
+    state.stageClear = true;
+    ContinueRun(&state);
+    CHECK(state.stageNumber == 1); // wraps: single-stage table today
+    CHECK(state.score == 4200 && state.hasMortar);
+    CHECK(!state.stageClear);
+    CHECK(state.gameEvents.count == 1
+        && state.gameEvents.items[0].type == GAME_EVENT_RUN_RESTARTED);
+
+    // Game over: everything forfeits back to a fresh Stage 1 run.
+    state.score = 4200;
+    state.hasMortar = true;
+    state.gameOver = true;
+    state.gameEvents.count = 0;
+    ContinueRun(&state);
+    CHECK(state.score == 0 && !state.hasMortar && !state.gameOver);
+    CHECK(state.lives == 3 && state.stageNumber == 1);
+    CHECK(state.gameEvents.count == 1
+        && state.gameEvents.items[0].type == GAME_EVENT_RUN_RESTARTED);
+}
+
 static void TestStageScriptClampsUnknownStageNumber(void) {
     // A stage number past the table (future save data, a bug) must play
     // Stage 1 content through the clamp, not read a missing descriptor.
@@ -373,6 +401,7 @@ int main(void) {
     TestStageDescriptor();
     TestNextStageNumberWraps();
     TestBeginStageCarriesRunProgression();
+    TestContinueRun();
     TestStageScriptRunsAgainAfterAdvance();
     TestStageScriptClampsUnknownStageNumber();
     TestTableInvariants();

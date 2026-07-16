@@ -13,19 +13,9 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     float halfH = assets->playerTex.height / 2.0f;
     float playerRadius = PLAYER_HIT_RADIUS;
 
+    // Advance or forfeit the run (ContinueRun in stage.c owns the flow).
     if ((state->gameOver || state->stageClear) && InputActionPressed(INPUT_RESTART)) {
-        if (state->stageClear) {
-            // Stage clear advances the run: score, lives, and the
-            // salvaged mortar carry into the next stage, wrapping back
-            // to Stage 1 until more stages exist.
-            BeginStage(state, NextStageNumber(state->stageNumber));
-        } else {
-            // Game over forfeits the run: fresh start at Stage 1.
-            ResetRunState(state);
-        }
-        PushGameEvent(&state->gameEvents, (GameEvent){
-            .type = GAME_EVENT_RUN_RESTARTED, .pos = state->player
-        });
+        ContinueRun(state);
     }
     if (state->gameOver) return;
 

@@ -214,12 +214,12 @@ int main(void) {
             state.boss.salvageDomePos = BossMortarPosition(&state.boss);
         }
         if (smokeFrames > 0 && framesRun == 470) state.stageClear = true;
-        // Exercise the stage-advance flow headlessly: BeginStage +
-        // NextStageNumber is exactly what the CONTINUE input path calls,
-        // and the remaining frames render the advanced run (carried
-        // score/mortar, fresh pools).
+        // Exercise the stage-advance flow headlessly: ContinueRun is
+        // exactly what the CONTINUE input path calls, and the remaining
+        // frames render the advanced run (carried score/mortar, fresh
+        // pools).
         if (smokeFrames > 0 && framesRun == 474 && state.stageClear) {
-            BeginStage(&state, NextStageNumber(state.stageNumber));
+            ContinueRun(&state);
         }
 
         if (runGameFrame) {

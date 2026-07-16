@@ -258,7 +258,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       replace the code-drawn rounded-coastline rings in `game_render.c`
       (second pass: shallows/foam/beach/interior layers) with real
       tiles or per-island generated sprites, if the code-drawn look
-      ever falls short
+      ever falls short. Note: an unused cell-autotile prototype (ground
+      material + shore edges + per-cell hardpoint tiles) was removed
+      from `game_render.c` as dead code during the stage-descriptor
+      refactor — recover it from git history if this second pass happens
 - [x] Air enemy sprites (drone swarms) — Skimmer Drone, Interceptor, and
       Gunship first passes all done (see Art below)
 

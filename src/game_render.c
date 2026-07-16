@@ -377,67 +377,6 @@ static void DrawTerrainDetails(const GameState *state, const GameAssets *assets)
     }
 }
 
-enum { TERRAIN_CELL_SIZE = 32 };
-
-static bool TerrainCellOccupied(const StageDescriptor *stage, int px, int y) {
-    for (int i = 0; i < stage->terrainCount; i++) {
-        StageTerrainFootprint footprint = stage->terrain[i];
-        if (px >= footprint.px && px < footprint.px + footprint.widthPx
-            && y >= footprint.y && y < footprint.y + footprint.heightPx) return true;
-    }
-    return false;
-}
-
-static bool TerrainCellHasHardpoint(const StageDescriptor *stage, int px, int y) {
-    for (int i = 0; i < stage->hardpointCount; i++) {
-        if (stage->hardpoints[i].px == px && stage->hardpoints[i].y == y) return true;
-    }
-    return false;
-}
-
-static void DrawTerrainShoreEdge(Texture2D shore, Rectangle cell, int direction) {
-    Rectangle source = { 0.0f, 0.0f, (float)shore.width, (float)shore.height };
-    Rectangle destination = { cell.x + cell.width * 0.5f, cell.y + 3.0f, cell.width, 6.0f };
-    Vector2 origin = { cell.width * 0.5f, 3.0f };
-    float rotation = 0.0f;
-    if (direction == 1) { destination.y = cell.y + cell.height - 3.0f; rotation = 180.0f; }
-    if (direction == 2) { destination.x = cell.x + 3.0f; destination.y = cell.y + cell.height * 0.5f; rotation = -90.0f; }
-    if (direction == 3) { destination.x = cell.x + cell.width - 3.0f; destination.y = cell.y + cell.height * 0.5f; rotation = 90.0f; }
-    DrawTexturePro(shore, source, destination, origin, rotation, WHITE);
-}
-
-// The stage keeps its collision rectangles, but each occupied 32px cell now
-// receives terrain material and only exposed neighbours receive shoreline.
-// This is the base of an autotile system: large land masses and small islets
-// use one representation, while hardpoints are authored land features.
-static void DrawTerrain(const GameState *state, const GameAssets *assets) {
-    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
-    for (int i = 0; i < stage->terrainCount; i++) {
-        StageTerrainFootprint footprint = stage->terrain[i];
-        for (int y = footprint.y; y < footprint.y + footprint.heightPx; y += TERRAIN_CELL_SIZE) {
-            for (int px = footprint.px; px < footprint.px + footprint.widthPx; px += TERRAIN_CELL_SIZE) {
-                StageTerrainFootprint cellFootprint = { px, y, TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE };
-                Rectangle cell = TerrainScreenRect(cellFootprint, state->scrollDistance);
-                if (cell.x > GAME_WIDTH || cell.x + cell.width < 0.0f) continue;
-
-                unsigned int sample = (unsigned int)(px / TERRAIN_CELL_SIZE) * 17u
-                    ^ (unsigned int)(y / TERRAIN_CELL_SIZE) * 29u;
-                Rectangle groundSource = {
-                    (float)((sample & 3u) * TERRAIN_CELL_SIZE),
-                    (float)(((sample >> 2) & 3u) * TERRAIN_CELL_SIZE),
-                    TERRAIN_CELL_SIZE, TERRAIN_CELL_SIZE
-                };
-                DrawTexturePro(assets->terrainGroundTex, groundSource, cell, (Vector2){ 0 }, 0.0f, WHITE);
-
-                if (!TerrainCellOccupied(stage, px, y - TERRAIN_CELL_SIZE)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 0);
-                if (!TerrainCellOccupied(stage, px, y + TERRAIN_CELL_SIZE)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 1);
-                if (!TerrainCellOccupied(stage, px - TERRAIN_CELL_SIZE, y)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 2);
-                if (!TerrainCellOccupied(stage, px + TERRAIN_CELL_SIZE, y)) DrawTerrainShoreEdge(assets->terrainShoreTex, cell, 3);
-                if (TerrainCellHasHardpoint(stage, px, y)) DrawTexture(assets->terrainHardpointTex, (int)cell.x, (int)cell.y, WHITE);
-            }
-        }
-    }
-}
 
 void DrawGame(const GameState *state, const GameAssets *assets) {
     const Color bulletColor = (Color){ 76, 224, 232, 255 };

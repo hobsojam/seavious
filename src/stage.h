@@ -18,5 +18,9 @@ const StageDescriptor *GetStageDescriptor(int stageNumber);
 // The stage-clear CONTINUE target: the next stage, wrapping the last
 // back to Stage 1.
 int NextStageNumber(int stageNumber);
+// What the end-of-run CONTINUE input does: stage clear advances the run
+// (score, lives, and the salvaged mortar carry over), game over forfeits
+// it back to a fresh Stage 1 start. Pushes the RUN_RESTARTED event.
+void ContinueRun(GameState *state);
 
 #endif

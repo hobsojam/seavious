@@ -45,6 +45,21 @@ int NextStageNumber(int stageNumber) {
     return stageNumber + 1;
 }
 
+void ContinueRun(GameState *state) {
+    if (state->stageClear) {
+        // Stage clear advances the run: score, lives, and the salvaged
+        // mortar carry into the next stage, wrapping back to Stage 1
+        // until more stages exist.
+        BeginStage(state, NextStageNumber(state->stageNumber));
+    } else {
+        // Game over forfeits the run: fresh start at Stage 1.
+        ResetRunState(state);
+    }
+    PushGameEvent(&state->gameEvents, (GameEvent){
+        .type = GAME_EVENT_RUN_RESTARTED, .pos = state->player
+    });
+}
+
 const StageDescriptor *GetStageDescriptor(int stageNumber) {
     // Rebuilt on each call: the generated counts are const ints, not
     // constant expressions, so a static initializer can't hold them.
