@@ -4,7 +4,15 @@ static Texture2D LoadTerrainSprite(const char *path) {
     Image image = LoadImage(path);
     Rectangle alphaBorder = GetImageAlphaBorder(image, 0.1f);
     ImageCrop(&image, alphaBorder);
-    ImageResizeNN(&image, 128, 128);
+    // Preserve the source aspect: the islet picker matches variant
+    // shape to island-group shape, and the old square 128x128 resize
+    // silently flattened every variant to 1:1 - the picker then always
+    // scored a tie and stamped variant 0 down every chain.
+    int width = image.height > 0
+        ? (int)(128.0f * (float)image.width / (float)image.height + 0.5f) : 128;
+    if (width < 64) width = 64;
+    if (width > 320) width = 320;
+    ImageResizeNN(&image, width, 128);
     Texture2D texture = LoadTextureFromImage(image);
     UnloadImage(image);
     SetTextureFilter(texture, TEXTURE_FILTER_POINT);
@@ -103,6 +111,7 @@ GameAssets LoadGameAssets(void) {
         "assets/sprites/stage1_islet_crescent.png",
         "assets/sprites/stage1_islet_crag.png",
         "assets/sprites/stage1_islet_atoll.png",
+        "assets/sprites/stage1_islet_ridge.png",
     };
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
         assets.stage1IsletTex[i] = LoadTerrainSprite(isletPaths[i]);

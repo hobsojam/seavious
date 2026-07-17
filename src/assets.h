@@ -3,7 +3,7 @@
 
 #include "raylib.h"
 
-enum { STAGE1_ISLET_VARIANT_COUNT = 4 };
+enum { STAGE1_ISLET_VARIANT_COUNT = 5 };
 
 typedef struct {
     Texture2D playerTex;
