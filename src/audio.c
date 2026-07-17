@@ -184,6 +184,12 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
             case GAME_EVENT_MORTAR_FIRED:
                 PlayIfValid(audio->mortarFire);
                 break;
+            case GAME_EVENT_BOSS_GATES_OPENED:
+            case GAME_EVENT_BOSS_GATES_CLOSED:
+                // The gates borrow the mortar's mechanical thump until a
+                // dedicated gate voice lands in an SFX pass (see TODO).
+                PlayIfValid(audio->mortarFire);
+                break;
             case GAME_EVENT_MORTAR_SALVAGED:
             case GAME_EVENT_TARGETING_COMPUTER_SALVAGED:
                 PlayIfValid(audio->mortarSalvage);

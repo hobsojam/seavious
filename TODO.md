@@ -112,6 +112,17 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 ## Content
 
+- [x] Fortress rework pass 1 (playtest 2026-07-17, see README Stage 2
+      design): ring batteries return staggered mortar fire on the
+      stage's cadence; sea gates cycle from fight start (open dwell >
+      closed) with every edge announced by event + sound + gate flash;
+      closed gates always block the core route; fortress part HP and
+      gate dwells promoted to named constants; HP bar weights fortress
+      parts 1:1 — needs a Windows playtest for cadence/dwell tuning
+- [ ] Fortress rework pass 2 (deferred by design): Drone Bunker hatches
+      during the boss fight; place the fortress parts on a literal
+      visible ring; dedicated gate open/close SFX (currently borrows
+      the mortar thump)
 - [ ] Stage-map authoring rule (playtest 2026-07-17): land glyphs (`M`/`D`)
       should sit on multi-cell islands with the installation inset from
       the coastline, not on single 1-cell islets where the building

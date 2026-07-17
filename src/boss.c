@@ -112,10 +112,12 @@ int BossHullBlockers(const BossState *boss, Rectangle out[2]) {
     if (boss->phase != BOSS_PHASE_ENTERING && boss->phase != BOSS_PHASE_FIGHTING) return 0;
 
     // The fortress's sea gates close over the only torpedo route to the
-    // core. They begin cycling only after the AA pods and ring batteries
-    // are gone, so the final weapon test is timed rather than a wall.
+    // core. They cycle for the whole fight (the player learns the rhythm
+    // while the outer defenses still stand), and closed gates always
+    // block - what changes at core exposure is only that the core rises
+    // into the target list behind them.
     if (boss->fortressAtoll) {
-        if (!boss->coreExposed || boss->gatesOpen) return 0;
+        if (boss->gatesOpen) return 0;
         Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
         out[0] = (Rectangle){ core.x - 22.0f, core.y - 28.0f, 28.0f, 56.0f };
         return 1;
@@ -144,13 +146,19 @@ bool BossIsFortressAtoll(const BossState *boss) {
 }
 
 int BossRemainingHp(const BossState *boss) {
+    // Leviathan hull sections are worth several gun-units per torpedo
+    // point; fortress ring batteries count their mortar blasts 1:1, so
+    // the health bar tracks real progress on either boss.
+    int hullWorth = boss->fortressAtoll ? 1 : BOSS_HULL_SECTION_TORPEDO_WORTH;
     return boss->partHp[BOSS_PART_POD_FORE] + boss->partHp[BOSS_PART_POD_AFT]
-        + BOSS_HULL_SECTION_TORPEDO_WORTH
-            * (boss->partHp[BOSS_PART_HULL_FORE] + boss->partHp[BOSS_PART_HULL_AFT])
+        + hullWorth * (boss->partHp[BOSS_PART_HULL_FORE] + boss->partHp[BOSS_PART_HULL_AFT])
         + boss->partHp[BOSS_PART_CORE];
 }
 
-int BossTotalHp(void) {
+int BossTotalHp(const BossState *boss) {
+    if (boss->fortressAtoll) {
+        return 2 * FORTRESS_POD_HP + 2 * FORTRESS_RING_BATTERY_HP + FORTRESS_CORE_HP;
+    }
     return 2 * BOSS_POD_HP + 2 * BOSS_HULL_SECTION_TORPEDO_WORTH * BOSS_HULL_SECTION_HP + BOSS_CORE_HP;
 }
 
@@ -207,13 +215,14 @@ static void StartBossFight(GameState *state) {
     boss->turnTimer = 0.0f;
     boss->settleOffset = 0.0f;
     boss->coreExposed = false;
-    boss->partHp[BOSS_PART_POD_FORE] = boss->fortressAtoll ? 8 : BOSS_POD_HP;
-    boss->partHp[BOSS_PART_POD_AFT] = boss->fortressAtoll ? 8 : BOSS_POD_HP;
-    boss->partHp[BOSS_PART_HULL_FORE] = boss->fortressAtoll ? 3 : BOSS_HULL_SECTION_HP;
-    boss->partHp[BOSS_PART_HULL_AFT] = boss->fortressAtoll ? 3 : BOSS_HULL_SECTION_HP;
-    boss->partHp[BOSS_PART_CORE] = boss->fortressAtoll ? 18 : BOSS_CORE_HP;
+    boss->partHp[BOSS_PART_POD_FORE] = boss->fortressAtoll ? FORTRESS_POD_HP : BOSS_POD_HP;
+    boss->partHp[BOSS_PART_POD_AFT] = boss->fortressAtoll ? FORTRESS_POD_HP : BOSS_POD_HP;
+    boss->partHp[BOSS_PART_HULL_FORE] = boss->fortressAtoll ? FORTRESS_RING_BATTERY_HP : BOSS_HULL_SECTION_HP;
+    boss->partHp[BOSS_PART_HULL_AFT] = boss->fortressAtoll ? FORTRESS_RING_BATTERY_HP : BOSS_HULL_SECTION_HP;
+    boss->partHp[BOSS_PART_CORE] = boss->fortressAtoll ? FORTRESS_CORE_HP : BOSS_CORE_HP;
     for (int part = 0; part < BOSS_PART_COUNT; part++) {
-        float interval = part <= BOSS_PART_POD_AFT ? BOSS_POD_FIRE_INTERVAL : BOSS_SAM_INTERVAL;
+        float interval = part <= BOSS_PART_POD_AFT ? BOSS_POD_FIRE_INTERVAL
+            : (boss->fortressAtoll ? FORTRESS_RING_MORTAR_INTERVAL : BOSS_SAM_INTERVAL);
         boss->partFireTimer[part] = interval - BOSS_PART_FIRST_SHOT_DELAY[part];
     }
     boss->mortarTimer = BOSS_MORTAR_INTERVAL - BOSS_MORTAR_FIRST_SHOT_DELAY;
@@ -346,14 +355,50 @@ static void UpdateBossPatrol(BossState *boss, float dt) {
     }
 }
 
+// One lob at the player's current position from any of the boss's
+// mortar mouths (the Leviathan dome, the atoll center, a ring battery).
+// A full shell pool skips the lob, the usual starve rule.
+static void LobBossShell(GameState *state, Vector2 launch) {
+    BossState *boss = &state->boss;
+    for (int i = 0; i < MAX_MORTAR_SHELLS; i++) {
+        if (boss->shells[i].active) continue;
+        Vector2 target = state->player;
+        if (target.x < 0.0f) target.x = 0.0f;
+        if (target.x > (float)GAME_WIDTH) target.x = (float)GAME_WIDTH;
+        if (target.y < 0.0f) target.y = 0.0f;
+        if (target.y > (float)PLAY_HEIGHT) target.y = (float)PLAY_HEIGHT;
+        boss->shells[i] = (MortarShell){
+            .launch = launch,
+            .target = target,
+            .t = 0.0f,
+            .blastT = 0.0f,
+            .landed = false,
+            .active = true
+        };
+        PushGameEvent(&state->gameEvents, (GameEvent){
+            .type = GAME_EVENT_MORTAR_FIRED, .pos = launch
+        });
+        return;
+    }
+}
+
 static void FireBossGuns(GameState *state, float dt) {
     BossState *boss = &state->boss;
     for (int part = BOSS_PART_POD_FORE; part <= BOSS_PART_HULL_AFT; part++) {
         if (!BossPartAlive(boss, (BossPartId)part)) continue;
         bool pod = part <= BOSS_PART_POD_AFT;
-        // Fortress ring batteries are the mortar-only target class; their
-        // hazard is the central atoll's lob, not a recycled SAM launcher.
-        if (boss->fortressAtoll && !pod) continue;
+        // Fortress ring batteries return the stage's own mortar language:
+        // staggered lobs so their shadows interleave with the central
+        // atoll's, and silencing each one visibly thins the barrage -
+        // the mid-fight pressure the fight-flow rework asked for.
+        if (boss->fortressAtoll && !pod) {
+            boss->partFireTimer[part] += dt;
+            while (boss->partFireTimer[part] >= FORTRESS_RING_MORTAR_INTERVAL) {
+                boss->partFireTimer[part] -= FORTRESS_RING_MORTAR_INTERVAL;
+                LobBossShell(state, BossPartPosition(boss, (BossPartId)part));
+            }
+            continue;
+        }
         float interval = pod ? BOSS_POD_FIRE_INTERVAL : BOSS_SAM_INTERVAL;
         // A shielded (far-side) section holds pre-armed, like enemies at
         // the activation line: its first shot comes right as the turn
@@ -404,26 +449,7 @@ static void FireBossMortar(GameState *state, float dt) {
     boss->mortarTimer += dt;
     while (boss->mortarTimer >= interval) {
         boss->mortarTimer -= interval;
-        for (int i = 0; i < MAX_MORTAR_SHELLS; i++) {
-            if (boss->shells[i].active) continue;
-            Vector2 target = state->player;
-            if (target.x < 0.0f) target.x = 0.0f;
-            if (target.x > (float)GAME_WIDTH) target.x = (float)GAME_WIDTH;
-            if (target.y < 0.0f) target.y = 0.0f;
-            if (target.y > (float)PLAY_HEIGHT) target.y = (float)PLAY_HEIGHT;
-            boss->shells[i] = (MortarShell){
-                .launch = BossMortarPosition(boss),
-                .target = target,
-                .t = 0.0f,
-                .blastT = 0.0f,
-                .landed = false,
-                .active = true
-            };
-            PushGameEvent(&state->gameEvents, (GameEvent){
-                .type = GAME_EVENT_MORTAR_FIRED, .pos = boss->shells[i].launch
-            });
-            break;
-        }
+        LobBossShell(state, BossMortarPosition(boss));
     }
 }
 
@@ -592,11 +618,24 @@ void UpdateBossFight(GameState *state, float dt) {
         }
         case BOSS_PHASE_FIGHTING:
             if (!boss->fortressAtoll) UpdateBossPatrol(boss, dt);
-            if (boss->fortressAtoll && boss->coreExposed) {
+            if (boss->fortressAtoll) {
+                // Gates cycle from the fight's first seconds with an
+                // asymmetric dwell (open runs longer than closed), each
+                // edge announced by an event for the sound and the gate
+                // visual - a rhythm to learn, not a coin flip.
                 boss->gateTimer += dt;
-                if (boss->gateTimer >= 2.0f) {
-                    boss->gateTimer -= 2.0f;
+                float dwell = boss->gatesOpen
+                    ? FORTRESS_GATE_OPEN_DURATION : FORTRESS_GATE_CLOSED_DURATION;
+                while (boss->gateTimer >= dwell) {
+                    boss->gateTimer -= dwell;
                     boss->gatesOpen = !boss->gatesOpen;
+                    PushGameEvent(&state->gameEvents, (GameEvent){
+                        .type = boss->gatesOpen
+                            ? GAME_EVENT_BOSS_GATES_OPENED : GAME_EVENT_BOSS_GATES_CLOSED,
+                        .pos = BossPartPosition(boss, BOSS_PART_CORE)
+                    });
+                    dwell = boss->gatesOpen
+                        ? FORTRESS_GATE_OPEN_DURATION : FORTRESS_GATE_CLOSED_DURATION;
                 }
             }
             FireBossGuns(state, dt);

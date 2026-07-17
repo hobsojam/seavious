@@ -180,6 +180,25 @@ typedef enum {
 #define SCORE_BOSS_MISSILE 50
 #define BOSS_MORTAR_INTERVAL 4.0f
 #define BOSS_MORTAR_INTERVAL_CORE_EXPOSED 2.8f
+
+// Fortress atoll (Stage 2 boss): the Leviathan part skeleton re-armed
+// as a static fortified island. Part HP is retuned per weapon class -
+// pods stay gun-weak, ring batteries take a few mortar blasts, the core
+// eats torpedoes through the gate windows.
+#define FORTRESS_POD_HP 8
+#define FORTRESS_RING_BATTERY_HP 3
+#define FORTRESS_CORE_HP 18
+// Ring batteries return the stage's own mortar language: the same
+// shadow-telegraphed lob as the map's Mortar Battery, staggered per
+// battery (BOSS_PART_FIRST_SHOT_DELAY) so shadows interleave with the
+// central atoll's lob instead of landing as one wall.
+#define FORTRESS_RING_MORTAR_INTERVAL 4.5f
+// Sea gates cycle from the fight's first seconds so the player learns
+// the rhythm while the outer fight is still on; the open dwell runs
+// longer than the closed one so the torpedo window is a timing skill,
+// not a coin flip against the 1.5s reload.
+#define FORTRESS_GATE_OPEN_DURATION 2.6f
+#define FORTRESS_GATE_CLOSED_DURATION 2.2f
 #define BOSS_MORTAR_AIR_TIME 1.2f
 #define BOSS_MORTAR_BLAST_RADIUS 24.0f
 #define BOSS_MORTAR_BLAST_DURATION 0.30f
@@ -324,6 +343,10 @@ typedef enum {
     GAME_EVENT_BOSS_PART_DESTROYED,
     GAME_EVENT_BOSS_MISSILE_DOWNED,
     GAME_EVENT_BOSS_DEFEATED,
+    // The fortress's sea gates announce every cycle edge (sound + the
+    // gate visual) so the torpedo window reads as a learnable rhythm.
+    GAME_EVENT_BOSS_GATES_OPENED,
+    GAME_EVENT_BOSS_GATES_CLOSED,
     GAME_EVENT_MORTAR_FIRED,
     GAME_EVENT_MORTAR_BLAST,
     GAME_EVENT_MORTAR_SALVAGED,

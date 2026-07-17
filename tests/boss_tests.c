@@ -58,8 +58,8 @@ static void TestBossStartsOnLockAndParks(void) {
     CHECK(state.boss.phase == BOSS_PHASE_FIGHTING);
     NEAR(state.boss.hullCenter.x, BOSS_PATROL_X);
     NEAR(state.boss.hullCenter.y, BOSS_PATROL_BOTTOM_Y);
-    CHECK(BossRemainingHp(&state.boss) == BossTotalHp());
-    CHECK(BossTotalHp() == 2 * BOSS_POD_HP
+    CHECK(BossRemainingHp(&state.boss) == BossTotalHp(&state.boss));
+    CHECK(BossTotalHp(&state.boss) == 2 * BOSS_POD_HP
         + 2 * BOSS_HULL_SECTION_TORPEDO_WORTH * BOSS_HULL_SECTION_HP + BOSS_CORE_HP);
 }
 
@@ -81,7 +81,7 @@ static void TestPodDiesToGunOnly(void) {
         CHECK(!state.bullets[0].active);
     }
     CHECK(!BossPartAlive(&state.boss, BOSS_PART_POD_FORE));
-    CHECK(BossRemainingHp(&state.boss) == BossTotalHp() - BOSS_POD_HP);
+    CHECK(BossRemainingHp(&state.boss) == BossTotalHp(&state.boss) - BOSS_POD_HP);
     CHECK(ScoreGameEvents(&state.gameEvents) == SCORE_BOSS_POD);
 }
 
@@ -425,6 +425,76 @@ static void SetUpFightingAtoll(GameState *state) {
     state->gameEvents.count = 0;
 }
 
+static bool SamePos(Vector2 a, Vector2 b) {
+    return fabsf(a.x - b.x) < 0.5f && fabsf(a.y - b.y) < 0.5f;
+}
+
+static void TestFortressRingBarrageAndGateRhythm(void) {
+    GameState state;
+    SetUpFightingAtoll(&state);
+
+    // Three staggered lobbers: both ring batteries return the stage's
+    // mortar language alongside the central atoll's lob - one shell each
+    // inside the first three seconds, from three distinct mouths.
+    for (int i = 0; i < 60; i++) UpdateBossFight(&state, 0.05f);
+    Vector2 fore = BossPartPosition(&state.boss, BOSS_PART_HULL_FORE);
+    Vector2 aft = BossPartPosition(&state.boss, BOSS_PART_HULL_AFT);
+    Vector2 central = BossMortarPosition(&state.boss);
+    int foreLobs = 0, aftLobs = 0, centralLobs = 0;
+    for (int i = 0; i < state.gameEvents.count; i++) {
+        const GameEvent *e = &state.gameEvents.items[i];
+        if (e->type != GAME_EVENT_MORTAR_FIRED) continue;
+        if (SamePos(e->pos, fore)) foreLobs++;
+        else if (SamePos(e->pos, aft)) aftLobs++;
+        else if (SamePos(e->pos, central)) centralLobs++;
+    }
+    CHECK(foreLobs == 1 && aftLobs == 1 && centralLobs == 1);
+
+    // Silencing the ring visibly thins the barrage: only the central
+    // atoll keeps lobbing once both batteries are down.
+    state.boss.partHp[BOSS_PART_HULL_FORE] = 0;
+    state.boss.partHp[BOSS_PART_HULL_AFT] = 0;
+    for (int i = 0; i < MAX_MORTAR_SHELLS; i++) state.boss.shells[i].active = false;
+    state.gameEvents.count = 0;
+    for (int i = 0; i < 100; i++) UpdateBossFight(&state, 0.05f);
+    int lobs = 0;
+    for (int i = 0; i < state.gameEvents.count; i++) {
+        const GameEvent *e = &state.gameEvents.items[i];
+        if (e->type != GAME_EVENT_MORTAR_FIRED) continue;
+        lobs++;
+        CHECK(SamePos(e->pos, central));
+    }
+    CHECK(lobs >= 1);
+
+    // The gates cycle from the fight's start - before core exposure -
+    // open dwelling longer than closed, each edge announced for the
+    // sound/visual telegraph.
+    CHECK(!state.boss.coreExposed);
+    state.boss.gateTimer = 0.0f;
+    state.boss.gatesOpen = false;
+    state.gameEvents.count = 0;
+    UpdateBossFight(&state, FORTRESS_GATE_CLOSED_DURATION - 0.05f);
+    CHECK(!state.boss.gatesOpen);
+    UpdateBossFight(&state, 0.1f);
+    CHECK(state.boss.gatesOpen);
+    UpdateBossFight(&state, FORTRESS_GATE_OPEN_DURATION);
+    CHECK(!state.boss.gatesOpen);
+    int opened = 0, closed = 0;
+    for (int i = 0; i < state.gameEvents.count; i++) {
+        if (state.gameEvents.items[i].type == GAME_EVENT_BOSS_GATES_OPENED) opened++;
+        if (state.gameEvents.items[i].type == GAME_EVENT_BOSS_GATES_CLOSED) closed++;
+    }
+    CHECK(opened == 1 && closed == 1);
+
+    // Closed gates block the torpedo route for the whole fight, not just
+    // after exposure; open gates clear it (core targeting stays gated on
+    // exposure separately).
+    Rectangle blockers[2];
+    CHECK(BossHullBlockers(&state.boss, blockers) == 1);
+    state.boss.gatesOpen = true;
+    CHECK(BossHullBlockers(&state.boss, blockers) == 0);
+}
+
 static void TestFortressAtollWeaponGatesAndSalvage(void) {
     GameState state;
     SetUpFightingAtoll(&state);
@@ -470,11 +540,13 @@ static void TestFortressAtollWeaponGatesAndSalvage(void) {
     CHECK(BossHullBlockers(&state.boss, gate) == 1);
     CHECK(ResolveBossContactDamage(&state.boss, core, PLAYER_HIT_RADIUS));
 
-    // The sea gate cycles on a two-second cadence once the outer ring is
-    // gone.  It stays closed until that cadence reaches its first edge.
-    UpdateBossFight(&state, 1.99f);
+    // The sea gate keeps cycling on its asymmetric dwell; realigned here
+    // so the edge lands exactly on the closed-duration boundary.
+    state.boss.gateTimer = 0.0f;
+    state.boss.gatesOpen = false;
+    UpdateBossFight(&state, FORTRESS_GATE_CLOSED_DURATION - 0.01f);
     CHECK(!state.boss.gatesOpen);
-    UpdateBossFight(&state, 0.01f);
+    UpdateBossFight(&state, 0.02f);
     CHECK(state.boss.gatesOpen);
     state.boss.gatesOpen = true;
     int coreHp = state.boss.partHp[BOSS_PART_CORE];
@@ -523,6 +595,7 @@ int main(void) {
     TestPatrolTurnSwapsExposedSide();
     TestDefeatAndSalvageFlow();
     TestFortressAtollWeaponGatesAndSalvage();
+    TestFortressRingBarrageAndGateRhythm();
 
     if (failures > 0) {
         fprintf(stderr, "%d boss test failure(s)\n", failures);
