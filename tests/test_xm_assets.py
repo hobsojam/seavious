@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end test of tools/gen-stage1-xm.py and the committed .xm assets.
+"""End-to-end test of tools/gen-music-xm.py and the committed .xm assets.
 
 Three layers of checking:
   1. Run the generator into a temp dir and structurally validate every
@@ -48,8 +48,8 @@ def check(cond, msg):
 
 
 def load_generator():
-    path = os.path.join(REPO, 'tools', 'gen-stage1-xm.py')
-    spec = importlib.util.spec_from_file_location('gen_stage1_xm', path)
+    path = os.path.join(REPO, 'tools', 'gen-music-xm.py')
+    spec = importlib.util.spec_from_file_location('gen_music_xm', path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -221,7 +221,7 @@ def main():
                     committed = f.read()
                 check(committed == data,
                       f'{name}: committed asset differs from generator output '
-                      f'- rerun tools/gen-stage1-xm.py and commit the result')
+                      f'- rerun tools/gen-music-xm.py and commit the result')
 
             if lib is not None:
                 validate_with_libopenmpt(lib, name, data, patterns, duration)
