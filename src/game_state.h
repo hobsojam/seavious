@@ -182,7 +182,5 @@ bool TrySpawnSurfaceWreck(SurfaceWreck wrecks[], Vector2 pos, SurfaceTargetType 
 void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect explosions[], SurfaceWreck wrecks[]);
 void UpdateExplosionEffects(ExplosionEffect effects[], float dt);
 void UpdateSurfaceWrecks(SurfaceWreck wrecks[], float dt);
-Vector2 MobilePlatformSinkingPosition(Vector2 pos, float age);
-unsigned char MobilePlatformSinkingOpacity(float age);
 
 #endif

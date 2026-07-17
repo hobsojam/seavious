@@ -1,10 +1,29 @@
 #include "game_state.h"
 #include "stage.h"
 #include "stage_data.h"
+#include "wreck_visual.h"
 
 #include <stdio.h>
 
 static int failures;
+
+typedef struct {
+    int calls;
+    Texture2D texture;
+    int x;
+    int y;
+    Color tint;
+} TextureDrawCapture;
+
+static TextureDrawCapture textureDraw;
+
+static void CaptureTextureDraw(Texture2D texture, int x, int y, Color tint) {
+    textureDraw.calls++;
+    textureDraw.texture = texture;
+    textureDraw.x = x;
+    textureDraw.y = y;
+    textureDraw.tint = tint;
+}
 
 #define CHECK(condition) do { \
     if (!(condition)) { \
@@ -233,6 +252,23 @@ static void TestMobilePlatformSinksInsteadOfLeavingWreck(void) {
     Vector2 clamped = MobilePlatformSinkingPosition(start, MOBILE_PLATFORM_SINK_DURATION * 4.0f);
     CHECK(clamped.y == start.y + MOBILE_PLATFORM_SINK_DEPTH);
     CHECK(MobilePlatformSinkingOpacity(-1.0f) == 150);
+
+    Texture2D hull = { .id = 7, .width = 36, .height = 18 };
+    SurfaceWreck visual = {
+        .pos = start,
+        .age = MOBILE_PLATFORM_SINK_DURATION * 0.5f,
+        .type = SURFACE_TARGET_MOBILE_PLATFORM,
+    };
+    textureDraw = (TextureDrawCapture){ 0 };
+    CHECK(DrawSpecialSurfaceWreck(hull, &visual, CaptureTextureDraw));
+    CHECK(textureDraw.calls == 1 && textureDraw.texture.id == hull.id);
+    CHECK(textureDraw.x == 82 && textureDraw.y == 115);
+    CHECK(textureDraw.tint.r == 112 && textureDraw.tint.g == 156 && textureDraw.tint.b == 166);
+    CHECK(textureDraw.tint.a == 75);
+
+    visual.type = SURFACE_TARGET_CASEMATE;
+    CHECK(!DrawSpecialSurfaceWreck(hull, &visual, CaptureTextureDraw));
+    CHECK(textureDraw.calls == 1);
 }
 
 static void TestOrdinaryWreckStillUsesScrollExpiry(void) {

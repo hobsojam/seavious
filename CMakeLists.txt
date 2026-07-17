@@ -27,6 +27,7 @@ add_executable(seavious
     src/stage1_data.c
     src/stage2_data.c
     src/title.c
+    src/wreck_visual.c
 )
 
 # TEMPORARY: a stale Windows-side file handle has the exact path
@@ -53,6 +54,7 @@ if(BUILD_TESTING)
         src/stage.c
         src/stage1_data.c
         src/stage2_data.c
+        src/wreck_visual.c
     )
     target_include_directories(stage_tests PRIVATE src)
     target_link_libraries(stage_tests PRIVATE raylib glfw)
