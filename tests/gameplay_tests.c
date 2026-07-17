@@ -261,8 +261,14 @@ static void TestPlayerMortar(void) {
     MortarShell shell = { 0 };
     FirePlayerMortar(&shell, spawn, mortarReticle);
     CHECK(shell.active && !shell.landed);
+    Vector2 shadow = CalculateMortarGroundPosition(&shell, PLAYER_MORTAR_AIR_TIME);
+    NEAR(shadow.x, spawn.x);
+    NEAR(shadow.y, spawn.y);
     CHECK(!UpdatePlayerMortarShell(&shell, PLAYER_MORTAR_AIR_TIME / 2.0f, 1.0f));
     NEAR(shell.target.x, mortarReticle.x - OCEAN_SCROLL_SPEED);
+    shadow = CalculateMortarGroundPosition(&shell, PLAYER_MORTAR_AIR_TIME);
+    NEAR(shadow.x, (spawn.x + shell.target.x) / 2.0f);
+    NEAR(shadow.y, (spawn.y + shell.target.y) / 2.0f);
     CHECK(UpdatePlayerMortarShell(&shell, PLAYER_MORTAR_AIR_TIME / 2.0f, 0.0f));
     CHECK(shell.landed);
     NEAR(shell.blastT, PLAYER_MORTAR_BLAST_DURATION);

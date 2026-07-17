@@ -891,6 +891,14 @@ Vector2 CalculateMortarReticle(Vector2 spawn) {
     return (Vector2){ x, spawn.y };
 }
 
+Vector2 CalculateMortarGroundPosition(const MortarShell *shell, float airTime) {
+    float u = shell->t / airTime;
+    return (Vector2){
+        shell->launch.x + (shell->target.x - shell->launch.x) * u,
+        shell->launch.y + (shell->target.y - shell->launch.y) * u
+    };
+}
+
 void FirePlayerMortar(MortarShell *shell, Vector2 spawn, Vector2 target) {
     *shell = (MortarShell){
         .launch = spawn,
