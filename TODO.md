@@ -104,11 +104,9 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       spine (playtest 2026-07-17). Done: the shell launches from the
       player center (where the salvage docks the dome) while the
       reticle stays nose-anchored, preserving the tuned reach
-- [ ] Mines should be more than obstacles (playtest 2026-07-17): add a
-      proximity fuse — detonate when the player flies close, not only
-      on hull contact — and a larger explosion splash radius, so the
-      blast threatens nearby traffic and mines become a spacing threat
-      rather than static furniture
+- [x] Mines as spacing threats (playtest 2026-07-17): proximity fuse,
+      persistent damaging explosion splash, and larger blast radius. A
+      torpedo kill retains its score while still creating the same splash.
 - [ ] Targeting-computer torpedoes (`FireLeadTorpedo`) skip the terrain
       reticle clamp, so the lead reticle can point past land the shot
       will actually die against (in-flight land collision still
@@ -312,6 +310,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       all done (see Art below). Land-based emplacement variants
       deliberately deferred to the Stage 2 mortar-target class (see
       README roster note) rather than reskins of the water designs
+- [ ] Sinking surface ships: the Mobile Platform (currently the only
+      boat-shaped moving enemy) should not leave the generic black wreck
+      circle. Give it a short sinking treatment — drawn underwater and
+      faded out — instead.
 - [ ] Island/islet terrain art (Stage 1: sparse islets on open ocean) —
       unblocked now that the terrain-footprint system is in; would
       replace the code-drawn rounded-coastline rings in `game_render.c`

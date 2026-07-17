@@ -71,18 +71,21 @@ void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect
             float radius = TRACKING_TURRET_RADIUS;
             if (event->target.surfaceTarget == SURFACE_TARGET_CASEMATE) radius = CASEMATE_RADIUS;
             if (event->target.surfaceTarget == SURFACE_TARGET_RELAY_NODE) radius = RELAY_NODE_RADIUS;
-            if (event->target.surfaceTarget == SURFACE_TARGET_MINE) radius = MINE_RADIUS;
+            if (event->target.surfaceTarget == SURFACE_TARGET_MINE) radius = MINE_BLAST_RADIUS;
             if (event->target.surfaceTarget == SURFACE_TARGET_MOBILE_PLATFORM) radius = MOBILE_PLATFORM_RADIUS;
-            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, radius + 5.0f, 0.38f);
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET,
+                event->target.surfaceTarget == SURFACE_TARGET_MINE ? MINE_BLAST_RADIUS : radius + 5.0f,
+                event->target.surfaceTarget == SURFACE_TARGET_MINE ? MINE_BLAST_DURATION : 0.38f);
             // Mines detonate to nothing - there is no burnt-out hull left
             // to wreck, however they died.
             if (event->target.surfaceTarget != SURFACE_TARGET_MINE) {
                 TrySpawnSurfaceWreck(wrecks, event->pos, event->target.surfaceTarget, radius);
             }
         } else if (event->type == GAME_EVENT_MINE_DETONATED) {
-            // Contact detonation: a blast clearly bigger than the mine
-            // itself, but no wreck and (via ScoreGameEvents) no score.
-            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET, MINE_RADIUS + 8.0f, 0.38f);
+            // Proximity detonation: a blast clearly bigger than the mine,
+            // with matching gameplay damage and no wreck or score.
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET,
+                MINE_BLAST_RADIUS, MINE_BLAST_DURATION);
         } else if (event->type == GAME_EVENT_BOSS_PART_DESTROYED) {
             // Pods burst in the air family's magenta; hull sections and
             // the core in the surface family's orange. The burnt socket a

@@ -102,20 +102,67 @@ bool ResolvePlayerContactDamage(Vector2 playerPos, float playerRadius, const Air
 
     for (int i = 0; i < surfaceCount; i++) {
         if (!surfaceTargets[i].active) continue;
+        // Mines use their proximity fuse and blast pool below. They are not
+        // ordinary contact hazards, otherwise their splash could never have
+        // its own readable damage window.
+        if (surfaceTargets[i].type == SURFACE_TARGET_MINE) continue;
         if (!CirclesOverlap(playerPos, playerRadius, surfaceTargets[i].pos, surfaceTargets[i].radius)) continue;
         hit = true;
-        // Contact consumes a mine: the detonation takes the player's ship
-        // but scores nothing and leaves no wreck (unlike a torpedo kill,
-        // which goes through the normal destroyed event).
-        if (surfaceTargets[i].type == SURFACE_TARGET_MINE) {
-            surfaceTargets[i].active = false;
-            PushGameEvent(events, (GameEvent){
-                .type = GAME_EVENT_MINE_DETONATED, .pos = surfaceTargets[i].pos
-            });
-        }
     }
 
     return hit;
+}
+
+bool DetonateNearbyMines(SurfaceTarget targets[], int count, Vector2 playerPos, float playerRadius,
+    GameEventQueue *events) {
+    bool detonated = false;
+    for (int i = 0; i < count; i++) {
+        if (!targets[i].active || targets[i].type != SURFACE_TARGET_MINE) continue;
+        if (!CirclesOverlap(playerPos, playerRadius, targets[i].pos, MINE_PROXIMITY_RADIUS)) continue;
+        targets[i].active = false;
+        PushGameEvent(events, (GameEvent){
+            .type = GAME_EVENT_MINE_DETONATED, .pos = targets[i].pos
+        });
+        detonated = true;
+    }
+    return detonated;
+}
+
+static bool TrySpawnMineBlast(MineBlast blasts[], int count, Vector2 pos) {
+    for (int i = 0; i < count; i++) {
+        if (blasts[i].active) continue;
+        blasts[i] = (MineBlast){ .pos = pos, .remaining = MINE_BLAST_DURATION, .active = true };
+        return true;
+    }
+    return false;
+}
+
+void SpawnMineBlastsFromEvents(MineBlast blasts[], int blastCount, const GameEventQueue *events) {
+    for (int i = 0; i < events->count; i++) {
+        const GameEvent *event = &events->items[i];
+        bool mineDestroyed = event->type == GAME_EVENT_SURFACE_TARGET_DESTROYED
+            && event->target.surfaceTarget == SURFACE_TARGET_MINE;
+        if (event->type == GAME_EVENT_MINE_DETONATED || mineDestroyed) {
+            TrySpawnMineBlast(blasts, blastCount, event->pos);
+        }
+    }
+}
+
+void UpdateMineBlasts(MineBlast blasts[], int count, float dt) {
+    for (int i = 0; i < count; i++) {
+        if (!blasts[i].active) continue;
+        blasts[i].remaining -= dt;
+        if (blasts[i].remaining <= 0.0f) blasts[i].active = false;
+    }
+}
+
+bool ResolveMineBlastPlayerHit(const MineBlast blasts[], int count, Vector2 playerPos, float playerRadius) {
+    for (int i = 0; i < count; i++) {
+        if (blasts[i].active && CirclesOverlap(playerPos, playerRadius, blasts[i].pos, MINE_BLAST_RADIUS)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH) {

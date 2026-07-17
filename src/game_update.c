@@ -9,6 +9,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     bool forceTorpedoFire, bool forceMortarFire) {
     state->gameEvents.count = 0;
     if (state->paused) return;
+    UpdateMineBlasts(state->mineBlasts, MAX_MINE_BLASTS, dt);
     float halfW = assets->playerTex.width / 2.0f;
     float halfH = assets->playerTex.height / 2.0f;
     float playerRadius = PLAYER_HIT_RADIUS;
@@ -263,6 +264,16 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // through the death chain and salvage beat.
     bool bossVictory = state->boss.phase >= BOSS_PHASE_DYING;
     bool playerVulnerable = !state->playerDestroyed && state->respawnInvulnerability <= 0.0f && !bossVictory;
+    // The fuse starts before hull contact. The resulting blast is a real
+    // area hazard, so a quick turn can still escape after the warning gap.
+    if (playerVulnerable) {
+        DetonateNearbyMines(state->surfaceTargets, MAX_SURFACE_TARGETS,
+            state->player, playerRadius, &state->gameEvents);
+    }
+    SpawnMineBlastsFromEvents(state->mineBlasts, MAX_MINE_BLASTS, &state->gameEvents);
+    bool mineBlastHit = playerVulnerable && ResolveMineBlastPlayerHit(
+        state->mineBlasts, MAX_MINE_BLASTS, state->player, playerRadius
+    );
     bool contactHit = playerVulnerable && ResolvePlayerContactDamage(
         state->player, playerRadius, state->airTargets, MAX_AIR_TARGETS,
         state->surfaceTargets, MAX_SURFACE_TARGETS, &state->gameEvents
@@ -277,7 +288,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // themselves never contact-kill (flying over land is always safe).
     bool landBlastHit = playerVulnerable
         && ResolveLandMortarBlastPlayerHit(state->landTargets, MAX_LAND_TARGETS, state->player, playerRadius);
-    if (playerVulnerable && (enemyBulletHit || missileHit || contactHit || bossHit || landBlastHit)) {
+    if (playerVulnerable && (enemyBulletHit || missileHit || mineBlastHit || contactHit || bossHit || landBlastHit)) {
         TrySpawnExplosion(state->explosions, state->player, EXPLOSION_PLAYER, 20.0f, PLAYER_DEATH_DURATION);
         BeginPlayerDeath(state);
     }
