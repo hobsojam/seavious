@@ -159,6 +159,9 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
                 break;
             case GAME_EVENT_MINE_DETONATED:
                 PlayIfValid(audio->mineDetonation);
+                // The sharp fuse charge gets a water tail so the hit reads
+                // as an underwater mine rather than a dry surface pop.
+                PlayIfValid(audio->torpedoSplash);
                 break;
             case GAME_EVENT_BOSS_PART_DESTROYED:
             case GAME_EVENT_BOSS_DEFEATED:

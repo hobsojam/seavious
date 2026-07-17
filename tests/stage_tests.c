@@ -186,6 +186,8 @@ static void TestMineLeavesNoWreck(void) {
     });
     SpawnTargetDestructionEffects(&events, explosions, wrecks);
     CHECK(explosions[0].active && explosions[1].active);
+    CHECK(explosions[0].type == EXPLOSION_MINE && explosions[1].type == EXPLOSION_MINE);
+    CHECK(explosions[0].radius == MINE_BLAST_RADIUS && explosions[1].radius == MINE_BLAST_RADIUS);
     for (int i = 0; i < MAX_SURFACE_WRECKS; i++) CHECK(!wrecks[i].active);
 }
 

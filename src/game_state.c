@@ -73,9 +73,11 @@ void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect
             if (event->target.surfaceTarget == SURFACE_TARGET_RELAY_NODE) radius = RELAY_NODE_RADIUS;
             if (event->target.surfaceTarget == SURFACE_TARGET_MINE) radius = MINE_BLAST_RADIUS;
             if (event->target.surfaceTarget == SURFACE_TARGET_MOBILE_PLATFORM) radius = MOBILE_PLATFORM_RADIUS;
-            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET,
-                event->target.surfaceTarget == SURFACE_TARGET_MINE ? MINE_BLAST_RADIUS : radius + 5.0f,
-                event->target.surfaceTarget == SURFACE_TARGET_MINE ? MINE_BLAST_DURATION : 0.38f);
+            bool mine = event->target.surfaceTarget == SURFACE_TARGET_MINE;
+            ExplosionType effectType = mine ? EXPLOSION_MINE : EXPLOSION_SURFACE_TARGET;
+            float effectRadius = mine ? MINE_BLAST_RADIUS : radius + 5.0f;
+            float effectLifetime = mine ? MINE_BLAST_DURATION : 0.38f;
+            TrySpawnExplosion(explosions, event->pos, effectType, effectRadius, effectLifetime);
             // Mines detonate to nothing - there is no burnt-out hull left
             // to wreck, however they died.
             if (event->target.surfaceTarget != SURFACE_TARGET_MINE) {
@@ -84,7 +86,7 @@ void SpawnTargetDestructionEffects(const GameEventQueue *events, ExplosionEffect
         } else if (event->type == GAME_EVENT_MINE_DETONATED) {
             // Proximity detonation: a blast clearly bigger than the mine,
             // with matching gameplay damage and no wreck or score.
-            TrySpawnExplosion(explosions, event->pos, EXPLOSION_SURFACE_TARGET,
+            TrySpawnExplosion(explosions, event->pos, EXPLOSION_MINE,
                 MINE_BLAST_RADIUS, MINE_BLAST_DURATION);
         } else if (event->type == GAME_EVENT_BOSS_PART_DESTROYED) {
             // Pods burst in the air family's magenta; hull sections and
