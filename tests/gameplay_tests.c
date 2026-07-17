@@ -291,6 +291,7 @@ static void TestMortarBattery(void) {
     GameEventQueue events = { 0 };
     CHECK(TrySpawnMortarBattery(land, 1, 120.0f));
     CHECK(land[0].type == LAND_TARGET_MORTAR_BATTERY && land[0].hp == MORTAR_BATTERY_HP);
+    CHECK(land[0].pos.x == (float)GAME_WIDTH + 16.0f);
 
     // Anchored drift at scroll speed (glued to its terrain cell).
     float startX = land[0].pos.x;
@@ -364,6 +365,7 @@ static void TestDroneBunker(void) {
     GameEventQueue events = { 0 };
     CHECK(TrySpawnDroneBunker(land, 1, 200.0f));
     CHECK(land[0].type == LAND_TARGET_DRONE_BUNKER && land[0].hp == DRONE_BUNKER_HP);
+    CHECK(land[0].pos.x == (float)GAME_WIDTH + 16.0f);
 
     // Pre-armed hold right of the line: intervals elapse, nothing hatches.
     land[0].pos = (Vector2){ (float)GAME_WIDTH + 5.0f, 200.0f };
