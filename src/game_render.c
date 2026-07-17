@@ -309,9 +309,60 @@ static bool TerrainFootprintsTouch(StageTerrainFootprint first, StageTerrainFoot
         && first.y <= secondBottom && firstBottom >= second.y;
 }
 
+// The islet variant whose native aspect best matches the destination -
+// stretching a round islet over Stage 2's 7:1 merged groups read as
+// obvious horizontal smearing (playtest 2026-07-17). Ties in look are
+// broken per-call by the seed's horizontal flip below, not here.
+static Texture2D PickIsletVariant(const GameAssets *assets, float destAspect) {
+    Texture2D best = assets->stage1IsletTex[0];
+    float bestScore = 1e9f;
+    for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
+        Texture2D candidate = assets->stage1IsletTex[i];
+        float aspect = candidate.height > 0
+            ? (float)candidate.width / (float)candidate.height : 1.0f;
+        float score = fabsf(logf(aspect / destAspect));
+        if (score < bestScore) {
+            bestScore = score;
+            best = candidate;
+        }
+    }
+    return best;
+}
+
+// One island group's art: a single aspect-matched islet for compact
+// groups, and for long groups a chain of overlapping aspect-preserved
+// islets along the axis (an archipelago ridge) instead of one sprite
+// stretched to the whole bounding box. Adapts to any stage's shapes
+// with no per-stage art.
+static void DrawIsletGroup(const GameAssets *assets, Rectangle destination,
+    unsigned int seed) {
+    float aspect = destination.height > 0.0f
+        ? destination.width / destination.height : 1.0f;
+    int segments = (int)ceilf(aspect / 2.0f);
+    if (segments < 1) segments = 1;
+    float stride = destination.width / (float)segments;
+    // Segments overlap ~40% so the chained blobs fuse into one landmass
+    // instead of reading as separate stamped islets.
+    float segWidth = segments > 1 ? stride * 1.4f : destination.width;
+
+    for (int seg = 0; seg < segments; seg++) {
+        Texture2D islet = PickIsletVariant(assets, segWidth / destination.height);
+        Rectangle source = { 0.0f, 0.0f, (float)islet.width, (float)islet.height };
+        // Alternate horizontal flips off the seed so a repeated variant
+        // doesn't read as a copy-paste row.
+        if (((seed >> seg) ^ seg) & 1) source.width = -source.width;
+        Rectangle dst = {
+            destination.x + stride * (float)seg + (stride - segWidth) / 2.0f,
+            destination.y, segWidth, destination.height
+        };
+        DrawTexturePro(islet, source, dst, (Vector2){ 0 }, 0.0f, WHITE);
+    }
+}
+
 // Collision retains the authored rectangular cells. Rendering merges every
-// touching group, so one transparent islet sprite replaces the visibly
-// stacked shore rings while targets still use the same stage coordinates.
+// touching group, so islet art replaces the visibly stacked shore rings
+// while targets still use the same stage coordinates. Islet art is still
+// the Stage 1 set; per-stage art selection remains Stage 2 content work.
 static void DrawStandaloneTerrain(const GameState *state, const GameAssets *assets) {
     const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
     // Belt and braces: stage_tests enforce the cap, so this bail can't
@@ -353,13 +404,9 @@ static void DrawStandaloneTerrain(const GameState *state, const GameAssets *asse
             maxX - minX + shorelineMargin * 2.0f, maxY - minY + shorelineMargin * 2.0f
         };
         if (destination.x > (float)GAME_WIDTH + shorelineMargin || destination.x + destination.width < -shorelineMargin) continue;
-        // Islet art is still the Stage 1 set; per-stage art selection is
-        // Stage 2 content work, not descriptor plumbing.
         unsigned int variantSeed = (unsigned int)stage->terrain[start].px * 17u
             ^ (unsigned int)stage->terrain[start].y * 31u ^ (unsigned int)start;
-        Texture2D islet = assets->stage1IsletTex[variantSeed % STAGE1_ISLET_VARIANT_COUNT];
-        Rectangle source = { 0.0f, 0.0f, (float)islet.width, (float)islet.height };
-        DrawTexturePro(islet, source, destination, (Vector2){ 0 }, 0.0f, WHITE);
+        DrawIsletGroup(assets, destination, variantSeed);
     }
 }
 
