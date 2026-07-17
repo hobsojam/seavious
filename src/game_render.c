@@ -732,14 +732,29 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         }
     }
 
-    // Player mortar shadow: same shrink/grow landing telegraph as the
-    // boss's shells, green-rimmed because this one is the player's.
+    // Keep the physical shadow and the gameplay telegraph visually distinct:
+    // the dark shadow tracks beneath the shell, while an unfilled green ring
+    // marks the water-anchored impact point as it scrolls with the world.
     if (state->mortarShell.active && !state->mortarShell.landed) {
         float u = state->mortarShell.t / PLAYER_MORTAR_AIR_TIME;
         float shadowRadius = 2.0f + 5.0f * fabsf(cosf(PI * u));
-        DrawCircleV(state->mortarShell.target, shadowRadius, (Color){ 8, 10, 14, 110 });
-        DrawCircleLines((int)state->mortarShell.target.x, (int)state->mortarShell.target.y, shadowRadius + 1.0f,
-            (Color){ 108, 224, 96, (unsigned char)(40.0f + 150.0f * u) });
+        Vector2 shadowPos = CalculateMortarGroundPosition(
+            &state->mortarShell, PLAYER_MORTAR_AIR_TIME);
+        DrawCircleV(shadowPos, shadowRadius, (Color){ 8, 10, 14, 110 });
+
+        float markerRadius = 7.0f - 2.0f * u;
+        Color marker = (Color){ 108, 224, 96,
+            (unsigned char)(90.0f + 100.0f * u) };
+        Vector2 target = state->mortarShell.target;
+        DrawCircleLines((int)target.x, (int)target.y, markerRadius, marker);
+        DrawLine((int)(target.x - markerRadius - 3.0f), (int)target.y,
+            (int)(target.x - markerRadius), (int)target.y, marker);
+        DrawLine((int)(target.x + markerRadius), (int)target.y,
+            (int)(target.x + markerRadius + 3.0f), (int)target.y, marker);
+        DrawLine((int)target.x, (int)(target.y - markerRadius - 3.0f),
+            (int)target.x, (int)(target.y - markerRadius), marker);
+        DrawLine((int)target.x, (int)(target.y + markerRadius),
+            (int)target.x, (int)(target.y + markerRadius + 3.0f), marker);
     }
 
     if (state->torpedoImpactTimer > 0.0f) {
@@ -913,10 +928,9 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         if (!shell->landed) {
             float u = shell->t / PLAYER_MORTAR_AIR_TIME;
             float arc = sinf(PI * u);
-            Vector2 shellPos = {
-                shell->launch.x + (shell->target.x - shell->launch.x) * u,
-                shell->launch.y + (shell->target.y - shell->launch.y) * u - 40.0f * arc
-            };
+            Vector2 shellPos = CalculateMortarGroundPosition(
+                shell, PLAYER_MORTAR_AIR_TIME);
+            shellPos.y -= 40.0f * arc;
             DrawPoly(shellPos, 4, 3.0f + 3.0f * arc, 0.0f, (Color){ 108, 224, 96, 255 });
             DrawPixelV(shellPos, (Color){ 255, 250, 240, 255 });
         } else {

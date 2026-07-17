@@ -278,10 +278,9 @@ typedef struct {
     Vector2 pos;
 } TorpedoImpact;
 
-// One lobbed mortar shell: launch -> target over a fixed air time (the
-// dodge window, telegraphed by the shadow at the target), then a short
-// area blast. Shared by the boss's turret and the player's scavenged one;
-// only the timings/radii and what the blast hurts differ.
+// One lobbed mortar shell: launch -> target over a fixed air time, then a
+// short area blast. Shared by the boss's turret and the player's scavenged
+// one; only the timings/radii and what the blast hurts differ.
 typedef struct {
     Vector2 launch;
     Vector2 target;
@@ -470,6 +469,7 @@ void ResolveTorpedoExplosion(Vector2 pos, SurfaceTarget targets[], int targetCou
 // the water class. Stage 2's land targets will additionally be
 // mortar-only.
 Vector2 CalculateMortarReticle(Vector2 spawn);
+Vector2 CalculateMortarGroundPosition(const MortarShell *shell, float airTime);
 void FirePlayerMortar(MortarShell *shell, Vector2 spawn, Vector2 target);
 bool UpdatePlayerMortarShell(MortarShell *shell, float dt, float scrollDt);
 void ResolveMortarBlastSurfaceTargets(Vector2 pos, SurfaceTarget targets[], int targetCount, GameEventQueue *events);
