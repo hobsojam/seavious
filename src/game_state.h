@@ -165,6 +165,7 @@ typedef struct {
 
     WakeParticle wake[MAX_WAKE_PARTICLES];
     float wakeEmitTimer;
+    int wakeEmitPhase;
 } GameState;
 
 void ResetRunState(GameState *state);

@@ -55,17 +55,15 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
             };
         }
 
-        // Wake: drop a puff from each rear ski-point on a fixed cadence.
-        // The 1px jitter keeps the two trails from reading as ruled lines.
+        // Wake: the same two puffs per cadence as before, distributed across
+        // the rear half of the hull instead of locked to its two ski tips.
+        // The 1px jitter keeps that broad churn from reading as a grid.
         state->wakeEmitTimer += dt;
         while (state->wakeEmitTimer >= WAKE_EMIT_INTERVAL) {
             state->wakeEmitTimer -= WAKE_EMIT_INTERVAL;
-            for (int ski = -1; ski <= 1; ski += 2) {
-                TryEmitWakeParticle(state->wake, MAX_WAKE_PARTICLES, (Vector2){
-                    state->player.x - halfW + (float)GetRandomValue(-1, 1),
-                    state->player.y + ski * WAKE_SKI_OFFSET_Y + (float)GetRandomValue(-1, 1)
-                });
-            }
+            state->wakeEmitPhase = EmitPlayerWake(state->wake, MAX_WAKE_PARTICLES, state->player,
+                halfW, halfH, state->wakeEmitPhase, (float)GetRandomValue(-1, 1),
+                (float)GetRandomValue(-1, 1));
         }
 
         // Auto-fire: accumulate dt and emit as many shots as the interval
