@@ -92,37 +92,37 @@ def build():
         ny = (y - (tile_h - 1) / 2.0) / (tile_h / 2.0)
         return math.hypot(nx, ny)
 
-    pixels = []
-    for y in range(out_h):
-        for x in range(out_w):
-            best = None
-            best_d = 10.0
-            second = None
-            second_d = 10.0
-            for copy, (ox, oy) in enumerate(placements):
-                lx, ly = x - ox, y - oy
-                if not (0 <= lx < tile_w and 0 <= ly < tile_h):
-                    continue
-                px = sample(copy, lx, ly)
-                if px[3] <= 25:
-                    continue
-                d = depth(lx, ly)
-                if d < best_d:
-                    second, second_d = best, best_d
-                    best, best_d = px, d
-                elif d < second_d:
-                    second, second_d = px, d
-            if best is None:
-                pixels.append((0, 0, 0, 0))
+    def candidates(x, y):
+        """Opaque source pixels under (x, y) as (depth, pixel), sorted so
+        the copy whose interior lies deepest under the point comes first."""
+        found = []
+        for copy, (ox, oy) in enumerate(placements):
+            lx, ly = x - ox, y - oy
+            if not (0 <= lx < tile_w and 0 <= ly < tile_h):
                 continue
-            if second is not None and second_d - best_d < DITHER_BAND \
-                    and _hash01(x, y) < 0.5:
-                best = second
-            # The sprite tests treat terrain as faction-less: nudge any
-            # painted pixel that lands exactly on a faction color.
-            if best[:3] in ((232, 148, 44), (216, 72, 192)):
-                best = (best[0], best[1], best[2] ^ 1, best[3])
-            pixels.append(best)
+            px = sample(copy, lx, ly)
+            if px[3] > 25:
+                found.append((depth(lx, ly), px))
+        found.sort(key=lambda entry: entry[0])
+        return found
+
+    def resolve(x, y):
+        found = candidates(x, y)
+        if not found:
+            return (0, 0, 0, 0)
+        best = found[0][1]
+        # Near-ties dither between the two copies, hiding the seam
+        # inside the painted grain.
+        if len(found) > 1 and found[1][0] - found[0][0] < DITHER_BAND \
+                and _hash01(x, y) < 0.5:
+            best = found[1][1]
+        # The sprite tests treat terrain as faction-less: nudge any
+        # painted pixel that lands exactly on a faction color.
+        if best[:3] in ((232, 148, 44), (216, 72, 192)):
+            best = (best[0], best[1], best[2] ^ 1, best[3])
+        return best
+
+    pixels = [resolve(x, y) for y in range(out_h) for x in range(out_w)]
     return out_w, out_h, pixels
 
 

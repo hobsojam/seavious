@@ -16,18 +16,9 @@ def _chunk(tag, payload):
             + struct.pack('>I', zlib.crc32(tag + payload) & 0xffffffff))
 
 
-def write_grid_png(width, height, palette, grid, out_path):
-    """palette: dict char -> (r, g, b, a). Grid rows shorter than width are
-    padded with the '.' entry (conventionally transparent)."""
-    raw = bytearray()
-    for y in range(height):
-        row = grid[y] if y < len(grid) else ''
-        raw.append(0)  # filter type: None
-        for x in range(width):
-            ch = row[x] if x < len(row) else '.'
-            r, g, b, a = palette[ch]
-            raw += bytes((r, g, b, a))
-
+def _write_png(width, height, raw, out_path):
+    """Assemble and write an 8-bit RGBA PNG from raw (filtered) scanline
+    bytes - the shared tail of every writer below."""
     ihdr = struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0)  # 8-bit RGBA
     png = (b'\x89PNG\r\n\x1a\n'
            + _chunk(b'IHDR', ihdr)
@@ -41,26 +32,49 @@ def write_grid_png(width, height, palette, grid, out_path):
     print(f'wrote {out_path} ({width}x{height})')
 
 
+def write_grid_png(width, height, palette, grid, out_path):
+    """palette: dict char -> (r, g, b, a). Grid rows shorter than width are
+    padded with the '.' entry (conventionally transparent)."""
+    raw = bytearray()
+    for y in range(height):
+        row = grid[y] if y < len(grid) else ''
+        raw.append(0)  # filter type: None
+        for x in range(width):
+            ch = row[x] if x < len(row) else '.'
+            raw += bytes(palette[ch])
+    _write_png(width, height, raw, out_path)
+
+
 def write_rgba_png(width, height, pixels, out_path):
-    """pixels: flat list of (r, g, b, a) in row-major order. Same
-    mechanical write step as write_grid_png, for generators that
-    compose true-color output (e.g. from existing painted assets)."""
+    """pixels: flat list of (r, g, b, a) in row-major order, for
+    generators that compose true-color output from existing assets."""
     raw = bytearray()
     for y in range(height):
         raw.append(0)  # filter type: None
         for x in range(width):
             raw += bytes(pixels[y * width + x])
-    ihdr = struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0)
-    png = (b'\x89PNG\r\n\x1a\n'
-           + _chunk(b'IHDR', ihdr)
-           + _chunk(b'IDAT', zlib.compress(bytes(raw), 9))
-           + _chunk(b'IEND', b''))
-    out_dir = os.path.dirname(out_path)
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    with open(out_path, 'wb') as f:
-        f.write(png)
-    print(f'wrote {out_path} ({width}x{height})')
+    _write_png(width, height, raw, out_path)
+
+
+def _unfilter_scanline(filter_type, line, prev, bpp):
+    """Reverse one scanline's PNG filter in place (spec section 9)."""
+    for x in range(len(line)):
+        a = line[x - bpp] if x >= bpp else 0
+        b = prev[x]
+        c = prev[x - bpp] if x >= bpp else 0
+        if filter_type == 1:
+            recon = a
+        elif filter_type == 2:
+            recon = b
+        elif filter_type == 3:
+            recon = (a + b) // 2
+        elif filter_type == 4:
+            p = a + b - c
+            pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+            recon = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
+        else:
+            recon = 0
+        line[x] = (line[x] + recon) & 255
 
 
 def read_png_rgba(path):
@@ -88,25 +102,10 @@ def read_png_rgba(path):
     prev = bytearray(stride)
     i = 0
     for _y in range(height):
-        f = raw[i]
-        i += 1
-        line = bytearray(raw[i:i + stride])
-        i += stride
-        for x in range(stride):
-            a = line[x - bpp] if x >= bpp else 0
-            b = prev[x]
-            c = prev[x - bpp] if x >= bpp else 0
-            if f == 1:
-                line[x] = (line[x] + a) & 255
-            elif f == 2:
-                line[x] = (line[x] + b) & 255
-            elif f == 3:
-                line[x] = (line[x] + (a + b) // 2) & 255
-            elif f == 4:
-                p = a + b - c
-                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
-                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
-                line[x] = (line[x] + pr) & 255
+        filter_type = raw[i]
+        line = bytearray(raw[i + 1:i + 1 + stride])
+        i += 1 + stride
+        _unfilter_scanline(filter_type, line, prev, bpp)
         prev = line
         for x in range(width):
             px = line[x * bpp:x * bpp + bpp]
