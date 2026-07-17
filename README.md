@@ -18,12 +18,15 @@ Stage clear continues the same run; game over starts a fresh Stage 1 run.
 | Fire torpedo | Space |
 | Fire mortar (after Stage 1) | Left Shift or X |
 | Pause / menu | P |
+| Screenshot (during gameplay) | Print Screen |
 | Restart after game over or stage clear | R, Enter, or keypad Enter |
 | Fullscreen | F11 |
 
-Escape backs out of menus and modals. During active gameplay it opens a quit
-confirmation rather than closing the game immediately. The in-game Controls
-screen is the authoritative binding list.
+Print Screen saves the clean presented gameplay frame as the next numbered PNG
+in the `screenshots` folder beside the executable. Escape backs out of menus
+and modals. During active gameplay it opens a quit confirmation rather than
+closing the game immediately. The in-game Controls screen is the authoritative
+binding list.
 
 ## Build on Windows
 
