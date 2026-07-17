@@ -430,6 +430,8 @@ static void TestFortressAtollWeaponGatesAndSalvage(void) {
     SetUpFightingAtoll(&state);
     CHECK(BossIsFortressAtoll(&state.boss));
     CHECK(state.boss.phase == BOSS_PHASE_FIGHTING);
+    NEAR(state.boss.hullCenter.x, 404.0f);
+    NEAR(state.boss.hullCenter.y, 176.0f);
 
     // AA pods are gun-only.
     Vector2 pod = BossPartPosition(&state.boss, BOSS_PART_POD_FORE);
@@ -466,10 +468,27 @@ static void TestFortressAtollWeaponGatesAndSalvage(void) {
         == TORPEDO_IMPACT_NONE);
     Rectangle gate[2];
     CHECK(BossHullBlockers(&state.boss, gate) == 1);
+    CHECK(ResolveBossContactDamage(&state.boss, core, PLAYER_HIT_RADIUS));
+
+    // The sea gate cycles on a two-second cadence once the outer ring is
+    // gone.  It stays closed until that cadence reaches its first edge.
+    UpdateBossFight(&state, 1.99f);
+    CHECK(!state.boss.gatesOpen);
+    UpdateBossFight(&state, 0.01f);
+    CHECK(state.boss.gatesOpen);
     state.boss.gatesOpen = true;
     int coreHp = state.boss.partHp[BOSS_PART_CORE];
     CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
         == TORPEDO_IMPACT_DIRECT);
+    CHECK(state.boss.partHp[BOSS_PART_CORE] == coreHp - BOSS_CORE_TORPEDO_DAMAGE);
+
+    // Armed torpedoes defer the damage to their splash; at the atoll that
+    // same gate controls the splash route as well.
+    state.torpedo = (Torpedo){ .pos = core, .armed = true, .active = true };
+    CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
+        == TORPEDO_IMPACT_EXPLOSION);
+    coreHp = state.boss.partHp[BOSS_PART_CORE];
+    ResolveBossSplashDamage(&state.boss, core, &state.gameEvents);
     CHECK(state.boss.partHp[BOSS_PART_CORE] == coreHp - BOSS_CORE_TORPEDO_DAMAGE);
 
     state.boss.partHp[BOSS_PART_CORE] = 1;
@@ -480,6 +499,13 @@ static void TestFortressAtollWeaponGatesAndSalvage(void) {
     }
     CHECK(state.boss.phase == BOSS_PHASE_CLEARED);
     CHECK(state.hasTargetingComputer && !state.hasMortar);
+    bool sawTargetingComputer = false;
+    for (int i = 0; i < state.gameEvents.count; i++) {
+        if (state.gameEvents.items[i].type == GAME_EVENT_TARGETING_COMPUTER_SALVAGED) {
+            sawTargetingComputer = true;
+        }
+    }
+    CHECK(sawTargetingComputer);
     BeginStage(&state, 1);
     CHECK(state.hasTargetingComputer);
 }

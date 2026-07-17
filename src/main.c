@@ -272,7 +272,30 @@ int main(void) {
         // pools).
         if (smokeFrames > 0 && framesRun == 474 && state.stageClear) {
             ContinueRun(&state);
+            // Cover the Stage 2 presentation path too: after the normal
+            // advance flow has created its fresh Stage 2 run, seed a small
+            // live fortress snapshot.  This keeps the smoke test end-to-end
+            // (UpdateGame and DrawGame still own the work) while exercising
+            // the atoll and targeting-computer-only branches.
+            state.hasTargetingComputer = true;
+            state.surfaceTargets[0] = (SurfaceTarget){
+                .type = SURFACE_TARGET_CASEMATE,
+                .pos = { 360.0f, 160.0f },
+                .radius = CASEMATE_RADIUS,
+                .hp = 1,
+                .active = true,
+            };
+            state.boss = (BossState){
+                .phase = BOSS_PHASE_FIGHTING,
+                .fortressAtoll = true,
+                .coreExposed = true,
+                .hullCenter = { 404.0f, 176.0f },
+                .rotation = 90.0f,
+                .sailDirection = -1,
+                .partHp = { 0, 8, 3, 3, 18 },
+            };
         }
+        if (smokeFrames > 0 && framesRun == 476) state.boss.gatesOpen = true;
 
         if (quitConfirm) {
             QuitConfirmationResult confirmResult = UpdateQuitConfirmation(menuInput);
@@ -289,7 +312,7 @@ int main(void) {
 
         if (runGameFrame && !quitConfirm) {
             UpdateGame(&state, &assets, dt,
-                smokeFrames > 0 && framesRun == 9,
+                smokeFrames > 0 && (framesRun == 9 || framesRun == 475),
                 smokeFrames > 0 && framesRun == 100);
             PlayGameSfx(&audio, &state.gameEvents);
 
