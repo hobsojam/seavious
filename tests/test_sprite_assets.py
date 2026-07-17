@@ -51,6 +51,15 @@ GENERATORS = {
     ],
 }
 
+# Hand-authored/generated terrain components have no deterministic generator,
+# but still need structural checks: the runtime crops by alpha and a stray
+# opaque magenta matte would turn an entire terrain group pink.
+TERRAIN_COMPONENTS = {
+    'stage1_islet_crescent.png': (1774, 887),
+    'stage1_islet_atoll.png': (1448, 1086),
+    'stage1_islet_long.png': (1774, 887),
+}
+
 failures = []
 
 
@@ -125,6 +134,24 @@ def validate_sprite(name, data, exp_w, exp_h, family_color):
               f'{name}: corner ({cx},{cy}) not transparent')
 
 
+def validate_terrain_component(name, data, exp_w, exp_h):
+    width, height, pixels = parse_png(name, data)
+    check((width, height) == (exp_w, exp_h),
+          f'{name}: {width}x{height}, want {exp_w}x{exp_h}')
+    flat = [p for row in pixels for p in row]
+    opaque = [p for p in flat if p[3] == 255]
+    check(len(opaque) > len(flat) * 0.15,
+          f'{name}: only {len(opaque)} opaque pixels - terrain mostly empty?')
+    check(not any(p[0] > 160 and p[1] < 160 and p[2] > 160
+                  and p[0] + p[2] - 2 * p[1] > 120
+                  for p in opaque),
+          f'{name}: opaque chroma-key magenta remains')
+    for cx, cy in ((0, 0), (width - 1, 0),
+                   (0, height - 1), (width - 1, height - 1)):
+        check(pixels[cy][cx][3] == 0,
+              f'{name}: corner ({cx},{cy}) not transparent')
+
+
 def main():
     total = 0
     for script, outputs in GENERATORS.items():
@@ -153,6 +180,14 @@ def main():
                     check(committed == data,
                           f'{out_name}: committed asset differs from generator '
                           f'output - rerun tools/{script} and commit the result')
+
+    for name, dimensions in TERRAIN_COMPONENTS.items():
+        total += 1
+        path = os.path.join(ASSET_DIR, name)
+        check(os.path.exists(path), f'{name}: missing from assets/sprites')
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                validate_terrain_component(name, f.read(), *dimensions)
 
     if failures:
         print(f'\n{len(failures)} failure(s)')

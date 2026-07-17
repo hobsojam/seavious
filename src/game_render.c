@@ -426,16 +426,18 @@ static Texture2D PickIsletVariant(const GameAssets *assets, float destAspect,
     return assets->stage1IsletTex[candidates[seed % (unsigned int)count]];
 }
 
-// One island group's art: a single aspect-matched islet for compact
-// groups, and for long groups a chain of overlapping aspect-preserved
-// islets along the axis (an archipelago ridge) instead of one sprite
-// stretched to the whole bounding box. Adapts to any stage's shapes
-// with no per-stage art.
+// One island group's art: a single aspect-matched islet for compact and
+// double-length groups, and for very long groups a chain of overlapping
+// aspect-preserved islets along the axis (an archipelago ridge) instead of
+// one sprite stretched to the whole bounding box. Adapts to any stage's
+// shapes with no per-stage art.
 static void DrawIsletGroup(const GameAssets *assets, Rectangle destination,
     unsigned int seed) {
     float aspect = destination.height > 0.0f
         ? destination.width / destination.height : 1.0f;
-    int segments = (int)ceilf(aspect / 2.0f);
+    // The authored long variant is continuous at about 3:1. Preserve it as
+    // one landform; only start composing sprites beyond that useful aspect.
+    int segments = (int)ceilf(aspect / 3.2f);
     if (segments < 1) segments = 1;
     float stride = destination.width / (float)segments;
     // Segments overlap ~40% so the chained blobs fuse into one landmass

@@ -112,6 +112,7 @@ GameAssets LoadGameAssets(void) {
         "assets/sprites/stage1_islet_crag.png",
         "assets/sprites/stage1_islet_atoll.png",
         "assets/sprites/stage1_islet_ridge.png",
+        "assets/sprites/stage1_islet_long.png",
     };
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
         assets.stage1IsletTex[i] = LoadTerrainSprite(isletPaths[i]);
