@@ -1,7 +1,7 @@
 # TODO
 
-Working task list. See `README.md` for the design decisions behind these
-items.
+Working task list. See [the documentation index](README.md#documentation) for
+current design and implementation context.
 
 ## Mechanics (current focus: bare mechanical proof)
 
@@ -44,7 +44,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] First-pass scoring: award 100 points for a Skimmer Drone, 300 for a
       Casemate, and 400 for a Tracking Turret on destruction; accumulate the run score, and show
       it as minimal text in the reserved HUD bar; wider scoring table is
-      documented in README
+      documented with the game design
 - [x] Lives / game-over loop (post-MVP, needed for full stage structure):
       enemy contact now costs one life, plays a short player explosion before
       respawning with brief invulnerability, and ends the run after the final
@@ -64,7 +64,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       owns the fight from there (entrance, part-driven fight, death
       chain, salvage, stage-clear overlay) including the `bossActive`
       music flag; stage clear now advances the run through the stage
-      descriptor (wrapping to Stage 1 until Stage 2 content ships)
+      descriptor (wrapping to Stage 1 after the current final stage)
 - [x] Stage/wave definition + sequencing — implemented:
       `tools/gen-stage-table.py` compiles `assets/stages/stage1.txt` into
       the committed `src/stage1_data.c` event table (drift-tested by
@@ -87,12 +87,9 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       scroll distance, so the boss lock freezes land for free and ground
       enemies anchored to islets (beat 7's Relay Node) just work by map
       placement. Deferred wreck question decided: wrecks stay inert and
-      do NOT block torpedoes (see README Structure for the rationale).
-      Second-pass code-drawn islet look (playtest: the flat rectangles
-      read too square): organic coastline with concentric rings —
-      shallows, surf foam, wet beach around every waterline, dry
-      interior with sparse grain; footprint seams read as coves. Needs
-      a Windows playtest for readability/colors
+      do NOT block torpedoes. The later authored-islet pass replaced the
+      old code-drawn coastline treatment; terrain guidance now lives in
+      `docs/assets-and-audio.md`.
 - [x] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
       two reserve-life icons for the initial three-life count, score
       center-left, live torpedo ready/flight/reload status right, and space
@@ -141,8 +138,8 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       restyled against those references and a continuous double-length
       island was added; check the remaining crag variant at game scale
       before deciding whether it also needs replacement
-- [x] Fortress rework pass 1 (playtest 2026-07-17, see README Stage 2
-      design): ring batteries return staggered mortar fire on the
+- [x] Fortress rework pass 1 (playtest 2026-07-17, see
+      `docs/game-design.md`): ring batteries return staggered mortar fire on the
       stage's cadence; sea gates cycle from fight start (open dwell >
       closed) with every edge announced by event + sound + gate flash;
       closed gates always block the core route; fortress part HP and
@@ -152,7 +149,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       during the boss fight; place the fortress parts on a literal
       visible ring; dedicated gate open/close SFX (currently borrows
       the mortar thump)
-- [ ] Stage-map authoring rule (playtest 2026-07-17): land glyphs (`M`/`D`)
+- [ ] Stage-map authoring rule (playtest 2026-07-17): land glyphs (`B`/`K`)
       should sit on multi-cell islands with the installation inset from
       the coastline, not on single 1-cell islets where the building
       overhangs the beach into the sea — audit stage2.txt against this
@@ -193,7 +190,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
         activation line — 500
         points, stern wake reusing the player's wake pool
 - [x] Design Stage 1 boss visuals (Leviathan-class dreadnought) — fight
-      design done (see README "Stage 1 boss design": part layout with 2
+      design done (see `docs/game-design.md`: part layout with 2
       AA pods + 2 hull sections + indestructible mortar turret + hidden
       core, HP/scoring numbers, emergent fight decay, entrance/defeat/
       salvage sequence) and first-pass sprite set generated at
@@ -283,7 +280,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       `H` under an actual installation — Stage 1's two decorative pads
       reverted to plain terrain (`#`, identical footprints), leaving the
       glyph/tooling/render path in place for Stage 2 land targets
-- [x] Design Stage 2 (see README "Stage 2 design", agreed in full):
+- [x] Design Stage 2 (see `docs/game-design.md`, agreed in full):
       three-lane exam in an archipelago; land roster = Mortar Battery
       (~600) + Drone Bunker (~500), green, on `H` pads, mortar-only
       (flak emplacement deferred); strait-run set-piece; fortress-atoll
@@ -294,11 +291,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       `GameState.stageNumber` + `GetStageDescriptor()` (`stage.h`)
       instead of naming `STAGE1_*`; stage clear advances the run via
       `BeginStage` (score/lives/mortar carry, pools/scroll rewind,
-      wraps to Stage 1 until Stage 2 exists), game over forfeits via
+      wraps to Stage 1 after the current final stage), game over forfeits via
       `ResetRunState`; stage-clear overlay reads the stage number and
       says CONTINUE. Unit-tested in `stage_tests.c`
-- [x] Implement Stage 2 land roster — engine-side complete (awaits
-      `stage2.txt` for real placement): LandTarget pool, mortar-only
+- [x] Implement Stage 2 land roster: LandTarget pool, mortar-only
       damage (no gun/torpedo path exists structurally), no contact-kill;
       Mortar Battery (600 pts, enemy MortarShell lob + red shadow
       telegraph, one shell in flight, shells outlive their battery) and
@@ -310,16 +306,13 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       in `gameplay_tests.c`, glyph compilation in `test_stage_table.py`,
       smoke-run injection covers update/render paths. Balance numbers
       (3.5s/3.0s cadences, 1 HP each) need the Stage 2 playtest
-- [ ] Author `assets/stages/stage2.txt` (~10 beats per the README beat
-      intent: mortar tutorial opening, three-lane escalation, strait
-      run, breather, fortress-atoll boss lock) + generator/table wiring
-      as a second descriptor row
-- [ ] Fortress-atoll boss (Stage 2): AA pods (gun), ring batteries
-      (mortar), cycling sea gates (torpedo), core; salvage beat awards
-      the targeting computer → lead-aimed torpedoes (`FireLeadTorpedo`
-      already in `gameplay.c`)
-- [ ] Compose Stage 2 theme (+ boss variant) over the shared
-      drum/bass template
+- [x] Author `assets/stages/stage2.txt` and compile it as the second
+      stage descriptor: mortar tutorial opening, three-lane escalation,
+      strait run, recovery pocket, and fortress-atoll lock
+- [x] Fortress-atoll boss: AA pods (gun), ring batteries (mortar),
+      cycling sea gates (torpedo), core, and targeting-computer salvage
+- [x] Compose Stage 2 stage and boss themes over the shared drum/bass
+      foundation
 - [ ] Plan remaining levels beyond Stage 2 (Stage 3 pencilled: storm)
 - [x] Ground target sprites (alien platforms/installations) — Relay Node,
       Mine, Casemate, Tracking Turret, and Mobile Platform first passes
@@ -330,15 +323,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       boat-shaped moving enemy) should not leave the generic black wreck
       circle. Give it a short sinking treatment — drawn underwater and
       faded out — instead.
-- [ ] Island/islet terrain art (Stage 1: sparse islets on open ocean) —
-      unblocked now that the terrain-footprint system is in; would
-      replace the code-drawn rounded-coastline rings in `game_render.c`
-      (second pass: shallows/foam/beach/interior layers) with real
-      tiles or per-island generated sprites, if the code-drawn look
-      ever falls short. Note: an unused cell-autotile prototype (ground
-      material + shore edges + per-cell hardpoint tiles) was removed
-      from `game_render.c` as dead code during the stage-descriptor
-      refactor — recover it from git history if this second pass happens
+- [x] Island/islet terrain art: authored/generated components now replace
+      the former code-drawn rounded coastline look. Keep improving the
+      current set through the terrain visual-audit item above rather than
+      reviving the removed cell-autotile prototype.
 - [x] Air enemy sprites (drone swarms) — Skimmer Drone, Interceptor, and
       Gunship first passes all done (see Art below)
 
@@ -430,7 +418,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 ## Audio
 
-- [x] Song form for the stage gameplay themes (see README "Song form"):
+- [x] Song form for the stage gameplay themes (see `docs/assets-and-audio.md`):
       generator refactored to sections + XM order table + restart
       position (`tools/gen-music-xm.py`); both stage themes are now
       `intro | A | A' | B | break | B' | A'` (~69s loop body vs the old
@@ -513,7 +501,7 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 ## Infra
 
-- [x] Playtesting devtools (see README "Playtesting devtools"): stage
+- [x] Playtesting devtools (see `docs/architecture.md`): stage
       awards declared in the stage table (`StageDescriptor.award`, the
       boss salvage grants the same field), `--devtools` title STAGE
       SELECT, `--stage N` / `--boss` CLI fast paths, each debug entry

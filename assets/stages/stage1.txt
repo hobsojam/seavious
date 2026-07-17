@@ -1,4 +1,4 @@
-; Stage 1 map — see README "Level & stage design" / "Stage authoring format".
+; Stage 1 map — see docs/stage-authoring.md.
 ; Grid: 1 char = 32 px. Columns = scroll distance, rows = lanes (11 rows for
 ; the 352px play area, top to bottom). A glyph triggers when its column
 ; reaches the right screen edge (~0.8s of scroll per column at 40 px/s).
