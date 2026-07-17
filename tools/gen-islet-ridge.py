@@ -6,8 +6,8 @@ Chained island groups kept stamping near-square variants side by side,
 so wide groups read as "two identical islands next to each other"
 (playtest 2026-07-17). A first, banded-noise procedural ridge didn't
 fit the painted aesthetic (same playtest, next round) - so this version
-builds the wide landmass out of stage1_islet.png itself: three copies
-(plain, mirrored, flipped) overlap along the long axis with a slight
+builds the wide landmass out of stage1_islet.png itself: three upright copies
+(plain, mirrored, plain) overlap along the long axis with a slight
 vertical stagger. Where copies overlap, the pixel that sits deeper
 inside its own island wins, so the inner coastlines disappear and only
 the true outer coast survives; a hash dither over the near-tie zone
@@ -69,11 +69,9 @@ def build():
     tile_w, tile_h, tile = _crop_and_scale(src_w, src_h, src)
 
     def sample(copy, x, y):
-        """Copy 0 plain, 1 mirrored horizontally, 2 flipped vertically."""
-        if copy == 1:
+        """Copies alternate left/right only; terrain details stay upright."""
+        if copy % 2 == 1:
             x = tile_w - 1 - x
-        elif copy == 2:
-            y = tile_h - 1 - y
         if 0 <= x < tile_w and 0 <= y < tile_h:
             return tile[y * tile_w + x]
         return (0, 0, 0, 0)
