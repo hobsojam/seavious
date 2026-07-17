@@ -51,6 +51,8 @@ void ApplyAudioSettings(GameAudio *audio, const GameSettings *settings) {
     float musicLevel = MUSIC_VOLUME * (float)settings->musicVolume / (float)SETTINGS_VOLUME_MAX;
     if (IsMusicValid(audio->stage)) SetMusicVolume(audio->stage, musicLevel);
     if (IsMusicValid(audio->boss)) SetMusicVolume(audio->boss, musicLevel);
+    if (IsMusicValid(audio->stage2)) SetMusicVolume(audio->stage2, musicLevel);
+    if (IsMusicValid(audio->boss2)) SetMusicVolume(audio->boss2, musicLevel);
     if (IsMusicValid(audio->lament)) SetMusicVolume(audio->lament, musicLevel);
     if (IsMusicValid(audio->menu)) SetMusicVolume(audio->menu, musicLevel);
 
@@ -66,6 +68,8 @@ void LoadGameAudio(GameAudio *audio, const GameSettings *settings) {
     InitAudioDevice();
     audio->stage = LoadMusicStream("assets/audio/stage1_theme_a.xm");
     audio->boss = LoadMusicStream("assets/audio/boss1_theme_b.xm");
+    audio->stage2 = LoadMusicStream("assets/audio/stage2_theme_a.xm");
+    audio->boss2 = LoadMusicStream("assets/audio/boss2_theme_a.xm");
     audio->lament = LoadMusicStream("assets/audio/boss1_theme_a.xm");
     // "Driver" was reserved for modal screens from the start (see README
     // Music structure); the title screen is the first one.
@@ -83,10 +87,12 @@ void LoadGameAudio(GameAudio *audio, const GameSettings *settings) {
 }
 
 void UpdateGameMusic(GameAudio *audio, const GameState *state, bool titleScreen) {
+    Music *stage = state->stageNumber == 2 ? &audio->stage2 : &audio->stage;
+    Music *boss = state->stageNumber == 2 ? &audio->boss2 : &audio->boss;
     Music *want = titleScreen ? &audio->menu
                 : state->gameOver ? &audio->lament
-                : state->bossActive ? &audio->boss
-                : &audio->stage;
+                : state->bossActive ? boss
+                : stage;
     if (want != audio->current) {
         if (IsMusicValid(*audio->current)) StopMusicStream(*audio->current);
         if (IsMusicValid(*want)) PlayMusicStream(*want);
@@ -198,6 +204,8 @@ void UnloadGameAudio(GameAudio *audio) {
     UnloadSound(audio->gunShot);
     UnloadMusicStream(audio->menu);
     UnloadMusicStream(audio->lament);
+    UnloadMusicStream(audio->boss2);
+    UnloadMusicStream(audio->stage2);
     UnloadMusicStream(audio->boss);
     UnloadMusicStream(audio->stage);
     CloseAudioDevice();
