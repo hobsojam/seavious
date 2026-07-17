@@ -313,16 +313,18 @@ static bool TerrainFootprintsTouch(StageTerrainFootprint first, StageTerrainFoot
 // touching group, so one transparent islet sprite replaces the visibly
 // stacked shore rings while targets still use the same stage coordinates.
 static void DrawStandaloneTerrain(const GameState *state, const GameAssets *assets) {
-    enum { MAX_STAGE_TERRAIN = 32 };
     const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
-    if (stage->terrainCount > MAX_STAGE_TERRAIN) return;
+    // Belt and braces: stage_tests enforce the cap, so this bail can't
+    // fire for shipped data - and if it somehow does, invisible-but-
+    // colliding islands must never come back.
+    if (stage->terrainCount > MAX_STAGE_TERRAIN_RECTS) return;
 
-    bool visited[MAX_STAGE_TERRAIN] = { false };
+    bool visited[MAX_STAGE_TERRAIN_RECTS] = { false };
 
     for (int start = 0; start < stage->terrainCount; start++) {
         if (visited[start]) continue;
 
-        int pending[MAX_STAGE_TERRAIN];
+        int pending[MAX_STAGE_TERRAIN_RECTS];
         int next = 0;
         int pendingCount = 1;
         pending[0] = start;

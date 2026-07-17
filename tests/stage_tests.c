@@ -306,6 +306,19 @@ static void TestNextStageNumberWraps(void) {
     CHECK(NextStageNumber(99) == 1);
 }
 
+static void TestTerrainTableFitsRenderCap(void) {
+    // The island renderer sizes its grouping scratch arrays to
+    // MAX_STAGE_TERRAIN_RECTS and skips drawing entirely beyond it.
+    // Stage 2 once shipped 43 rects against a silent 32-rect cap: every
+    // island went invisible while collision still used them. Every
+    // stage's compiled table must fit the render contract.
+    for (int s = 1; s <= StageCount(); s++) {
+        const StageDescriptor *stage = GetStageDescriptor(s);
+        CHECK(stage->terrainCount > 0);
+        CHECK(stage->terrainCount <= MAX_STAGE_TERRAIN_RECTS);
+    }
+}
+
 static void TestStageAwardLoadout(void) {
     // The stage table's awards are the single source of truth for both
     // the boss salvage and the devtools stage-select loadout.
@@ -450,6 +463,7 @@ static void TestBeginStageCarriesRunProgression(void) {
 int main(void) {
     TestStageDescriptor();
     TestNextStageNumberWraps();
+    TestTerrainTableFitsRenderCap();
     TestStageAwardLoadout();
     TestSkipToStageEnd();
     TestBeginStageCarriesRunProgression();
