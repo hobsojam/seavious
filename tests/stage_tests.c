@@ -218,6 +218,34 @@ static void TestMobilePlatformSinksInsteadOfLeavingWreck(void) {
 
     UpdateSurfaceWrecks(wrecks, MOBILE_PLATFORM_SINK_DURATION * 0.5f);
     CHECK(!wrecks[0].active);
+
+    Vector2 start = { 100.0f, 120.0f };
+    Vector2 halfway = MobilePlatformSinkingPosition(start, MOBILE_PLATFORM_SINK_DURATION * 0.5f);
+    CHECK(halfway.x == start.x);
+    CHECK(halfway.y == start.y + MOBILE_PLATFORM_SINK_DEPTH * 0.5f);
+    CHECK(MobilePlatformSinkingOpacity(0.0f) == 150);
+    CHECK(MobilePlatformSinkingOpacity(MOBILE_PLATFORM_SINK_DURATION * 0.5f) == 75);
+    CHECK(MobilePlatformSinkingOpacity(MOBILE_PLATFORM_SINK_DURATION) == 0);
+
+    // The helpers clamp stale and future visual state rather than making
+    // a destroyed hull sink past the intended depth or become transparent
+    // before its destruction event has been rendered.
+    Vector2 clamped = MobilePlatformSinkingPosition(start, MOBILE_PLATFORM_SINK_DURATION * 4.0f);
+    CHECK(clamped.y == start.y + MOBILE_PLATFORM_SINK_DEPTH);
+    CHECK(MobilePlatformSinkingOpacity(-1.0f) == 150);
+}
+
+static void TestOrdinaryWreckStillUsesScrollExpiry(void) {
+    SurfaceWreck wrecks[MAX_SURFACE_WRECKS] = { 0 };
+    CHECK(TrySpawnSurfaceWreck(wrecks, (Vector2){ 4.0f, 120.0f },
+        SURFACE_TARGET_CASEMATE, CASEMATE_RADIUS));
+
+    UpdateSurfaceWrecks(wrecks, 0.25f);
+    CHECK(wrecks[0].active);
+    CHECK(wrecks[0].age == 0.25f);
+
+    UpdateSurfaceWrecks(wrecks, 1.0f);
+    CHECK(!wrecks[0].active);
 }
 
 static void TestStage1IsletSetPiece(void) {
@@ -495,6 +523,7 @@ int main(void) {
     TestMineLeavesNoWreck();
     TestRelayWreckRadius();
     TestMobilePlatformSinksInsteadOfLeavingWreck();
+    TestOrdinaryWreckStillUsesScrollExpiry();
     TestStage1IsletSetPiece();
     TestBossLockFreezesScript();
     TestFormationPatterns();

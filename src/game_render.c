@@ -699,14 +699,10 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         if (state->wrecks[i].type == SURFACE_TARGET_MOBILE_PLATFORM) {
             // A boat-shaped hull should not become the generic black disk.
             // Let its own silhouette settle through the water and fade out.
-            float progress = state->wrecks[i].age / MOBILE_PLATFORM_SINK_DURATION;
-            if (progress > 1.0f) progress = 1.0f;
-            Vector2 sunkPos = {
-                state->wrecks[i].pos.x,
-                state->wrecks[i].pos.y + MOBILE_PLATFORM_SINK_DEPTH * progress
-            };
+            Vector2 sunkPos = MobilePlatformSinkingPosition(
+                state->wrecks[i].pos, state->wrecks[i].age);
             Color underwater = {
-                112, 156, 166, (unsigned char)(150.0f * (1.0f - progress))
+                112, 156, 166, MobilePlatformSinkingOpacity(state->wrecks[i].age)
             };
             DrawTexture(
                 assets->mobilePlatformTex,
