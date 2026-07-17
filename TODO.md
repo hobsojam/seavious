@@ -368,6 +368,14 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 ## Audio
 
+- [x] Song form for the stage gameplay themes (see README "Song form"):
+      generator refactored to sections + XM order table + restart
+      position (`tools/gen-music-xm.py`); both stage themes are now
+      `intro | A | A' | B | break | B' | A'` (~69s loop body vs the old
+      12.6s), with a harmony-echo channel in A'/B' and a half-time drum
+      break; new B tunes "spray" (stage 1) and "undertow" (stage 2) —
+      needs a Windows listening pass; boss/menu themes deliberately
+      stay 8-bar loops; key changes deliberately deferred
 - [x] Build the shared drum+bass template: 2-bar drum loop (kick on beats
       1/3, snare backbeat with a 16th-note fill every 2nd bar, 8th-note
       hihats) + 4-bar A-major walking bass loop (`I–vi–IV–V`, root/3rd/5th

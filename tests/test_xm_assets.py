@@ -27,15 +27,19 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSET_DIR = os.path.join(REPO, 'assets', 'audio')
 
 FILES = {
-    # name -> (patterns, channels, instruments, duration_seconds)
-    'stage1_drums_bass.xm': (1, 4, 4, 6.31),
-    'boss1_drums_bass.xm': (1, 4, 4, 6.31),
-    'stage1_theme_a.xm': (2, 6, 5, 12.62),
-    'stage1_theme_b.xm': (2, 6, 5, 12.62),
-    'boss1_theme_a.xm': (2, 6, 5, 12.62),
-    'boss1_theme_b.xm': (2, 6, 5, 12.62),
-    'stage2_theme_a.xm': (2, 6, 5, 12.62),
-    'boss2_theme_a.xm': (2, 6, 5, 12.62),
+    # name -> (patterns, channels, instruments, duration_seconds,
+    #          song_length, restart_position)
+    # The stage gameplay themes carry the full song form: 12 order entries
+    # over 10 unique patterns (the closing A' dedups to A''s patterns) with
+    # the restart pointing past the intro. Everything else is a plain loop.
+    'stage1_drums_bass.xm': (1, 4, 4, 6.31, 1, 0),
+    'boss1_drums_bass.xm': (1, 4, 4, 6.31, 1, 0),
+    'stage1_theme_a.xm': (10, 6, 6, 75.79, 12, 1),
+    'stage1_theme_b.xm': (2, 6, 5, 12.62, 2, 0),
+    'boss1_theme_a.xm': (2, 6, 5, 12.62, 2, 0),
+    'boss1_theme_b.xm': (2, 6, 5, 12.62, 2, 0),
+    'stage2_theme_a.xm': (10, 6, 6, 75.79, 12, 1),
+    'boss2_theme_a.xm': (2, 6, 5, 12.62, 2, 0),
 }
 
 failures = []
@@ -74,7 +78,8 @@ def decode_pattern(name, cells, rows, n_channels):
           f'{name}: pattern decode consumed {i} of {len(cells)} packed bytes')
 
 
-def validate_structure(name, data, exp_patterns, exp_channels, exp_instruments):
+def validate_structure(name, data, exp_patterns, exp_channels, exp_instruments,
+                       exp_song_len, exp_restart):
     check(data[0:17] == b'Extended Module: ', f'{name}: bad ID text')
     check(data[37] == 0x1A, f'{name}: bad 0x1A marker')
 
@@ -83,12 +88,19 @@ def validate_structure(name, data, exp_patterns, exp_channels, exp_instruments):
     # Writing 272 here once made every pattern decode as empty in OpenMPT.
     check(header_size == 276, f'{name}: header_size {header_size} != 276')
 
-    (song_len, _restart, n_channels, n_patterns, n_instruments, flags,
+    (song_len, restart, n_channels, n_patterns, n_instruments, flags,
      _tempo, bpm) = struct.unpack_from('<HHHHHHHH', data, 64)
     check(n_channels == exp_channels, f'{name}: channels {n_channels}')
     check(n_patterns == exp_patterns, f'{name}: patterns {n_patterns}')
     check(n_instruments == exp_instruments, f'{name}: instruments {n_instruments}')
-    check(song_len == exp_patterns, f'{name}: song length {song_len}')
+    check(song_len == exp_song_len, f'{name}: song length {song_len}')
+    check(restart == exp_restart, f'{name}: restart position {restart}')
+    # The loop must land inside the song, and every played order entry
+    # must reference a real pattern (jar_xm reads these fields verbatim).
+    check(restart < song_len, f'{name}: restart {restart} >= length {song_len}')
+    order = data[80:80 + song_len]
+    check(all(o < n_patterns for o in order),
+          f'{name}: order table references pattern beyond {n_patterns}')
     check(flags & 1 == 1, f'{name}: linear frequency flag not set')
     check(bpm == 152, f'{name}: bpm {bpm} != 152')
 
@@ -208,10 +220,12 @@ def main():
         check(generated == sorted(FILES),
               f'generator wrote {generated}, expected {sorted(FILES)}')
 
-        for name, (patterns, channels, instruments, duration) in FILES.items():
+        for name, (patterns, channels, instruments, duration,
+                   song_len, restart) in FILES.items():
             with open(os.path.join(tmp, name), 'rb') as f:
                 data = f.read()
-            validate_structure(name, data, patterns, channels, instruments)
+            validate_structure(name, data, patterns, channels, instruments,
+                               song_len, restart)
 
             committed_path = os.path.join(ASSET_DIR, name)
             check(os.path.exists(committed_path),
