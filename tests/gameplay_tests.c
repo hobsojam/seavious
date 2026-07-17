@@ -41,6 +41,32 @@ static void TestMovementAndProjectiles(void) {
     UpdateWakeParticles(wake, 1, WAKE_LIFETIME);
     CHECK(!wake[0].active);
 
+    // The player wake covers the stern through its midpoint and the full
+    // lateral hull span, rather than repeatedly stamping the two ski tips.
+    WakeParticle broadWake[PLAYER_WAKE_COLUMNS * PLAYER_WAKE_ROWS] = { 0 };
+    int phase = EmitPlayerWake(broadWake, PLAYER_WAKE_COLUMNS * PLAYER_WAKE_ROWS,
+        (Vector2){ 100, 80 }, 24, 12, 0, 0, 0);
+    CHECK(phase == PLAYER_WAKE_PER_TICK);
+    CHECK(broadWake[0].active && broadWake[1].active);
+    NEAR(broadWake[0].pos.x, 76); NEAR(broadWake[0].pos.y, 71.6f);
+    NEAR(broadWake[1].pos.x, 88); NEAR(broadWake[1].pos.y, 71.6f);
+
+    // A full cycle reaches the centreline and both outer stern edges.
+    for (int tick = 1;
+         tick < (PLAYER_WAKE_COLUMNS * PLAYER_WAKE_ROWS + PLAYER_WAKE_PER_TICK - 1) / PLAYER_WAKE_PER_TICK;
+         tick++) {
+        phase = EmitPlayerWake(broadWake, PLAYER_WAKE_COLUMNS * PLAYER_WAKE_ROWS,
+            (Vector2){ 100, 80 }, 24, 12, phase, 0, 0);
+    }
+    bool hasCentre = false, hasTopEdge = false, hasBottomEdge = false;
+    for (int i = 0; i < PLAYER_WAKE_COLUMNS * PLAYER_WAKE_ROWS; i++) {
+        if (!broadWake[i].active) continue;
+        if (fabsf(broadWake[i].pos.y - 80.0f) < 0.01f) hasCentre = true;
+        if (fabsf(broadWake[i].pos.y - 71.6f) < 0.01f) hasTopEdge = true;
+        if (fabsf(broadWake[i].pos.y - 88.4f) < 0.01f) hasBottomEdge = true;
+    }
+    CHECK(hasCentre && hasTopEdge && hasBottomEdge);
+
     Bullet bullets[1] = { 0 };
     CHECK(TrySpawnBullet(bullets, 1, (Vector2){ 10, 3 }));
     UpdateBullets(bullets, 1, 2);

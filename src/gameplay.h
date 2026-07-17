@@ -217,7 +217,9 @@ typedef enum {
 #define MAX_WAKE_PARTICLES   96
 #define WAKE_EMIT_INTERVAL   0.04f
 #define WAKE_LIFETIME        1.1f
-#define WAKE_SKI_OFFSET_Y    8.0f
+#define PLAYER_WAKE_COLUMNS  3
+#define PLAYER_WAKE_ROWS     5
+#define PLAYER_WAKE_PER_TICK 2
 
 #define PLAYER_START_X 48.0f
 #define PLAYER_START_Y (PLAY_HEIGHT / 2.0f)
@@ -394,6 +396,11 @@ void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float 
 float AdvanceOceanScroll(float oceanScroll, float dt, float tileWidth);
 
 bool TryEmitWakeParticle(WakeParticle wake[], int count, Vector2 pos);
+// Emits the same two particles per cadence as the original ski-tip wake, but
+// cycles them through the whole rear half of the player's hull. Returns the
+// next position in that spread so callers can retain a continuous pattern.
+int EmitPlayerWake(WakeParticle wake[], int count, Vector2 player, float halfW, float halfH,
+    int phase, float jitterX, float jitterY);
 void UpdateWakeParticles(WakeParticle wake[], int count, float dt);
 
 bool TrySpawnBullet(Bullet bullets[], int count, Vector2 pos);

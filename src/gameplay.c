@@ -193,6 +193,23 @@ bool TryEmitWakeParticle(WakeParticle wake[], int count, Vector2 pos) {
     return false;
 }
 
+int EmitPlayerWake(WakeParticle wake[], int count, Vector2 player, float halfW, float halfH,
+    int phase, float jitterX, float jitterY) {
+    const int pointCount = PLAYER_WAKE_COLUMNS * PLAYER_WAKE_ROWS;
+    for (int particle = 0; particle < PLAYER_WAKE_PER_TICK; particle++) {
+        int point = (phase + particle) % pointCount;
+        int column = point % PLAYER_WAKE_COLUMNS;
+        int row = point / PLAYER_WAKE_COLUMNS;
+        float rearFraction = (float)column / (float)(PLAYER_WAKE_COLUMNS - 1);
+        float lateralFraction = (float)row / (float)(PLAYER_WAKE_ROWS - 1) - 0.5f;
+        TryEmitWakeParticle(wake, count, (Vector2){
+            player.x - halfW + rearFraction * halfW + jitterX,
+            player.y + lateralFraction * halfH * 1.4f + jitterY
+        });
+    }
+    return (phase + PLAYER_WAKE_PER_TICK) % pointCount;
+}
+
 void UpdateWakeParticles(WakeParticle wake[], int count, float dt) {
     for (int i = 0; i < count; i++) {
         if (!wake[i].active) continue;
