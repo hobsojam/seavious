@@ -149,13 +149,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       during the boss fight; place the fortress parts on a literal
       visible ring; dedicated gate open/close SFX (currently borrows
       the mortar thump)
-- [ ] Stage-map authoring rule (playtest 2026-07-17): land glyphs (`B`/`K`)
-      should sit on multi-cell islands with the installation inset from
-      the coastline, not on single 1-cell islets where the building
-      overhangs the beach into the sea — audit stage2.txt against this
-      once terrain rendering is confirmed fixed (most pads already sit
-      on larger islands in the data; the "1 square islands" seen in the
-      playtest were the invisible-terrain render bug)
+- [x] Stage-map authoring rule (playtest 2026-07-17): all Stage 2 land
+      glyphs (`B`/`K`) now sit within a full terrain ring, rather than
+      overhanging a coastline or occupying a single-cell islet. The map
+      drift test verifies the eight surrounding cells for every future
+      installation.
 - [x] Enemy roster design (air + ground, beyond the first proof-of-concept
       pair), including per-enemy silhouette/visual description — see
       README for the full Stage 1 roster
@@ -319,10 +317,9 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       all done (see Art below). Land-based emplacement variants
       deliberately deferred to the Stage 2 mortar-target class (see
       README roster note) rather than reskins of the water designs
-- [ ] Sinking surface ships: the Mobile Platform (currently the only
-      boat-shaped moving enemy) should not leave the generic black wreck
-      circle. Give it a short sinking treatment — drawn underwater and
-      faded out — instead.
+- [x] Sinking surface ships: the Mobile Platform uses its own hull sprite
+      as a short underwater, faded sinking treatment instead of leaving the
+      generic black wreck circle. Other surface wrecks remain inert.
 - [x] Island/islet terrain art: authored/generated components now replace
       the former code-drawn rounded coastline look. Keep improving the
       current set through the terrain visual-audit item above rather than

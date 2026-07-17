@@ -205,6 +205,21 @@ static void TestRelayWreckRadius(void) {
     CHECK(wrecks[0].radius == RELAY_NODE_RADIUS);
 }
 
+static void TestMobilePlatformSinksInsteadOfLeavingWreck(void) {
+    SurfaceWreck wrecks[MAX_SURFACE_WRECKS] = { 0 };
+    CHECK(TrySpawnSurfaceWreck(wrecks, (Vector2){ 100.0f, 120.0f },
+        SURFACE_TARGET_MOBILE_PLATFORM, MOBILE_PLATFORM_RADIUS));
+    CHECK(wrecks[0].active && wrecks[0].age == 0.0f);
+
+    UpdateSurfaceWrecks(wrecks, MOBILE_PLATFORM_SINK_DURATION * 0.5f);
+    CHECK(wrecks[0].active);
+    CHECK(wrecks[0].age > 0.0f && wrecks[0].age < MOBILE_PLATFORM_SINK_DURATION);
+    CHECK(wrecks[0].pos.x < 100.0f);
+
+    UpdateSurfaceWrecks(wrecks, MOBILE_PLATFORM_SINK_DURATION * 0.5f);
+    CHECK(!wrecks[0].active);
+}
+
 static void TestStage1IsletSetPiece(void) {
     // Stage 1 ships terrain (beat 7's islet), and the map keeps its
     // permanent-shield puzzle: at least one Casemate sits east of an
@@ -479,6 +494,7 @@ int main(void) {
     TestAirRosterGlyphsSpawn();
     TestMineLeavesNoWreck();
     TestRelayWreckRadius();
+    TestMobilePlatformSinksInsteadOfLeavingWreck();
     TestStage1IsletSetPiece();
     TestBossLockFreezesScript();
     TestFormationPatterns();

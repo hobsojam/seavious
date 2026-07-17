@@ -118,6 +118,8 @@
 // Stern (right edge) of the 36px-wide bow-left hull, where the wake trails.
 #define MOBILE_PLATFORM_STERN_OFFSET    16.0f
 #define MOBILE_PLATFORM_WAKE_INTERVAL    0.07f
+#define MOBILE_PLATFORM_SINK_DURATION    1.15f
+#define MOBILE_PLATFORM_SINK_DEPTH        9.0f
 #define SCORE_MOBILE_PLATFORM 500
 
 // Stage 2 land class (green, mounted on terrain hardpoints): reachable

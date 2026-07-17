@@ -696,6 +696,26 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     // that a surface installation was destroyed while the world scrolls on.
     for (int i = 0; i < MAX_SURFACE_WRECKS; i++) {
         if (!state->wrecks[i].active) continue;
+        if (state->wrecks[i].type == SURFACE_TARGET_MOBILE_PLATFORM) {
+            // A boat-shaped hull should not become the generic black disk.
+            // Let its own silhouette settle through the water and fade out.
+            float progress = state->wrecks[i].age / MOBILE_PLATFORM_SINK_DURATION;
+            if (progress > 1.0f) progress = 1.0f;
+            Vector2 sunkPos = {
+                state->wrecks[i].pos.x,
+                state->wrecks[i].pos.y + MOBILE_PLATFORM_SINK_DEPTH * progress
+            };
+            Color underwater = {
+                112, 156, 166, (unsigned char)(150.0f * (1.0f - progress))
+            };
+            DrawTexture(
+                assets->mobilePlatformTex,
+                (int)(sunkPos.x - assets->mobilePlatformTex.width / 2.0f),
+                (int)(sunkPos.y - assets->mobilePlatformTex.height / 2.0f),
+                underwater
+            );
+            continue;
+        }
         Color scorch = state->wrecks[i].type == SURFACE_TARGET_CASEMATE
             ? (Color){ 28, 36, 34, 230 } : (Color){ 34, 29, 25, 230 };
         DrawCircleV(state->wrecks[i].pos, state->wrecks[i].radius + 2.0f, scorch);

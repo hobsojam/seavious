@@ -54,7 +54,13 @@ bool TrySpawnExplosion(ExplosionEffect effects[], Vector2 pos, ExplosionType typ
 bool TrySpawnSurfaceWreck(SurfaceWreck wrecks[], Vector2 pos, SurfaceTargetType type, float radius) {
     for (int i = 0; i < MAX_SURFACE_WRECKS; i++) {
         if (wrecks[i].active) continue;
-        wrecks[i] = (SurfaceWreck){ pos, radius, type, true };
+        wrecks[i] = (SurfaceWreck){
+            .pos = pos,
+            .radius = radius,
+            .age = 0.0f,
+            .type = type,
+            .active = true,
+        };
         return true;
     }
     return false;
@@ -132,7 +138,13 @@ void UpdateExplosionEffects(ExplosionEffect effects[], float dt) {
 void UpdateSurfaceWrecks(SurfaceWreck wrecks[], float dt) {
     for (int i = 0; i < MAX_SURFACE_WRECKS; i++) {
         if (!wrecks[i].active) continue;
+        wrecks[i].age += dt;
         wrecks[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
-        if (wrecks[i].pos.x < -wrecks[i].radius) wrecks[i].active = false;
+        if (wrecks[i].type == SURFACE_TARGET_MOBILE_PLATFORM
+            && wrecks[i].age >= MOBILE_PLATFORM_SINK_DURATION) {
+            wrecks[i].active = false;
+        } else if (wrecks[i].pos.x < -wrecks[i].radius) {
+            wrecks[i].active = false;
+        }
     }
 }
