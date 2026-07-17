@@ -125,6 +125,22 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       segments differ. The bare hardpoint pad (a raw 1254px
       magenta-keyed export that scaled to a flat green square) replaced
       by a designed stone pad (`tools/gen-terrain-hardpoint.py`)
+- [x] Terrain-component art direction for future islets: use
+      `stage1_islet.png` and `stage1_islet_ridge.png` as the style and
+      apparent-pixel-density references. Keep a rugged olive/ochre
+      interior with clustered brown-grey crags, scrub, scattered stones,
+      a narrow irregular golden beach, and a consistent thin cyan-white
+      surf edge. Give each component a distinct natural silhouette and
+      feature arrangement; avoid broad gradients, empty or mostly sandy
+      interiors, oversized shore bands, symmetry, and narrow joins that
+      make one island look like multiple sprites glued together. Review
+      every new component beside at least two existing islets at the
+      actual 512x384 game scale, both alone and in an overlapping terrain
+      group, to check pixel density, palette, coastline weight, and seams.
+- [ ] Terrain-component visual audit: the crescent and sandy atoll were
+      restyled against those references and a continuous double-length
+      island was added; check the remaining crag variant at game scale
+      before deciding whether it also needs replacement
 - [x] Fortress rework pass 1 (playtest 2026-07-17, see README Stage 2
       design): ring batteries return staggered mortar fire on the
       stage's cadence; sea gates cycle from fight start (open dwell >
