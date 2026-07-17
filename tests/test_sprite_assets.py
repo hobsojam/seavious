@@ -33,7 +33,7 @@ GREEN = (108, 224, 96)      # land family (Stage 2 installations)
 # A fifth tuple element names the assets/ subdirectory (default 'sprites').
 GENERATORS = {
     'gen-casemate.py': [('casemate.png', 24, 24, AMBER)],
-    'gen-islet-ridge.py': [('stage1_islet_ridge.png', 288, 128, None)],
+    'gen-islet-ridge.py': [('stage1_islet_ridge.png', 595, 276, None)],
     'gen-terrain-hardpoint.py': [
         ('terrain_island_hardpoint.png', 32, 32, GREEN, 'tiles')],
     'gen-tracking-turret.py': [('tracking_turret.png', 24, 24, AMBER)],
