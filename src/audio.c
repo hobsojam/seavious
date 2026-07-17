@@ -87,12 +87,17 @@ void LoadGameAudio(GameAudio *audio, const GameSettings *settings) {
 }
 
 void UpdateGameMusic(GameAudio *audio, const GameState *state, bool titleScreen) {
-    Music *stage = state->stageNumber == 2 ? &audio->stage2 : &audio->stage;
-    Music *boss = state->stageNumber == 2 ? &audio->boss2 : &audio->boss;
-    Music *want = titleScreen ? &audio->menu
-                : state->gameOver ? &audio->lament
-                : state->bossActive ? boss
-                : stage;
+    Music *stage = &audio->stage;
+    Music *boss = &audio->boss;
+    if (state->stageNumber == 2) {
+        stage = &audio->stage2;
+        boss = &audio->boss2;
+    }
+
+    Music *want = stage;
+    if (titleScreen) want = &audio->menu;
+    else if (state->gameOver) want = &audio->lament;
+    else if (state->bossActive) want = boss;
     if (want != audio->current) {
         if (IsMusicValid(*audio->current)) StopMusicStream(*audio->current);
         if (IsMusicValid(*want)) PlayMusicStream(*want);
