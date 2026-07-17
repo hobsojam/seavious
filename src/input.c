@@ -10,6 +10,7 @@ static const InputBinding BINDINGS[INPUT_ACTION_COUNT] = {
     [INPUT_FIRE_TORPEDO] = { "FIRE TORPEDO", "SURFACE TARGETS",         { KEY_SPACE } },
     [INPUT_FIRE_MORTAR]  = { "FIRE MORTAR",  "ONCE SALVAGED",           { KEY_LEFT_SHIFT, KEY_X } },
     [INPUT_PAUSE_MENU]   = { "PAUSE / MENU", "",                        { KEY_P } },
+    [INPUT_SCREENSHOT]   = { "SCREENSHOT",   "SAVES CLEAN GAME FRAME",  { KEY_PRINT_SCREEN } },
     [INPUT_RESTART]      = { "RESTART",      "GAME OVER / STAGE CLEAR", { KEY_R, KEY_ENTER, KEY_KP_ENTER } },
 };
 
@@ -32,6 +33,7 @@ const char *InputKeyName(int key) {
         case KEY_LEFT_SHIFT: return "L-SHIFT";
         case KEY_X: return "X";
         case KEY_P: return "P";
+        case KEY_PRINT_SCREEN: return "PRINT SCREEN";
         case KEY_R: return "R";
         case KEY_ENTER: return "ENTER";
         case KEY_KP_ENTER: return "NUM ENTER";

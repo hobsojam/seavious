@@ -11,6 +11,7 @@
 #include "stage.h"
 #include "title.h"
 #include "raylib.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -38,6 +39,19 @@ static void StartRunAtStage(GameState *state, int stageNumber) {
     ResetRunState(state);
     GrantUpgradesThroughStage(state, stageNumber - 1);
     BeginStage(state, stageNumber);
+}
+
+static void SaveGameplayScreenshot(void) {
+    MakeDirectory("screenshots");
+    char path[64];
+    for (int number = 1; number < 1000000; number++) {
+        snprintf(path, sizeof path, "screenshots/seavious-%06d.png", number);
+        if (FileExists(path)) continue;
+        TakeScreenshot(path);
+        TraceLog(LOG_INFO, "Screenshot saved: %s", path);
+        return;
+    }
+    TraceLog(LOG_WARNING, "Screenshot skipped: screenshots folder is full");
 }
 
 int main(int argc, char **argv) {
@@ -347,6 +361,11 @@ int main(int argc, char **argv) {
             SetGameAudioPaused(&audio, true);
         }
 
+        // Capture the presented gameplay frame while it is still unobscured:
+        // a pause or quit modal never appears in the saved image.
+        bool captureScreenshot = runGameFrame && !state.paused && !quitConfirm
+            && InputActionPressed(INPUT_SCREENSHOT);
+
         if (runGameFrame && !quitConfirm) {
             UpdateGame(&state, &assets, dt,
                 smokeFrames > 0 && (framesRun == 9 || framesRun == 475),
@@ -402,6 +421,8 @@ int main(int argc, char **argv) {
                 WHITE
             );
         EndDrawing();
+
+        if (captureScreenshot) SaveGameplayScreenshot();
 
         if (smokeFrames > 0) {
             framesRun++;

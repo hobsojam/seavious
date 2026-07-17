@@ -594,6 +594,10 @@ and the action table is already the single hook point either would need.
 Back is Backspace, not Escape (raylib's default exit key closes the
 window).
 
+**Screenshots**: **Print Screen** during gameplay saves the clean presented
+frame (before any pause or quit overlay) as the next numbered PNG in the
+`screenshots` folder beside the executable.
+
 **Fullscreen**: borderless windowed (no video-mode switch, alt-tab
 friendly; exclusive fullscreen buys a 2D 60fps game nothing but jank),
 toggled by **F11** anywhere or the FULLSCREEN row on the options screen,
@@ -848,7 +852,9 @@ reload) — the only weapon that can destroy the amber surface threats
 drifting with the water; gun bullets pass right over them (the
 dual-targeting rule). The torpedo reticle sits far ahead on the current
 surface lane and marks maximum range, clamped before the right edge of the
-screen and against terrain or armored boss hull. Press P to pause the
+screen and against terrain or armored boss hull. Press Print Screen during
+gameplay to save a clean frame in the `screenshots` folder beside the exe.
+Press P to pause the
 simulation and music and open the pause menu (Resume / Options /
 Controls / Restart Run / Quit — navigate with Up/Down, select with
 Enter or Space, step back with Backspace); press P again to resume
