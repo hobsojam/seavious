@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
-"""Generate the stage 1 music .xm files into assets/audio/:
+"""Generate the game's music .xm files into assets/audio/:
 
   stage1_drums_bass.xm  - the shared drum+bass template (no lead)
-  stage1_theme_a.xm     - template + candidate lead tune A ("anthem")
-  stage1_theme_b.xm     - template + candidate lead tune B ("driver")
+  stage1_theme_a.xm     - stage 1 gameplay theme: full song form over
+                          "anthem" (A) and "spray" (B)
+  stage1_theme_b.xm     - title/menu theme ("driver"), tight 8-bar loop
   boss1_drums_bass.xm   - boss backing: same drums, bass in parallel minor
-  boss1_theme_a.xm      - boss backing + candidate boss tune A ("siren")
-  boss1_theme_b.xm      - boss backing + candidate boss tune B ("hammer")
-  stage2_theme_a.xm     - D-Dorian archipelago theme ("strait")
-  boss2_theme_a.xm      - D-Dorian fortress-atoll theme ("gate")
+  boss1_theme_a.xm      - boss backing + boss tune A ("siren"; game-over lament)
+  boss1_theme_b.xm      - boss backing + boss tune B ("hammer"; stage 1 boss)
+  stage2_theme_a.xm     - stage 2 gameplay theme: full song form over
+                          "strait" (A) and "undertow" (B), D Dorian
+  boss2_theme_a.xm      - D-Dorian fortress-atoll boss theme ("gate")
 
 152 BPM, 4/4, linear frequency table. 16 rows/bar (speed=6 ticks/row gives
 exactly 4 rows/beat at this BPM). Each 64-row pattern = 4 bars:
   - Drums (channels 1-3): fixed 2-bar loop (rows 0-31), repeated once more
-    (rows 32-63) to fill the pattern, with a snare fill on every 2nd bar.
+    (rows 32-63) to fill the pattern, with a snare fill on every 2nd bar;
+    the form's break section swaps in a half-time variant (kick, beat-3
+    snare, no hats).
   - Bass (channel 4): 4-bar walking bass, one chord per bar, quarter-note
     motion connecting each chord's root/3rd/5th with a passing tone into
     the next root. Stage: I-vi-IV-V in A major (A - F#m - D - E). Boss:
@@ -21,8 +25,17 @@ exactly 4 rows/beat at this BPM). Each 64-row pattern = 4 bars:
     the identical rhythm and contour - only the color-note pitches move
     (C#->C, F#->F, G#->G), which is the design's whole point: the boss
     switch darkens the same music rather than replacing it.
-  - Lead (channel 5, theme files only): an 8-bar tune spanning two passes
-    of the bass loop, so each theme is two 64-row patterns played in order.
+  - Lead (channel 5) and harmony (channel 6): 8-bar tunes over two passes
+    of the bass loop; the harmony channel carries a 2-row same-pitch echo
+    of the lead on a softer 25% pulse in the form's A'/B' sections.
+
+Song form: the stage gameplay themes - the tracks that loop under four
+minutes of play - are compiled as   intro | A | A' | B | break | B' | A'
+(44 bars). The XM restart position points at A, so the drums+bass intro
+plays exactly once and the ~69s body loops with its arrangement rising
+and falling (echo joins, breaks strip back down). Boss and menu tracks
+deliberately stay 8-bar loops: repetition reads as intensity in a fight
+and nobody lingers on the title screen.
 
 Stage tune A ("anthem"): long held notes, mostly stepwise, chord tones on
 strong beats — a broad heroic line that leaves space over the busy bass.
@@ -191,14 +204,20 @@ def build_pattern(rows, num_channels, events):
     return header + bytes(data)
 
 
-def build_xm(module_name, n_channels, patterns, instruments):
+def build_xm(module_name, n_channels, patterns, instruments, order, restart):
+    """order: pattern indices played in sequence; restart: order index the
+    player loops back to at the song end (jar_xm honors it natively, so an
+    intro before the restart plays exactly once)."""
+    assert len(patterns) <= 256 and len(order) <= 256
+    assert all(0 <= o < len(patterns) for o in order)
+    assert 0 <= restart < len(order)
     header_name = module_name.encode('ascii').ljust(20, b'\x00')[:20]
     tracker_name = b'seavious-gen'.ljust(20, b'\x00')[:20]
-    order_table = bytes(range(len(patterns))) + b'\x00' * (256 - len(patterns))
+    order_table = bytes(order) + b'\x00' * (256 - len(order))
 
     header_after_size = struct.pack('<HHHHHHHH',
-                                     len(patterns),  # song length
-                                     0,              # restart position
+                                     len(order),     # song length
+                                     restart,        # restart position
                                      n_channels,
                                      len(patterns),
                                      len(instruments),
@@ -254,8 +273,13 @@ BASS_D_DORIAN = [
 ]
 
 
-def backing_events(bass_notes):
-    """Drum + bass events for one 64-row (4-bar) pattern."""
+def backing_events(bass_notes, drums='normal'):
+    """Drum + bass events for one 64-row (4-bar) pattern.
+
+    drums: 'normal' is the driving loop (fill every 2nd bar); 'break' is
+    the half-time breakdown - kick on the downbeat, snare on beat 3, no
+    hats - used by the form's break section so the bass carries alone.
+    """
     KICK, SNARE, HIHAT, BASS = 0, 1, 2, 3
     events = {}
 
@@ -273,10 +297,15 @@ def backing_events(bass_notes):
         for r in hats:
             events[(base_row + r, HIHAT)] = (49, 3)
 
-    drum_bar(0, fill=False)
-    drum_bar(16, fill=True)
-    drum_bar(32, fill=False)
-    drum_bar(48, fill=True)
+    if drums == 'break':
+        for bar_row in (0, 16, 32, 48):
+            events[(bar_row + 0, KICK)] = (49, 1)
+            events[(bar_row + 8, SNARE)] = (49, 2)
+    else:
+        drum_bar(0, fill=False)
+        drum_bar(16, fill=True)
+        drum_bar(32, fill=False)
+        drum_bar(48, fill=True)
 
     for row, (name, octave) in bass_notes:
         events[(row, BASS)] = (note_num(name, octave), 4)
@@ -369,6 +398,44 @@ TUNE_STAGE2_A = [
     (7, 0, 'E', 5), (7, 6, 'F', 5), (7, 10, 'C', 5), (7, 14, 'C#', 5),
 ]
 
+# Stage 1 B section ("spray"): call-and-response over the same changes -
+# a rising three-note call answered lower, offbeat pushes, a breath (OFF)
+# closing each half. Mid-register so the anthem keeps the top. Ends
+# stable on E (no leading tone): the break follows, and the bass resolves.
+TUNE_STAGE1_B = [
+    (0, 0, 'C#', 5), (0, 2, 'E', 5), (0, 4, 'A', 5), (0, 10, 'G#', 5), (0, 12, 'E', 5),
+    (1, 0, 'F#', 5), (1, 4, 'C#', 5), (1, 8, 'A', 4), (1, 12, 'B', 4), (1, 14, 'C#', 5),
+    (2, 0, 'D', 5), (2, 2, 'F#', 5), (2, 4, 'A', 5), (2, 8, 'F#', 5), (2, 12, 'D', 5),
+    (3, 0, 'B', 4), (3, 4, 'G#', 4), (3, 8, 'B', 4), (3, 10, 'C#', 5), (3, 12, 'D', 5),
+    (3, 14, 'OFF', 0),
+    (4, 0, 'C#', 5), (4, 2, 'E', 5), (4, 4, 'A', 5), (4, 10, 'B', 5), (4, 12, 'A', 5),
+    (5, 0, 'F#', 5), (5, 4, 'E', 5), (5, 8, 'C#', 5), (5, 12, 'A', 4),
+    (6, 0, 'F#', 5), (6, 4, 'D', 5), (6, 8, 'A', 4), (6, 10, 'B', 4), (6, 12, 'C#', 5),
+    (6, 14, 'D', 5),
+    (7, 0, 'E', 5), (7, 4, 'D', 5), (7, 8, 'B', 4), (7, 12, 'E', 5), (7, 14, 'OFF', 0),
+]
+
+# Stage 2 B section ("undertow"): a low syncopated riff (dotted-8th feel:
+# rows 0-3-6-8) under the strait's high register, surfacing to the D-
+# Dorian color notes (B natural in bars 3/6) at each bar's tail. The same
+# chromatic C# pull as the stage's other tunes closes it into D.
+TUNE_STAGE2_B = [
+    (0, 0, 'A', 4), (0, 3, 'F', 4), (0, 6, 'D', 4), (0, 8, 'F', 4), (0, 12, 'A', 4),
+    (0, 14, 'C', 5),
+    (1, 0, 'G', 4), (1, 3, 'E', 4), (1, 6, 'C', 4), (1, 8, 'E', 4), (1, 12, 'G', 4),
+    (1, 14, 'A', 4),
+    (2, 0, 'B', 4), (2, 3, 'G', 4), (2, 6, 'D', 4), (2, 8, 'G', 4), (2, 12, 'B', 4),
+    (2, 14, 'D', 5),
+    (3, 0, 'C', 5), (3, 4, 'A', 4), (3, 8, 'E', 4), (3, 12, 'A', 4),
+    (4, 0, 'A', 4), (4, 3, 'F', 4), (4, 6, 'D', 4), (4, 8, 'F', 4), (4, 12, 'A', 4),
+    (4, 14, 'C', 5),
+    (5, 0, 'G', 4), (5, 3, 'E', 4), (5, 6, 'C', 4), (5, 8, 'E', 4), (5, 12, 'G', 4),
+    (5, 14, 'B', 4),
+    (6, 0, 'D', 5), (6, 3, 'B', 4), (6, 6, 'G', 4), (6, 8, 'B', 4), (6, 12, 'D', 5),
+    (6, 14, 'E', 5),
+    (7, 0, 'C', 5), (7, 4, 'E', 5), (7, 8, 'D', 5), (7, 12, 'C#', 5), (7, 14, 'OFF', 0),
+]
+
 # Fortress atoll: the same modal colors, but a lower two-note ostinato
 # answers itself against the bass. The final C# is a brief gate-opening
 # pull into the loop's D, not a change of key.
@@ -384,18 +451,91 @@ TUNE_BOSS2_A = [
 ]
 
 
-def lead_events(tune, first_bar, lead_channel, lead_inst):
-    """Events for bars [first_bar, first_bar+4) mapped into one pattern."""
+LEAD_CH, HARMONY_CH = 4, 5
+LEAD_INST, HARMONY_INST = 5, 6
+# The harmony voice is a 2-row (8th-note) same-pitch echo of the lead on
+# the softer pulse - the classic single-channel tracker delay illusion,
+# which thickens A'/B' sections without a second composed line.
+ECHO_DELAY_ROWS = 2
+
+
+def tune_events(tune, channel, inst, n_rows, delay=0):
+    """Map a tune's (bar, row_in_bar, name, octave) events onto a channel;
+    delayed copies that would spill past the section are dropped."""
     events = {}
     for bar, row_in_bar, name, octave in tune:
-        if not first_bar <= bar < first_bar + 4:
+        row = bar * 16 + row_in_bar + delay
+        if row >= n_rows:
             continue
-        row = (bar - first_bar) * 16 + row_in_bar
         if name == 'OFF':
-            events[(row, lead_channel)] = (KEY_OFF, None)
+            events[(row, channel)] = (KEY_OFF, None)
         else:
-            events[(row, lead_channel)] = (note_num(name, octave), lead_inst)
+            events[(row, channel)] = (note_num(name, octave), inst)
     return events
+
+
+# ---------------------------------------------------------------- sections --
+# A section is a contiguous run of bars with one arrangement; a song is a
+# list of sections compiled to patterns + an order table. Repeated sections
+# dedup to the same pattern indices, so recapitulations cost order bytes
+# only. One section index is the loop restart: everything before it is an
+# intro that plays exactly once (jar_xm honors the XM restart position).
+
+def section_events(bass, n_bars, tune=None, harmony=False, drums='normal'):
+    """One section: backing repeated per 4-bar block, plus the optional
+    lead tune and its echo. Returns (events, n_bars); n_bars % 4 == 0."""
+    assert n_bars % 4 == 0
+    n_rows = n_bars * 16
+    events = {}
+    for block in range(n_bars // 4):
+        for (row, ch), ev in backing_events(bass, drums).items():
+            events[(block * 64 + row, ch)] = ev
+    if tune is not None:
+        events.update(tune_events(tune, LEAD_CH, LEAD_INST, n_rows))
+        if harmony:
+            events.update(tune_events(tune, HARMONY_CH, HARMONY_INST, n_rows,
+                                      delay=ECHO_DELAY_ROWS))
+    return events, n_bars
+
+
+def stage_form(bass, tune_a, tune_b):
+    """The shared stage-theme song form (see module docstring):
+
+        intro | A | A' | B | break | B' | A'   (44 bars, ~69s loop body)
+
+    A' recurs verbatim at the end, so its patterns dedup to order-table
+    references. Pair with restart_section=1: the intro plays once, the
+    loop returns to A with the arrangement thinned back down.
+    """
+    intro = section_events(bass, 4)
+    a = section_events(bass, 8, tune_a)
+    a2 = section_events(bass, 8, tune_a, harmony=True)
+    b = section_events(bass, 8, tune_b)
+    brk = section_events(bass, 4, drums='break')
+    b2 = section_events(bass, 8, tune_b, harmony=True)
+    return [intro, a, a2, b, brk, b2, a2]
+
+
+def build_song(module_name, n_channels, sections, instruments, restart_section=0):
+    """Compile sections to deduped patterns + an order table and build the
+    module. restart_section: index in `sections` the loop returns to."""
+    patterns = []
+    index_of = {}
+    order = []
+    section_starts = []
+    for events, n_bars in sections:
+        section_starts.append(len(order))
+        for block in range(n_bars // 4):
+            block_events = {(row - block * 64, ch): ev
+                            for (row, ch), ev in events.items()
+                            if block * 64 <= row < (block + 1) * 64}
+            pat = build_pattern(64, n_channels, block_events)
+            if pat not in index_of:
+                index_of[pat] = len(patterns)
+                patterns.append(pat)
+            order.append(index_of[pat])
+    return build_xm(module_name, n_channels, patterns, instruments,
+                    order, section_starts[restart_section])
 
 
 # ------------------------------------------------------------------- main --
@@ -428,6 +568,13 @@ def main(out_dir=None):
     lead_instrument = instrument_block(
         'lead_square50',
         sample_header(len(lead), 0, len(lead), 22, 0x01, 'lead_square50'), lead)
+    # Harmony echo voice: a thin 25% pulse well under the lead (12 vs 22),
+    # so the delayed copy reads as space behind the tune, not a second
+    # tune fighting it.
+    harmony = delta_encode(gen_pulse_cycle(0.25))
+    harmony_instrument = instrument_block(
+        'harmony_pulse25',
+        sample_header(len(harmony), 0, len(harmony), 12, 0x01, 'harmony_pulse25'), harmony)
 
     def write(filename, xm):
         path = os.path.join(out_dir, filename)
@@ -435,34 +582,40 @@ def main(out_dir=None):
             f.write(xm)
         print('wrote', path, len(xm), 'bytes')
 
-    # Templates: backing only, one 4-bar pattern, 4 channels.
+    # Templates: backing only, one 4-bar section, 4 channels.
     for filename, module_name, bass in [
         ('stage1_drums_bass.xm', 'stage1 drums+bass', BASS_MAJOR),
         ('boss1_drums_bass.xm', 'boss1 drums+bass', BASS_MINOR),
     ]:
-        xm = build_xm(module_name, 4,
-                      [build_pattern(64, 4, backing_events(bass))],
-                      backing_instruments)
+        xm = build_song(module_name, 4, [section_events(bass, 4)],
+                        backing_instruments)
         write(filename, xm)
 
-    # Themes: backing + lead, two 4-bar patterns (8-bar tune), 6 channels
-    # (XM channel counts must be even; channel 6 stays empty).
-    LEAD_CH, LEAD_INST = 4, 5
+    # Single-loop themes: backing + one 8-bar lead section, 6 channels
+    # (XM channel counts must be even; channel 6 is the harmony voice,
+    # silent in these tracks). Boss themes stay deliberately short -
+    # repetition reads as intensity in a fight - and "driver" loops
+    # tight under the title screen, where nobody lingers.
     for filename, module_name, bass, tune in [
-        ('stage1_theme_a.xm', 'stage1 theme A anthem', BASS_MAJOR, TUNE_A),
         ('stage1_theme_b.xm', 'stage1 theme B driver', BASS_MAJOR, TUNE_B),
         ('boss1_theme_a.xm', 'boss1 theme A siren', BASS_MINOR, TUNE_BOSS_A),
         ('boss1_theme_b.xm', 'boss1 theme B hammer', BASS_MINOR, TUNE_BOSS_B),
-        ('stage2_theme_a.xm', 'stage2 theme A strait', BASS_D_DORIAN, TUNE_STAGE2_A),
         ('boss2_theme_a.xm', 'boss2 theme A gate', BASS_D_DORIAN, TUNE_BOSS2_A),
     ]:
-        patterns = []
-        for first_bar in (0, 4):
-            events = dict(backing_events(bass))
-            events.update(lead_events(tune, first_bar, LEAD_CH, LEAD_INST))
-            patterns.append(build_pattern(64, 6, events))
-        xm = build_xm(module_name, 6, patterns,
-                      backing_instruments + [lead_instrument])
+        xm = build_song(module_name, 6, [section_events(bass, 8, tune)],
+                        backing_instruments + [lead_instrument])
+        write(filename, xm)
+
+    # Stage gameplay themes: the full song form (see module docstring) -
+    # these are the tracks that loop under 4 minutes of play.
+    for filename, module_name, bass, tune_a, tune_b in [
+        ('stage1_theme_a.xm', 'stage1 anthem+spray', BASS_MAJOR, TUNE_A, TUNE_STAGE1_B),
+        ('stage2_theme_a.xm', 'stage2 strait+undertow', BASS_D_DORIAN, TUNE_STAGE2_A,
+         TUNE_STAGE2_B),
+    ]:
+        xm = build_song(module_name, 6, stage_form(bass, tune_a, tune_b),
+                        backing_instruments + [lead_instrument, harmony_instrument],
+                        restart_section=1)
         write(filename, xm)
 
 
