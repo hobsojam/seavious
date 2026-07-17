@@ -137,6 +137,7 @@ typedef struct {
     EnemyBullet enemyBullets[MAX_ENEMY_BULLETS];
     ExplosionEffect explosions[MAX_EXPLOSION_EFFECTS];
     SurfaceWreck wrecks[MAX_SURFACE_WRECKS];
+    MineBlast mineBlasts[MAX_MINE_BLASTS];
 
     AirTarget airTargets[MAX_AIR_TARGETS];
 

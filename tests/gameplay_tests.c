@@ -518,19 +518,32 @@ static void TestMine(void) {
     UpdateSurfaceTargetFire(mines, 2, 10.0f, (Vector2){ 0, 0 }, (Vector2){ 0, 0 }, bullets, 4, NULL);
     for (int i = 0; i < 4; i++) CHECK(!bullets[i].active);
 
-    // Contact detonates the mine: it dies with a detonation event, not a
-    // destroyed event, so the collision scores nothing.
+    // The fuse trips before contact: it creates a no-score detonation
+    // event and the resulting splash catches a nearby player.
     mines[0].pos = (Vector2){ 50.0f, 120.0f };
-    CHECK(ResolvePlayerContactDamage((Vector2){ 50, 120 }, 2, NULL, 0, mines, 2, &events));
+    CHECK(DetonateNearbyMines(mines, 2,
+        (Vector2){ 50.0f + MINE_PROXIMITY_RADIUS, 120.0f }, 2.0f, &events));
     CHECK(!mines[0].active);
     CHECK(events.count == 1 && events.items[0].type == GAME_EVENT_MINE_DETONATED);
     CHECK(ScoreGameEvents(&events) == 0);
 
-    // A torpedoed mine scores like any other surface kill.
+    MineBlast blasts[1] = { 0 };
+    SpawnMineBlastsFromEvents(blasts, 1, &events);
+    CHECK(blasts[0].active);
+    CHECK(ResolveMineBlastPlayerHit(blasts, 1, (Vector2){ 50.0f, 120.0f }, 2.0f));
+    CHECK(!ResolveMineBlastPlayerHit(blasts, 1,
+        (Vector2){ 50.0f + MINE_BLAST_RADIUS + 3.0f, 120.0f }, 2.0f));
+    UpdateMineBlasts(blasts, 1, MINE_BLAST_DURATION);
+    CHECK(!blasts[0].active);
+
+    // A torpedoed mine still scores, but its destroyed event also creates
+    // the same blast hazard.
     GameEventQueue killEvents = { 0 };
     CHECK(TrySpawnMine(mines, 2, 60.0f));
     CHECK(DamageSurfaceTarget(&mines[0], 1, &killEvents));
     CHECK(ScoreGameEvents(&killEvents) == SCORE_MINE);
+    SpawnMineBlastsFromEvents(blasts, 1, &killEvents);
+    CHECK(blasts[0].active);
 }
 
 static void TestMobilePlatform(void) {

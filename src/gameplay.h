@@ -101,6 +101,12 @@
 #define MINE_RADIUS  7.0f
 #define MINE_HP      1
 #define SCORE_MINE  100
+// Mines arm a little before physical contact, then leave a short-lived
+// danger circle. Both radii include the player's own hit radius at use.
+#define MINE_PROXIMITY_RADIUS  34.0f
+#define MINE_BLAST_RADIUS      30.0f
+#define MINE_BLAST_DURATION     0.38f
+#define MAX_MINE_BLASTS MAX_SURFACE_TARGETS
 
 #define MOBILE_PLATFORM_RADIUS          12.0f
 // Absolute leftward speed (1.5x the 40 px/s scroll): the one self-propelled
@@ -311,6 +317,15 @@ typedef struct {
     bool active;
 } SurfaceTarget;
 
+// Mine detonations are hazards as well as effects: their visual ring is
+// mirrored by this short-lived damage pool, so a nearby player can still
+// be caught after the proximity fuse fires.
+typedef struct {
+    Vector2 pos;
+    float remaining;
+    bool active;
+} MineBlast;
+
 typedef enum {
     LAND_TARGET_MORTAR_BATTERY,
     LAND_TARGET_DRONE_BUNKER
@@ -394,6 +409,11 @@ bool DamageSurfaceTarget(SurfaceTarget *target, int damage, GameEventQueue *even
 int ScoreGameEvents(const GameEventQueue *events);
 bool ResolvePlayerContactDamage(Vector2 playerPos, float playerRadius, const AirTarget airTargets[], int airCount,
     SurfaceTarget surfaceTargets[], int surfaceCount, GameEventQueue *events);
+bool DetonateNearbyMines(SurfaceTarget targets[], int count, Vector2 playerPos, float playerRadius,
+    GameEventQueue *events);
+void SpawnMineBlastsFromEvents(MineBlast blasts[], int blastCount, const GameEventQueue *events);
+void UpdateMineBlasts(MineBlast blasts[], int count, float dt);
+bool ResolveMineBlastPlayerHit(const MineBlast blasts[], int count, Vector2 playerPos, float playerRadius);
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
 bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset);
