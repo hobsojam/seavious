@@ -1,11 +1,10 @@
-; Stage 2 map — Archipelago exam. See README "Stage 2 design" and the
-; Stage 1 map for the complete glyph legend and authoring rules.
+; Stage 2 map — Archipelago exam. See docs/game-design.md and
+; docs/stage-authoring.md for the complete glyph legend and authoring rules.
 ; Grid: 1 char = 32 px, 11 rows (352px play area). Ten contiguous 768px
 ; beats make a 7,680px run. B/K cells are terrain + hardpoint + their
 ; land installation; no empty hardpoints are authored.
 ;
-; The map source is deliberately being authored before the Stage 2 table
-; wiring lands. It is the level-design contract for that follow-up.
+; This source compiles to src/stage2_data.c through tools/gen-stage-table.py.
 
 ; beat 1 — mortar tutorial: two exposed batteries, then a bunker behind shore
 @0
