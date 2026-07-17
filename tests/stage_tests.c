@@ -29,6 +29,14 @@ static int CountActiveSurface(const GameState *state) {
     return n;
 }
 
+static int CountActiveLand(const GameState *state) {
+    int n = 0;
+    for (int i = 0; i < MAX_LAND_TARGETS; i++) {
+        if (state->landTargets[i].active) n++;
+    }
+    return n;
+}
+
 static void TestTableInvariants(void) {
     CHECK(STAGE1_EVENT_COUNT > 0);
     CHECK(STAGE1_LENGTH_PX > 0);
@@ -269,6 +277,9 @@ static void TestStageDescriptor(void) {
     CHECK(stage->hardpoints == STAGE1_TERRAIN_HARDPOINTS
         && stage->hardpointCount == STAGE1_TERRAIN_HARDPOINT_COUNT);
     CHECK(stage->lengthPx == STAGE1_LENGTH_PX);
+    const StageDescriptor *stage2 = GetStageDescriptor(2);
+    CHECK(stage2 != NULL && stage2->events == STAGE2_EVENTS
+        && stage2->terrain == STAGE2_TERRAIN && stage2->lengthPx == STAGE2_LENGTH_PX);
     // Out-of-range numbers clamp to real Stage 1 content rather than
     // failing, so the advance flow's wrap can never dereference nothing.
     const StageDescriptor *below = GetStageDescriptor(0);
@@ -310,17 +321,17 @@ static void TestStageScriptRunsAgainAfterAdvance(void) {
 
     // The advance: exactly what the stage-clear CONTINUE input does.
     BeginStage(&state, NextStageNumber(state.stageNumber));
-    CHECK(state.stageNumber == 1); // wraps: Stage 1 is the only stage today
+    CHECK(state.stageNumber == 2);
     CHECK(state.score == 900 && state.hasMortar);
     CHECK(!state.bossLock && !state.stageClear);
     CHECK(state.player.x == PLAYER_START_X && state.player.y == PLAYER_START_Y);
     CHECK(state.boss.phase == BOSS_PHASE_INACTIVE);
 
     // The rewound script fires the first event again...
-    state.scrollDistance = (float)STAGE1_EVENTS[0].px - 0.5f;
+    state.scrollDistance = (float)STAGE2_EVENTS[0].px - 0.5f;
     UpdateStageScript(&state, 1.0f / OCEAN_SCROLL_SPEED);
     CHECK(state.stageCursor >= 1);
-    CHECK(CountActiveAir(&state) + CountActiveSurface(&state) > 0);
+    CHECK(CountActiveAir(&state) + CountActiveSurface(&state) + CountActiveLand(&state) > 0);
 
     // ...and the boss lock rises again at this stage's end.
     state.scrollDistance = (float)GetStageDescriptor(state.stageNumber)->lengthPx;
@@ -338,7 +349,7 @@ static void TestContinueRun(void) {
     state.hasMortar = true;
     state.stageClear = true;
     ContinueRun(&state);
-    CHECK(state.stageNumber == 1); // wraps: single-stage table today
+    CHECK(state.stageNumber == 2);
     CHECK(state.score == 4200 && state.hasMortar);
     CHECK(!state.stageClear);
     CHECK(state.gameEvents.count == 1

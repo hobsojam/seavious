@@ -42,6 +42,10 @@ bool ResolveBossMissilePlayerCollision(BossState *boss, Vector2 playerPos, float
 // hit deals its direct damage on the spot.
 TorpedoImpact ResolveTorpedoBossPartCollision(Torpedo *torpedo, BossState *boss, GameEventQueue *events);
 void ResolveBossSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *events);
+// Stage 2 ring batteries are mortar-only; this path is deliberately
+// separate from torpedo splash so the weapon classes stay distinct.
+void ResolveBossMortarSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *events);
+bool BossIsFortressAtoll(const BossState *boss);
 
 Vector2 BossPartPosition(const BossState *boss, BossPartId part);
 Vector2 BossMortarPosition(const BossState *boss);

@@ -24,6 +24,7 @@ add_executable(seavious
     src/settings.c
     src/stage.c
     src/stage1_data.c
+    src/stage2_data.c
     src/title.c
 )
 
@@ -50,6 +51,7 @@ if(BUILD_TESTING)
         src/gameplay.c
         src/stage.c
         src/stage1_data.c
+        src/stage2_data.c
     )
     target_include_directories(stage_tests PRIVATE src)
     target_link_libraries(stage_tests PRIVATE raylib glfw)
@@ -84,6 +86,7 @@ if(BUILD_TESTING)
         src/gameplay.c
         src/stage.c
         src/stage1_data.c
+        src/stage2_data.c
     )
     target_include_directories(boss_tests PRIVATE src)
     target_link_libraries(boss_tests PRIVATE raylib glfw)

@@ -132,8 +132,12 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     bool fireTorpedo = (InputActionPressed(INPUT_FIRE_TORPEDO) || forceTorpedoFire) && !bossOwnsPlayer;
     if (!state->playerDestroyed && fireTorpedo && !state->torpedo.active && state->torpedoCooldown <= 0.0f) {
         Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
-        FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn, stage->terrain, stage->terrainCount,
-            state->scrollDistance);
+        if (state->hasTargetingComputer) {
+            FireLeadTorpedo(&state->torpedo, torpedoSpawn, state->surfaceTargets, MAX_SURFACE_TARGETS);
+        } else {
+            FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn, stage->terrain, stage->terrainCount,
+                state->scrollDistance);
+        }
         // The boss's armor clamps the range like a land edge would.
         state->torpedo.target = ClampReticleToRects(
             torpedoSpawn, state->torpedo.target, bossBlockers, bossBlockerCount
@@ -236,7 +240,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
         });
         ResolveMortarBlastSurfaceTargets(blast, state->surfaceTargets, MAX_SURFACE_TARGETS, &state->gameEvents);
         ResolveMortarBlastLandTargets(blast, state->landTargets, MAX_LAND_TARGETS, &state->gameEvents);
-        ResolveBossSplashDamage(&state->boss, blast, &state->gameEvents);
+        ResolveBossMortarSplashDamage(&state->boss, blast, &state->gameEvents);
     }
     // Player hits resolve before the destruction-effects pass so a mine
     // detonated by contact still gets its blast and SFX this same frame.

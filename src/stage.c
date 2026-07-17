@@ -43,7 +43,7 @@ static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
 }
 
 int StageCount(void) {
-    return 1;
+    return 2;
 }
 
 int NextStageNumber(int stageNumber) {
@@ -69,10 +69,8 @@ void ContinueRun(GameState *state) {
 const StageDescriptor *GetStageDescriptor(int stageNumber) {
     // Rebuilt on each call: the generated counts are const ints, not
     // constant expressions, so a static initializer can't hold them.
-    // Every number clamps to Stage 1 until Stage 2 content lands.
-    (void)stageNumber;
-    static StageDescriptor stage1;
-    stage1 = (StageDescriptor){
+    static StageDescriptor stages[2];
+    stages[0] = (StageDescriptor){
         .events = STAGE1_EVENTS,
         .eventCount = STAGE1_EVENT_COUNT,
         .terrain = STAGE1_TERRAIN,
@@ -81,7 +79,17 @@ const StageDescriptor *GetStageDescriptor(int stageNumber) {
         .hardpointCount = STAGE1_TERRAIN_HARDPOINT_COUNT,
         .lengthPx = STAGE1_LENGTH_PX,
     };
-    return &stage1;
+    stages[1] = (StageDescriptor){
+        .events = STAGE2_EVENTS,
+        .eventCount = STAGE2_EVENT_COUNT,
+        .terrain = STAGE2_TERRAIN,
+        .terrainCount = STAGE2_TERRAIN_COUNT,
+        .hardpoints = STAGE2_TERRAIN_HARDPOINTS,
+        .hardpointCount = STAGE2_TERRAIN_HARDPOINT_COUNT,
+        .lengthPx = STAGE2_LENGTH_PX,
+    };
+    if (stageNumber < 1 || stageNumber > 2) stageNumber = 1;
+    return &stages[stageNumber - 1];
 }
 
 void UpdateStageScript(GameState *state, float dt) {

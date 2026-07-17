@@ -174,6 +174,7 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
                 PlayIfValid(audio->mortarFire);
                 break;
             case GAME_EVENT_MORTAR_SALVAGED:
+            case GAME_EVENT_TARGETING_COMPUTER_SALVAGED:
                 PlayIfValid(audio->mortarSalvage);
                 break;
         }

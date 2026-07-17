@@ -63,4 +63,12 @@ extern const StageTerrainHardpoint STAGE1_TERRAIN_HARDPOINTS[];
 extern const int STAGE1_TERRAIN_HARDPOINT_COUNT;
 extern const int STAGE1_LENGTH_PX;
 
+extern const StageSpawnEvent STAGE2_EVENTS[];
+extern const int STAGE2_EVENT_COUNT;
+extern const StageTerrainFootprint STAGE2_TERRAIN[];
+extern const int STAGE2_TERRAIN_COUNT;
+extern const StageTerrainHardpoint STAGE2_TERRAIN_HARDPOINTS[];
+extern const int STAGE2_TERRAIN_HARDPOINT_COUNT;
+extern const int STAGE2_LENGTH_PX;
+
 #endif

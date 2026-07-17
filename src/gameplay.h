@@ -327,6 +327,7 @@ typedef enum {
     GAME_EVENT_MORTAR_FIRED,
     GAME_EVENT_MORTAR_BLAST,
     GAME_EVENT_MORTAR_SALVAGED,
+    GAME_EVENT_TARGETING_COMPUTER_SALVAGED,
     // One per shot/volley (a Gunship fan is one event, matching how the
     // volley reads), shared by every bullet-firing enemy - the audible
     // counterpart of the universal red-diamond projectile.
