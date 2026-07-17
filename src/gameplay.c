@@ -908,7 +908,11 @@ static bool TrySpawnLandTarget(LandTarget targets[], int count, LandTargetType t
     MortarShell carried = targets[slot].shell;
     targets[slot] = (LandTarget){
         .type = type,
-        .pos = { GAME_WIDTH + radius, y },
+        // Stage land glyphs are 32px terrain cells. At the moment their
+        // event fires, the matching hardpoint cell starts at GAME_WIDTH,
+        // so its visual pad center is exactly +16px, irrespective of the
+        // installation sprite/radius.
+        .pos = { GAME_WIDTH + 16.0f, y },
         .radius = radius,
         .hp = hp,
         .active = true
