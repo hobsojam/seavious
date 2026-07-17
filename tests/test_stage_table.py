@@ -50,6 +50,47 @@ def map_glyph_census():
     return census
 
 
+def stage2_blocks():
+    """Return each Stage 2 block's scroll offset and eleven source rows."""
+    blocks = []
+    offset = None
+    rows = []
+    with open(STAGE2_MAP_PATH, encoding='utf-8') as stage2:
+        for line in stage2:
+            line = line.rstrip('\n')
+            if line.startswith('@'):
+                if offset is not None:
+                    blocks.append((offset, rows))
+                offset = int(line[1:])
+                rows = []
+            elif offset is not None and line and not line.startswith(';'):
+                rows.append(line)
+    if offset is not None:
+        blocks.append((offset, rows))
+    return blocks
+
+
+def check_stage2_installations_are_inset():
+    terrain = set('#BKH')
+    for offset, rows in stage2_blocks():
+        check(len(rows) == 11, f'Stage 2 block @{offset} has {len(rows)} rows')
+        for y, row in enumerate(rows):
+            for x, glyph in enumerate(row):
+                if glyph not in 'BK':
+                    continue
+                if y == 0 or y == len(rows) - 1 or x == 0 or x == len(row) - 1:
+                    check(False, f'{glyph} at @{offset}, row {y}, col {x} is on the map edge')
+                    continue
+                neighbours = [
+                    rows[y + dy][x + dx]
+                    for dy in (-1, 0, 1)
+                    for dx in (-1, 0, 1)
+                    if dx != 0 or dy != 0
+                ]
+                check(all(cell in terrain for cell in neighbours),
+                      f'{glyph} at @{offset}, row {y}, col {x} is not inset in terrain')
+
+
 def main():
     gen = load_generator()
 
@@ -84,6 +125,7 @@ def main():
     check(length == 7200, f'stage length {length} != 7200')
     stage2_length = int(re.search(r'STAGE2_LENGTH_PX = (\d+);', generated_stage2).group(1))
     check(stage2_length == 7680, f'Stage 2 length {stage2_length} != 7680')
+    check_stage2_installations_are_inset()
 
     # Terrain rects must cover exactly the map's land cell area.
     rects = re.findall(r'\{ (\d+), (\d+), (\d+), (\d+) \},',

@@ -28,6 +28,7 @@ typedef struct {
 typedef struct {
     Vector2 pos;
     float radius;
+    float age;
     SurfaceTargetType type;
     bool active;
 } SurfaceWreck;

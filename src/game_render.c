@@ -2,6 +2,7 @@
 #include "boss.h"
 #include "stage.h"
 #include "stage_data.h"
+#include "wreck_visual.h"
 #include "raylib.h"
 #include "rlgl.h"
 #include <math.h>
@@ -696,6 +697,7 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     // that a surface installation was destroyed while the world scrolls on.
     for (int i = 0; i < MAX_SURFACE_WRECKS; i++) {
         if (!state->wrecks[i].active) continue;
+        if (DrawSpecialSurfaceWreck(assets->mobilePlatformTex, &state->wrecks[i], DrawTexture)) continue;
         Color scorch = state->wrecks[i].type == SURFACE_TARGET_CASEMATE
             ? (Color){ 28, 36, 34, 230 } : (Color){ 34, 29, 25, 230 };
         DrawCircleV(state->wrecks[i].pos, state->wrecks[i].radius + 2.0f, scorch);

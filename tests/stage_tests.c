@@ -1,10 +1,29 @@
 #include "game_state.h"
 #include "stage.h"
 #include "stage_data.h"
+#include "wreck_visual.h"
 
 #include <stdio.h>
 
 static int failures;
+
+typedef struct {
+    int calls;
+    Texture2D texture;
+    int x;
+    int y;
+    Color tint;
+} TextureDrawCapture;
+
+static TextureDrawCapture textureDraw;
+
+static void CaptureTextureDraw(Texture2D texture, int x, int y, Color tint) {
+    textureDraw.calls++;
+    textureDraw.texture = texture;
+    textureDraw.x = x;
+    textureDraw.y = y;
+    textureDraw.tint = tint;
+}
 
 #define CHECK(condition) do { \
     if (!(condition)) { \
@@ -203,6 +222,66 @@ static void TestRelayWreckRadius(void) {
     SpawnTargetDestructionEffects(&events, explosions, wrecks);
     CHECK(wrecks[0].active);
     CHECK(wrecks[0].radius == RELAY_NODE_RADIUS);
+}
+
+static void TestMobilePlatformSinksInsteadOfLeavingWreck(void) {
+    SurfaceWreck wrecks[MAX_SURFACE_WRECKS] = { 0 };
+    CHECK(TrySpawnSurfaceWreck(wrecks, (Vector2){ 100.0f, 120.0f },
+        SURFACE_TARGET_MOBILE_PLATFORM, MOBILE_PLATFORM_RADIUS));
+    CHECK(wrecks[0].active && wrecks[0].age == 0.0f);
+
+    UpdateSurfaceWrecks(wrecks, MOBILE_PLATFORM_SINK_DURATION * 0.5f);
+    CHECK(wrecks[0].active);
+    CHECK(wrecks[0].age > 0.0f && wrecks[0].age < MOBILE_PLATFORM_SINK_DURATION);
+    CHECK(wrecks[0].pos.x < 100.0f);
+
+    UpdateSurfaceWrecks(wrecks, MOBILE_PLATFORM_SINK_DURATION * 0.5f);
+    CHECK(!wrecks[0].active);
+
+    Vector2 start = { 100.0f, 120.0f };
+    Vector2 halfway = MobilePlatformSinkingPosition(start, MOBILE_PLATFORM_SINK_DURATION * 0.5f);
+    CHECK(halfway.x == start.x);
+    CHECK(halfway.y == start.y + MOBILE_PLATFORM_SINK_DEPTH * 0.5f);
+    CHECK(MobilePlatformSinkingOpacity(0.0f) == 150);
+    CHECK(MobilePlatformSinkingOpacity(MOBILE_PLATFORM_SINK_DURATION * 0.5f) == 75);
+    CHECK(MobilePlatformSinkingOpacity(MOBILE_PLATFORM_SINK_DURATION) == 0);
+
+    // The helpers clamp stale and future visual state rather than making
+    // a destroyed hull sink past the intended depth or become transparent
+    // before its destruction event has been rendered.
+    Vector2 clamped = MobilePlatformSinkingPosition(start, MOBILE_PLATFORM_SINK_DURATION * 4.0f);
+    CHECK(clamped.y == start.y + MOBILE_PLATFORM_SINK_DEPTH);
+    CHECK(MobilePlatformSinkingOpacity(-1.0f) == 150);
+
+    Texture2D hull = { .id = 7, .width = 36, .height = 18 };
+    SurfaceWreck visual = {
+        .pos = start,
+        .age = MOBILE_PLATFORM_SINK_DURATION * 0.5f,
+        .type = SURFACE_TARGET_MOBILE_PLATFORM,
+    };
+    textureDraw = (TextureDrawCapture){ 0 };
+    CHECK(DrawSpecialSurfaceWreck(hull, &visual, CaptureTextureDraw));
+    CHECK(textureDraw.calls == 1 && textureDraw.texture.id == hull.id);
+    CHECK(textureDraw.x == 82 && textureDraw.y == 115);
+    CHECK(textureDraw.tint.r == 112 && textureDraw.tint.g == 156 && textureDraw.tint.b == 166);
+    CHECK(textureDraw.tint.a == 75);
+
+    visual.type = SURFACE_TARGET_CASEMATE;
+    CHECK(!DrawSpecialSurfaceWreck(hull, &visual, CaptureTextureDraw));
+    CHECK(textureDraw.calls == 1);
+}
+
+static void TestOrdinaryWreckStillUsesScrollExpiry(void) {
+    SurfaceWreck wrecks[MAX_SURFACE_WRECKS] = { 0 };
+    CHECK(TrySpawnSurfaceWreck(wrecks, (Vector2){ 4.0f, 120.0f },
+        SURFACE_TARGET_CASEMATE, CASEMATE_RADIUS));
+
+    UpdateSurfaceWrecks(wrecks, 0.25f);
+    CHECK(wrecks[0].active);
+    CHECK(wrecks[0].age == 0.25f);
+
+    UpdateSurfaceWrecks(wrecks, 1.0f);
+    CHECK(!wrecks[0].active);
 }
 
 static void TestStage1IsletSetPiece(void) {
@@ -479,6 +558,8 @@ int main(void) {
     TestAirRosterGlyphsSpawn();
     TestMineLeavesNoWreck();
     TestRelayWreckRadius();
+    TestMobilePlatformSinksInsteadOfLeavingWreck();
+    TestOrdinaryWreckStillUsesScrollExpiry();
     TestStage1IsletSetPiece();
     TestBossLockFreezesScript();
     TestFormationPatterns();
