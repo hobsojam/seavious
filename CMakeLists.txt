@@ -24,6 +24,7 @@ add_executable(seavious
     src/settings.c
     src/stage.c
     src/stage1_data.c
+    src/stage2_data.c
     src/title.c
 )
 

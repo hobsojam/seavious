@@ -110,6 +110,16 @@ bool BossSectionFacesPlayer(const BossState *boss, BossPartId part) {
 int BossHullBlockers(const BossState *boss, Rectangle out[2]) {
     if (boss->phase != BOSS_PHASE_ENTERING && boss->phase != BOSS_PHASE_FIGHTING) return 0;
 
+    // The fortress's sea gates close over the only torpedo route to the
+    // core. They begin cycling only after the AA pods and ring batteries
+    // are gone, so the final weapon test is timed rather than a wall.
+    if (boss->fortressAtoll) {
+        if (!boss->coreExposed || boss->gatesOpen) return 0;
+        Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
+        out[0] = (Rectangle){ core.x - 22.0f, core.y - 28.0f, 28.0f, 56.0f };
+        return 1;
+    }
+
     float left = boss->hullCenter.x - BOSS_HULL_HALF_WIDTH;
     float top = boss->hullCenter.y - BOSS_HULL_HALF_LENGTH;
     float bottom = boss->hullCenter.y + BOSS_HULL_HALF_LENGTH;
@@ -126,6 +136,10 @@ int BossHullBlockers(const BossState *boss, Rectangle out[2]) {
 
 bool BossPartAlive(const BossState *boss, BossPartId part) {
     return boss->partHp[part] > 0;
+}
+
+bool BossIsFortressAtoll(const BossState *boss) {
+    return boss->fortressAtoll;
 }
 
 int BossRemainingHp(const BossState *boss) {
@@ -157,7 +171,13 @@ static bool DamageBossPart(BossState *boss, BossPartId part, int damage, GameEve
         .pos = BossPartPosition(boss, part),
         .target.bossPart = part
     });
-    if (!BossPartAlive(boss, BOSS_PART_HULL_FORE) && !BossPartAlive(boss, BOSS_PART_HULL_AFT)) {
+    bool outerDestroyed = !BossPartAlive(boss, BOSS_PART_HULL_FORE)
+        && !BossPartAlive(boss, BOSS_PART_HULL_AFT);
+    if (boss->fortressAtoll) {
+        outerDestroyed = outerDestroyed && !BossPartAlive(boss, BOSS_PART_POD_FORE)
+            && !BossPartAlive(boss, BOSS_PART_POD_AFT);
+    }
+    if (outerDestroyed) {
         boss->coreExposed = true;
     }
     if (part == BOSS_PART_CORE) {
@@ -174,18 +194,23 @@ static void StartBossFight(GameState *state) {
     boss->phaseTimer = 0.0f;
     // Sails into view from below the arena, bow up, already on its
     // patrol column.
-    boss->hullCenter = (Vector2){ BOSS_PATROL_X, (float)PLAY_HEIGHT + BOSS_HULL_HALF_LENGTH + 15.0f };
+    boss->fortressAtoll = state->stageNumber == 2;
+    boss->gatesOpen = false;
+    boss->gateTimer = 0.0f;
+    boss->hullCenter = boss->fortressAtoll
+        ? (Vector2){ 404.0f, 176.0f }
+        : (Vector2){ BOSS_PATROL_X, (float)PLAY_HEIGHT + BOSS_HULL_HALF_LENGTH + 15.0f };
     boss->rotation = 90.0f;
     boss->sailDirection = -1;
     boss->turning = false;
     boss->turnTimer = 0.0f;
     boss->settleOffset = 0.0f;
     boss->coreExposed = false;
-    boss->partHp[BOSS_PART_POD_FORE] = BOSS_POD_HP;
-    boss->partHp[BOSS_PART_POD_AFT] = BOSS_POD_HP;
-    boss->partHp[BOSS_PART_HULL_FORE] = BOSS_HULL_SECTION_HP;
-    boss->partHp[BOSS_PART_HULL_AFT] = BOSS_HULL_SECTION_HP;
-    boss->partHp[BOSS_PART_CORE] = BOSS_CORE_HP;
+    boss->partHp[BOSS_PART_POD_FORE] = boss->fortressAtoll ? 8 : BOSS_POD_HP;
+    boss->partHp[BOSS_PART_POD_AFT] = boss->fortressAtoll ? 8 : BOSS_POD_HP;
+    boss->partHp[BOSS_PART_HULL_FORE] = boss->fortressAtoll ? 3 : BOSS_HULL_SECTION_HP;
+    boss->partHp[BOSS_PART_HULL_AFT] = boss->fortressAtoll ? 3 : BOSS_HULL_SECTION_HP;
+    boss->partHp[BOSS_PART_CORE] = boss->fortressAtoll ? 18 : BOSS_CORE_HP;
     for (int part = 0; part < BOSS_PART_COUNT; part++) {
         float interval = part <= BOSS_PART_POD_AFT ? BOSS_POD_FIRE_INTERVAL : BOSS_SAM_INTERVAL;
         boss->partFireTimer[part] = interval - BOSS_PART_FIRST_SHOT_DELAY[part];
@@ -325,6 +350,9 @@ static void FireBossGuns(GameState *state, float dt) {
     for (int part = BOSS_PART_POD_FORE; part <= BOSS_PART_HULL_AFT; part++) {
         if (!BossPartAlive(boss, (BossPartId)part)) continue;
         bool pod = part <= BOSS_PART_POD_AFT;
+        // Fortress ring batteries are the mortar-only target class; their
+        // hazard is the central atoll's lob, not a recycled SAM launcher.
+        if (boss->fortressAtoll && !pod) continue;
         float interval = pod ? BOSS_POD_FIRE_INTERVAL : BOSS_SAM_INTERVAL;
         // A shielded (far-side) section holds pre-armed, like enemies at
         // the activation line: its first shot comes right as the turn
@@ -429,7 +457,7 @@ static void ResolveBulletBossPartCollisions(GameState *state) {
         if (!state->bullets[b].active) continue;
         for (int i = 0; i < 3; i++) {
             BossPartId part = gunTargets[i];
-            if (part == BOSS_PART_CORE && !boss->coreExposed) continue;
+            if (part == BOSS_PART_CORE && (!boss->coreExposed || boss->fortressAtoll)) continue;
             if (!BossPartAlive(boss, part)) continue;
             float hitDist = BULLET_RADIUS + BOSS_PART_GEOMETRY[part].radius;
             if (DistanceSquared(state->bullets[b].pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
@@ -446,9 +474,10 @@ TorpedoImpact ResolveTorpedoBossPartCollision(Torpedo *torpedo, BossState *boss,
     if (!torpedo->active || boss->phase != BOSS_PHASE_FIGHTING) return none;
 
     const BossPartId torpedoTargets[] = { BOSS_PART_HULL_FORE, BOSS_PART_HULL_AFT, BOSS_PART_CORE };
-    for (int i = 0; i < 3; i++) {
-        BossPartId part = torpedoTargets[i];
-        if (part == BOSS_PART_CORE && !boss->coreExposed) continue;
+    int targetCount = boss->fortressAtoll ? 1 : 3;
+    for (int i = 0; i < targetCount; i++) {
+        BossPartId part = boss->fortressAtoll ? BOSS_PART_CORE : torpedoTargets[i];
+        if (part == BOSS_PART_CORE && (!boss->coreExposed || (boss->fortressAtoll && !boss->gatesOpen))) continue;
         if (!BossPartAlive(boss, part)) continue;
         float hitDist = BOSS_PART_GEOMETRY[part].radius + TORPEDO_DIRECT_HIT_RADIUS;
         if (DistanceSquared(torpedo->pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
@@ -467,6 +496,14 @@ TorpedoImpact ResolveTorpedoBossPartCollision(Torpedo *torpedo, BossState *boss,
 
 void ResolveBossSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *events) {
     if (boss->phase != BOSS_PHASE_FIGHTING) return;
+    if (boss->fortressAtoll) {
+        if (!boss->coreExposed || !boss->gatesOpen || !BossPartAlive(boss, BOSS_PART_CORE)) return;
+        float hitDist = BOSS_PART_GEOMETRY[BOSS_PART_CORE].radius + TORPEDO_SPLASH_RADIUS;
+        if (DistanceSquared(pos, BossPartPosition(boss, BOSS_PART_CORE)) <= hitDist * hitDist) {
+            DamageBossPart(boss, BOSS_PART_CORE, BOSS_CORE_TORPEDO_DAMAGE, events);
+        }
+        return;
+    }
 
     const BossPartId torpedoTargets[] = { BOSS_PART_HULL_FORE, BOSS_PART_HULL_AFT, BOSS_PART_CORE };
     for (int i = 0; i < 3; i++) {
@@ -477,6 +514,23 @@ void ResolveBossSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *event
         if (DistanceSquared(pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
             DamageBossPart(boss, part,
                 part == BOSS_PART_CORE ? BOSS_CORE_TORPEDO_DAMAGE : 1, events);
+        }
+    }
+}
+
+void ResolveBossMortarSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *events) {
+    if (boss->phase != BOSS_PHASE_FIGHTING) return;
+    if (!boss->fortressAtoll) {
+        ResolveBossSplashDamage(boss, pos, events);
+        return;
+    }
+    const BossPartId batteries[] = { BOSS_PART_HULL_FORE, BOSS_PART_HULL_AFT };
+    for (int i = 0; i < 2; i++) {
+        BossPartId part = batteries[i];
+        if (!BossPartAlive(boss, part)) continue;
+        float hitDist = BOSS_PART_GEOMETRY[part].radius + PLAYER_MORTAR_BLAST_RADIUS;
+        if (DistanceSquared(pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
+            DamageBossPart(boss, part, 1, events);
         }
     }
 }
@@ -516,6 +570,13 @@ void UpdateBossFight(GameState *state, float dt) {
 
     switch (boss->phase) {
         case BOSS_PHASE_ENTERING: {
+            if (boss->fortressAtoll) {
+                if (boss->phaseTimer >= BOSS_ENTRANCE_DURATION) {
+                    boss->phase = BOSS_PHASE_FIGHTING;
+                    boss->phaseTimer = 0.0f;
+                }
+                break;
+            }
             // Sails up into view from below the arena to the bottom of
             // its patrol lane; guns stay quiet until the patrol starts.
             float startY = (float)PLAY_HEIGHT + BOSS_HULL_HALF_LENGTH + 15.0f;
@@ -529,7 +590,14 @@ void UpdateBossFight(GameState *state, float dt) {
             break;
         }
         case BOSS_PHASE_FIGHTING:
-            UpdateBossPatrol(boss, dt);
+            if (!boss->fortressAtoll) UpdateBossPatrol(boss, dt);
+            if (boss->fortressAtoll && boss->coreExposed) {
+                boss->gateTimer += dt;
+                if (boss->gateTimer >= 2.0f) {
+                    boss->gateTimer -= 2.0f;
+                    boss->gatesOpen = !boss->gatesOpen;
+                }
+            }
             FireBossGuns(state, dt);
             FireBossMortar(state, dt);
             ResolveBulletBossPartCollisions(state);
@@ -583,13 +651,15 @@ void UpdateBossFight(GameState *state, float dt) {
             if (boss->phaseTimer >= BOSS_SALVAGE_DOCK_DURATION) {
                 boss->salvageDomePos = state->player;
                 PushGameEvent(&state->gameEvents, (GameEvent){
-                    .type = GAME_EVENT_MORTAR_SALVAGED, .pos = state->player
+                    .type = boss->fortressAtoll ? GAME_EVENT_TARGETING_COMPUTER_SALVAGED
+                        : GAME_EVENT_MORTAR_SALVAGED,
+                    .pos = state->player
                 });
                 boss->phase = BOSS_PHASE_CLEARED;
                 boss->phaseTimer = 0.0f;
-                // The dock is the pickup: the mortar is the player's from
-                // here on (and into the stage-clear replay).
-                state->hasMortar = true;
+                // The dock is the pickup and survives the stage transition.
+                if (boss->fortressAtoll) state->hasTargetingComputer = true;
+                else state->hasMortar = true;
                 state->stageClear = true;
             }
             break;

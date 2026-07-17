@@ -18,6 +18,8 @@ import tempfile
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAP_PATH = os.path.join(REPO, 'assets', 'stages', 'stage1.txt')
 COMMITTED = os.path.join(REPO, 'src', 'stage1_data.c')
+STAGE2_MAP_PATH = os.path.join(REPO, 'assets', 'stages', 'stage2.txt')
+STAGE2_COMMITTED = os.path.join(REPO, 'src', 'stage2_data.c')
 
 failures = []
 
@@ -57,10 +59,17 @@ def main():
         check(os.path.exists(out_path), 'generator did not write stage1_data.c')
         with open(out_path, encoding='utf-8') as f:
             generated = f.read()
+        with open(os.path.join(tmp, 'stage2_data.c'), encoding='utf-8') as f:
+            generated_stage2 = f.read()
     with open(COMMITTED, encoding='utf-8') as f:
         committed = f.read()
     check(generated == committed,
           'committed src/stage1_data.c differs from the compiled map - '
+          'rerun tools/gen-stage-table.py and commit the result')
+    with open(STAGE2_COMMITTED, encoding='utf-8') as f:
+        committed_stage2 = f.read()
+    check(generated_stage2 == committed_stage2,
+          'committed src/stage2_data.c differs from the compiled map - '
           'rerun tools/gen-stage-table.py and commit the result')
 
     # The table must account for every glyph in the map. Land glyphs
@@ -73,6 +82,8 @@ def main():
 
     length = int(re.search(r'STAGE1_LENGTH_PX = (\d+);', generated).group(1))
     check(length == 7200, f'stage length {length} != 7200')
+    stage2_length = int(re.search(r'STAGE2_LENGTH_PX = (\d+);', generated_stage2).group(1))
+    check(stage2_length == 7680, f'Stage 2 length {stage2_length} != 7680')
 
     # Terrain rects must cover exactly the map's land cell area.
     rects = re.findall(r'\{ (\d+), (\d+), (\d+), (\d+) \},',

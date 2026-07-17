@@ -412,6 +412,78 @@ static void TestDefeatAndSalvageFlow(void) {
     CHECK(state.boss.phase == BOSS_PHASE_INACTIVE && !state.stageClear && !state.bossActive);
 }
 
+static void SetUpFightingAtoll(GameState *state) {
+    ResetRunState(state);
+    BeginStage(state, 2);
+    state->scrollDistance = (float)STAGE2_LENGTH_PX;
+    state->stageCursor = STAGE2_EVENT_COUNT;
+    UpdateStageScript(state, 0.001f);
+    UpdateBossFight(state, 0.001f);
+    for (int i = 0; i < 400 && state->boss.phase == BOSS_PHASE_ENTERING; i++) {
+        UpdateBossFight(state, 0.05f);
+    }
+    state->gameEvents.count = 0;
+}
+
+static void TestFortressAtollWeaponGatesAndSalvage(void) {
+    GameState state;
+    SetUpFightingAtoll(&state);
+    CHECK(BossIsFortressAtoll(&state.boss));
+    CHECK(state.boss.phase == BOSS_PHASE_FIGHTING);
+
+    // AA pods are gun-only.
+    Vector2 pod = BossPartPosition(&state.boss, BOSS_PART_POD_FORE);
+    int podHp = state.boss.partHp[BOSS_PART_POD_FORE];
+    state.torpedo = (Torpedo){ .pos = pod, .armed = false, .active = true };
+    CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
+        == TORPEDO_IMPACT_NONE);
+    state.torpedo.active = false;
+    state.bullets[0] = (Bullet){ .pos = pod, .active = true };
+    UpdateBossFight(&state, 0.0001f);
+    CHECK(state.boss.partHp[BOSS_PART_POD_FORE] == podHp - 1);
+
+    // Ring batteries are mortar-only.
+    Vector2 battery = BossPartPosition(&state.boss, BOSS_PART_HULL_FORE);
+    int batteryHp = state.boss.partHp[BOSS_PART_HULL_FORE];
+    state.bullets[0] = (Bullet){ .pos = battery, .active = true };
+    UpdateBossFight(&state, 0.0001f);
+    CHECK(state.bullets[0].active && state.boss.partHp[BOSS_PART_HULL_FORE] == batteryHp);
+    state.bullets[0].active = false;
+    ResolveBossMortarSplashDamage(&state.boss, battery, &state.gameEvents);
+    CHECK(state.boss.partHp[BOSS_PART_HULL_FORE] == batteryHp - 1);
+
+    // With all outer defenses down, a closed sea gate still blocks the
+    // torpedo route; an open gate exposes the core to torpedoes only.
+    state.boss.partHp[BOSS_PART_POD_FORE] = 0;
+    state.boss.partHp[BOSS_PART_POD_AFT] = 0;
+    state.boss.partHp[BOSS_PART_HULL_FORE] = 0;
+    state.boss.partHp[BOSS_PART_HULL_AFT] = 0;
+    state.boss.coreExposed = true;
+    state.boss.gatesOpen = false;
+    Vector2 core = BossPartPosition(&state.boss, BOSS_PART_CORE);
+    state.torpedo = (Torpedo){ .pos = core, .armed = false, .active = true };
+    CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
+        == TORPEDO_IMPACT_NONE);
+    Rectangle gate[2];
+    CHECK(BossHullBlockers(&state.boss, gate) == 1);
+    state.boss.gatesOpen = true;
+    int coreHp = state.boss.partHp[BOSS_PART_CORE];
+    CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
+        == TORPEDO_IMPACT_DIRECT);
+    CHECK(state.boss.partHp[BOSS_PART_CORE] == coreHp - BOSS_CORE_TORPEDO_DAMAGE);
+
+    state.boss.partHp[BOSS_PART_CORE] = 1;
+    state.torpedo = (Torpedo){ .pos = core, .armed = false, .active = true };
+    ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents);
+    for (int i = 0; i < 240 && state.boss.phase != BOSS_PHASE_CLEARED; i++) {
+        UpdateBossFight(&state, 0.05f);
+    }
+    CHECK(state.boss.phase == BOSS_PHASE_CLEARED);
+    CHECK(state.hasTargetingComputer && !state.hasMortar);
+    BeginStage(&state, 1);
+    CHECK(state.hasTargetingComputer);
+}
+
 int main(void) {
     TestBossStartsOnLockAndParks();
     TestPodDiesToGunOnly();
@@ -424,6 +496,7 @@ int main(void) {
     TestSamBattery();
     TestPatrolTurnSwapsExposedSide();
     TestDefeatAndSalvageFlow();
+    TestFortressAtollWeaponGatesAndSalvage();
 
     if (failures > 0) {
         fprintf(stderr, "%d boss test failure(s)\n", failures);

@@ -103,7 +103,8 @@ static void DrawHud(const GameState *state) {
     DrawRectangle(389, top + 12, 115, 8, panelInset);
     DrawRectangleLines(389, top + 12, 115, 8, (Color){ 74, 94, 102, 90 });
     if (state->boss.phase == BOSS_PHASE_ENTERING || state->boss.phase == BOSS_PHASE_FIGHTING) {
-        DrawText("LEVIATHAN", 389, top + 4, 8, (Color){ 232, 72, 72, 255 });
+        DrawText(BossIsFortressAtoll(&state->boss) ? "FORTRESS" : "LEVIATHAN",
+            389, top + 4, 8, (Color){ 232, 72, 72, 255 });
         int fill = (int)(115.0f * (float)BossRemainingHp(&state->boss) / (float)BossTotalHp());
         DrawRectangle(389, top + 12, fill, 8, (Color){ 232, 72, 72, 255 });
     }
@@ -128,6 +129,39 @@ static void DrawTextureRotatedAt(Texture2D tex, Vector2 center, float rotation) 
 static void DrawBoss(const GameState *state, const GameAssets *assets) {
     const BossState *boss = &state->boss;
     if (boss->phase == BOSS_PHASE_INACTIVE) return;
+
+    if (BossIsFortressAtoll(boss)) {
+        Vector2 c = boss->hullCenter;
+        // A low, fortified island rather than a vehicle: layered coast,
+        // dark stone, and green installation rings identify the Stage 2
+        // land family without needing a second sprite set.
+        DrawCircleV(c, 86.0f, (Color){ 40, 104, 112, 255 });
+        DrawCircleV(c, 78.0f, (Color){ 224, 218, 172, 255 });
+        DrawCircleV(c, 68.0f, (Color){ 58, 66, 42, 255 });
+        DrawCircleV(c, 54.0f, (Color){ 28, 35, 30, 255 });
+        for (int part = BOSS_PART_POD_FORE; part <= BOSS_PART_HULL_AFT; part++) {
+            Vector2 pos = BossPartPosition(boss, (BossPartId)part);
+            bool pod = part <= BOSS_PART_POD_AFT;
+            if (!BossPartAlive(boss, (BossPartId)part)) {
+                DrawCircleV(pos, pod ? 10.0f : 14.0f, (Color){ 20, 24, 21, 240 });
+                continue;
+            }
+            Color ring = pod ? (Color){ 232, 72, 72, 255 } : (Color){ 108, 224, 96, 255 };
+            DrawCircleV(pos, pod ? 10.0f : 14.0f, (Color){ 18, 26, 25, 255 });
+            DrawCircleLines((int)pos.x, (int)pos.y, pod ? 10.0f : 14.0f, ring);
+            DrawCircleV(pos, 3.0f, (Color){ 255, 246, 216, 255 });
+        }
+        if (boss->coreExposed && BossPartAlive(boss, BOSS_PART_CORE)) {
+            Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
+            DrawCircleV(core, 12.0f, (Color){ 12, 20, 22, 255 });
+            DrawCircleLines((int)core.x, (int)core.y, 12.0f,
+                boss->gatesOpen ? (Color){ 76, 224, 232, 255 } : (Color){ 232, 72, 72, 255 });
+            DrawCircleV(core, 4.0f, (Color){ 255, 246, 216, 255 });
+            if (!boss->gatesOpen) DrawRectangle((int)core.x - 22, (int)core.y - 28, 28, 56,
+                (Color){ 36, 48, 48, 240 });
+        }
+        return;
+    }
 
     DrawTextureRotatedAt(
         assets->leviathanHullTex,
@@ -441,9 +475,20 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     float halfW = assets->playerTex.width / 2.0f;
     Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
     const StageDescriptor *currentStage = GetStageDescriptor(state->stageNumber);
-    Vector2 torpedoReticle = CalculateTorpedoReticle(
-        torpedoSpawn, currentStage->terrain, currentStage->terrainCount, state->scrollDistance
-    );
+    Vector2 torpedoReticle;
+    if (state->hasTargetingComputer) {
+        Vector2 lead = CalculateLeadTorpedoVelocity(
+            torpedoSpawn, state->surfaceTargets, MAX_SURFACE_TARGETS
+        );
+        torpedoReticle = (Vector2){
+            torpedoSpawn.x + lead.x / TORPEDO_SPEED * TORPEDO_MAX_RANGE,
+            torpedoSpawn.y + lead.y / TORPEDO_SPEED * TORPEDO_MAX_RANGE
+        };
+    } else {
+        torpedoReticle = CalculateTorpedoReticle(
+            torpedoSpawn, currentStage->terrain, currentStage->terrainCount, state->scrollDistance
+        );
+    }
     // The boss's armored hull clamps the reticle like a land edge, so a
     // shielded lane reads before firing.
     Rectangle bossBlockers[2];

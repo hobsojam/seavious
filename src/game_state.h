@@ -85,6 +85,9 @@ typedef struct {
     int partHp[BOSS_PART_COUNT];
     float partFireTimer[BOSS_PART_COUNT];
     bool coreExposed;
+    bool fortressAtoll;
+    bool gatesOpen;
+    float gateTimer;
     float mortarTimer;
     MortarShell shells[MAX_MORTAR_SHELLS];
     BossMissile missiles[MAX_BOSS_MISSILES];
@@ -149,6 +152,9 @@ typedef struct {
     // the salvage raises it, a stage-clear replay (standing in for Stage 2
     // until one exists) carries it over, a game over forfeits it.
     bool hasMortar;
+    // Salvaged from the Stage 2 fortress-atoll: upgrades the torpedo from
+    // a fixed lane shot to the preserved lead-targeting solution.
+    bool hasTargetingComputer;
     MortarShell mortarShell;
     float mortarCooldown;
 
