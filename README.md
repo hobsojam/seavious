@@ -585,6 +585,24 @@ the 1080p borders too generous, fractional-fill is a deliberate two-line
 change away (`CalculatePresentRect` in `present.c`). The headless smoke
 run always stays windowed.
 
+**Playtesting devtools**: as stages accumulate, reaching the content
+under test must not mean replaying everything before it. Three CLI
+flags (parsed in `main.c`, absent from any player-facing surface unless
+passed): `--devtools` adds a STAGE SELECT row to the title menu listing
+every stage in the table; `--stage N` skips the title straight into
+stage N; `--boss` additionally fast-forwards to the map end so the boss
+fight starts within seconds of launch. Every debug entry starts a fresh
+run (score 0, 3 lives) holding the stage's **canonical loadout** — the
+salvage awards of all stages before it (e.g. entering Stage 2 holds the
+Stage 1 mortar). That loadout is derived, not hand-picked: each stage
+declares its clear award in the stage table (`StageDescriptor.award`),
+the boss salvage grants that same field, and
+`GrantUpgradesThroughStage` (stage.c) folds the prior awards together —
+one source of truth that stays correct as stages land, with no
+per-stage debug code. Deliberately, `BeginStage` itself never
+auto-grants: normal progression carries upgrades across stages anyway,
+and a debug grant hidden there would mask a broken salvage sequence.
+
 **Structure**: Stage-based, with a boss fight at the end of each stage.
 Lives-based: enemy contact costs one life, the ship explodes briefly, then
 respawns with brief invulnerability if any lives remain; game over triggers

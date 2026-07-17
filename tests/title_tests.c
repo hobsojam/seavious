@@ -114,6 +114,57 @@ static void TestTitleOptionsFlow(void) {
     CHECK(title.screen == TITLE_SCREEN_ROOT && title.cursor == 1);
 }
 
+static void TestTitleStageSelectFlow(void) {
+    TitleScreen title;
+    ResetTitleScreen(&title);
+    CHECK(title.startStage == 1);
+    title.devtools = true;
+    title.stageCount = 2;
+    GameAssets assets = FakeAssets();
+    GameSettings settings = DefaultGameSettings();
+    bool changed = false;
+
+    // With devtools the root gains STAGE SELECT under START: up from the
+    // top wraps across five rows now.
+    Step(&title, &assets, &settings, &changed, InUp());
+    CHECK(title.cursor == 4);
+    Step(&title, &assets, &settings, &changed, InDown());
+    CHECK(title.cursor == 0);
+
+    // START still begins a normal Stage 1 run.
+    CHECK(Step(&title, &assets, &settings, &changed, InSelect()) == TITLE_RESULT_START);
+    CHECK(title.startStage == 1);
+
+    // Row 1 opens the stage-select screen.
+    Step(&title, &assets, &settings, &changed, InDown());
+    CHECK(Step(&title, &assets, &settings, &changed, InSelect()) == TITLE_RESULT_NONE);
+    CHECK(title.screen == TITLE_SCREEN_STAGE_SELECT && title.cursor == 0);
+
+    // A stage row starts the run at that stage.
+    Step(&title, &assets, &settings, &changed, InDown());
+    CHECK(Step(&title, &assets, &settings, &changed, InSelect()) == TITLE_RESULT_START);
+    CHECK(title.startStage == 2);
+
+    // A menu "back" returns to the root with the cursor kept on the row.
+    Step(&title, &assets, &settings, &changed, InBack());
+    CHECK(title.screen == TITLE_SCREEN_ROOT && title.cursor == 1);
+
+    // The BACK row is the other way out, same cursor restore.
+    Step(&title, &assets, &settings, &changed, InSelect());
+    CHECK(title.screen == TITLE_SCREEN_STAGE_SELECT);
+    Step(&title, &assets, &settings, &changed, InUp()); // 0 wraps to BACK
+    CHECK(title.cursor == 2);
+    CHECK(Step(&title, &assets, &settings, &changed, InSelect()) == TITLE_RESULT_NONE);
+    CHECK(title.screen == TITLE_SCREEN_ROOT && title.cursor == 1);
+
+    // The shifted OPTIONS row still restores its own cursor on back-out.
+    Step(&title, &assets, &settings, &changed, InDown());
+    Step(&title, &assets, &settings, &changed, InSelect());
+    CHECK(title.screen == TITLE_SCREEN_OPTIONS);
+    Step(&title, &assets, &settings, &changed, InBack());
+    CHECK(title.screen == TITLE_SCREEN_ROOT && title.cursor == 2);
+}
+
 static void TestTitleControlsFlow(void) {
     TitleScreen title;
     ResetTitleScreen(&title);
@@ -269,6 +320,7 @@ static void TestQuitConfirmation(void) {
 int main(void) {
     TestTitleRootNavigation();
     TestTitleOptionsFlow();
+    TestTitleStageSelectFlow();
     TestTitleControlsFlow();
     TestTitleAmbientSimulation();
     TestOptionsFullscreenToggle();

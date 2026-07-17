@@ -3,11 +3,26 @@
 #include "raylib.h"
 #include <math.h>
 
-enum { TITLE_START, TITLE_OPTIONS, TITLE_CONTROLS, TITLE_QUIT, TITLE_ROOT_COUNT };
+enum { TITLE_START, TITLE_STAGE_SELECT, TITLE_OPTIONS, TITLE_CONTROLS, TITLE_QUIT, TITLE_ROOT_COUNT };
 
 static const char *TITLE_LABELS[TITLE_ROOT_COUNT] = {
-    "START", "OPTIONS", "CONTROLS", "QUIT"
+    "START", "STAGE SELECT", "OPTIONS", "CONTROLS", "QUIT"
 };
+
+// The devtools-only STAGE SELECT row is spliced out of the visible root
+// list in normal launches: the cursor indexes visible rows, these map
+// between rows and the item enum above.
+static int TitleRootRowCount(const TitleScreen *title) {
+    return title->devtools ? TITLE_ROOT_COUNT : TITLE_ROOT_COUNT - 1;
+}
+
+static int TitleRootItem(const TitleScreen *title, int row) {
+    return (!title->devtools && row >= TITLE_STAGE_SELECT) ? row + 1 : row;
+}
+
+static int TitleRootRow(const TitleScreen *title, int item) {
+    return (!title->devtools && item > TITLE_STAGE_SELECT) ? item - 1 : item;
+}
 
 // The attract ship: scaled up as the logo's supporting element, banked a
 // subtle few degrees - enough to read "in motion", not enough to fight
@@ -19,7 +34,7 @@ static const char *TITLE_LABELS[TITLE_ROOT_COUNT] = {
 #define TITLE_SHIP_Y 182.0f
 
 void ResetTitleScreen(TitleScreen *title) {
-    *title = (TitleScreen){ .screen = TITLE_SCREEN_ROOT };
+    *title = (TitleScreen){ .screen = TITLE_SCREEN_ROOT, .startStage = 1 };
 }
 
 static Vector2 TitleShipPos(float time) {
@@ -58,26 +73,48 @@ TitleResult UpdateTitleScreen(TitleScreen *title, const GameAssets *assets,
 
     switch (title->screen) {
         case TITLE_SCREEN_ROOT: {
-            title->cursor = MenuStepCursor(title->cursor, TITLE_ROOT_COUNT, input);
+            title->cursor = MenuStepCursor(title->cursor, TitleRootRowCount(title), input);
             if (!input.select) return TITLE_RESULT_NONE;
-            switch (title->cursor) {
-                case TITLE_START: return TITLE_RESULT_START;
+            switch (TitleRootItem(title, title->cursor)) {
+                case TITLE_START:
+                    title->startStage = 1;
+                    return TITLE_RESULT_START;
+                case TITLE_STAGE_SELECT:
+                    title->screen = TITLE_SCREEN_STAGE_SELECT;
+                    title->cursor = 0;
+                    break;
                 case TITLE_OPTIONS: title->screen = TITLE_SCREEN_OPTIONS; title->cursor = 0; break;
                 case TITLE_CONTROLS: title->screen = TITLE_SCREEN_CONTROLS; title->cursor = 0; break;
                 case TITLE_QUIT: return TITLE_RESULT_QUIT;
             }
             return TITLE_RESULT_NONE;
         }
+        case TITLE_SCREEN_STAGE_SELECT: {
+            // One row per stage plus BACK; a stage row starts the run
+            // there, the caller derives the matching loadout.
+            int rows = title->stageCount + 1;
+            title->cursor = MenuStepCursor(title->cursor, rows, input);
+            bool backRow = title->cursor == title->stageCount;
+            if (input.select && !backRow) {
+                title->startStage = title->cursor + 1;
+                return TITLE_RESULT_START;
+            }
+            if (input.back || (input.select && backRow)) {
+                title->screen = TITLE_SCREEN_ROOT;
+                title->cursor = TitleRootRow(title, TITLE_STAGE_SELECT);
+            }
+            return TITLE_RESULT_NONE;
+        }
         case TITLE_SCREEN_OPTIONS:
             if (UpdateOptionsScreen(&title->cursor, settings, settingsChanged, input)) {
                 title->screen = TITLE_SCREEN_ROOT;
-                title->cursor = TITLE_OPTIONS;
+                title->cursor = TitleRootRow(title, TITLE_OPTIONS);
             }
             return TITLE_RESULT_NONE;
         case TITLE_SCREEN_CONTROLS:
             if (UpdateControlsScreen(input)) {
                 title->screen = TITLE_SCREEN_ROOT;
-                title->cursor = TITLE_CONTROLS;
+                title->cursor = TitleRootRow(title, TITLE_CONTROLS);
             }
             return TITLE_RESULT_NONE;
     }
@@ -129,13 +166,24 @@ void DrawTitleScreen(const TitleScreen *title, const GameAssets *assets,
     DrawTexture(assets->titleLogoTex, (GAME_WIDTH - assets->titleLogoTex.width) / 2, 52, WHITE);
 
     if (title->screen == TITLE_SCREEN_ROOT) {
-        for (int i = 0; i < TITLE_ROOT_COUNT; i++) {
+        int rows = TitleRootRowCount(title);
+        for (int i = 0; i < rows; i++) {
             bool selected = title->cursor == i;
             int y = 248 + 20 * i;
             if (selected) DrawText(">", 218, y, 10, amber);
-            DrawText(TITLE_LABELS[i], 232, y, 10, selected ? pale : cyan);
+            DrawText(TITLE_LABELS[TitleRootItem(title, i)], 232, y, 10, selected ? pale : cyan);
         }
-        DrawText("UP/DOWN + ENTER", 218, 248 + 20 * TITLE_ROOT_COUNT + 4, 8, inactive);
+        DrawText("UP/DOWN + ENTER", 218, 248 + 20 * rows + 4, 8, inactive);
+    } else if (title->screen == TITLE_SCREEN_STAGE_SELECT) {
+        for (int i = 0; i <= title->stageCount; i++) {
+            bool selected = title->cursor == i;
+            int y = 248 + 20 * i;
+            const char *label = i < title->stageCount ? TextFormat("STAGE %d", i + 1) : "BACK";
+            if (selected) DrawText(">", 218, y, 10, amber);
+            DrawText(label, 232, y, 10, selected ? pale : cyan);
+        }
+        DrawText("STARTS WITH ALL EARLIER SALVAGE", 218,
+            248 + 20 * (title->stageCount + 1) + 4, 8, inactive);
     } else if (title->screen == TITLE_SCREEN_OPTIONS) {
         DrawOptionsScreen(title->cursor, settings);
     } else {

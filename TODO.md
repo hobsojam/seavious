@@ -443,6 +443,12 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 ## Infra
 
+- [x] Playtesting devtools (see README "Playtesting devtools"): stage
+      awards declared in the stage table (`StageDescriptor.award`, the
+      boss salvage grants the same field), `--devtools` title STAGE
+      SELECT, `--stage N` / `--boss` CLI fast paths, each debug entry
+      deriving the stage's canonical loadout via
+      `GrantUpgradesThroughStage` — needs a Windows playtest pass
 - [x] Verify the CMake + vcpkg build actually compiles on Windows — builds
       and runs (first playable confirmation 2026-07-12)
 - [x] Consider reporting the raylib 6.0 bug upstream — decided against:

@@ -12,6 +12,7 @@
 #include "title.h"
 #include "raylib.h"
 #include <stdlib.h>
+#include <string.h>
 
 // On hybrid-graphics laptops (integrated + discrete GPU), the OS/driver
 // otherwise defaults to the integrated GPU. These exported symbols are a
@@ -30,7 +31,31 @@ static void ApplyFullscreenSetting(const GameSettings *settings) {
         IsWindowState(FLAG_BORDERLESS_WINDOWED_MODE), ToggleBorderlessWindowed);
 }
 
-int main(void) {
+// One path for every way a run starts (title START, the devtools stage
+// select, --stage): a fresh run holding the chosen stage's canonical
+// loadout - the awards of every stage before it.
+static void StartRunAtStage(GameState *state, int stageNumber) {
+    ResetRunState(state);
+    GrantUpgradesThroughStage(state, stageNumber - 1);
+    BeginStage(state, stageNumber);
+}
+
+int main(int argc, char **argv) {
+    // Playtesting devtools (README "Playtesting devtools"): --devtools
+    // adds STAGE SELECT to the title menu; --stage N skips the title
+    // straight into stage N with its loadout; --boss also fast-forwards
+    // to the map end so the fight starts within seconds of launch.
+    bool devtools = false;
+    int cliStage = 0;
+    bool cliBoss = false;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--devtools") == 0) devtools = true;
+        else if (strcmp(argv[i], "--stage") == 0 && i + 1 < argc) cliStage = atoi(argv[++i]);
+        else if (strcmp(argv[i], "--boss") == 0) cliBoss = true;
+    }
+    if (cliBoss && cliStage < 1) cliStage = 1;
+    if (cliStage > StageCount()) cliStage = StageCount();
+
     // Set by the headless CI smoke test so the real game loop exits cleanly
     // after a deterministic number of frames and writes its gcov data.
     const char *smokeFramesValue = getenv("SEAVIOUS_SMOKE_FRAMES");
@@ -71,10 +96,18 @@ int main(void) {
     ResetPauseMenu(&menu);
     TitleScreen title;
     ResetTitleScreen(&title);
-    // Boot lands on the title screen; START begins a fresh run.
+    title.devtools = devtools;
+    title.stageCount = StageCount();
+    // Boot lands on the title screen; START begins a fresh run. A CLI
+    // stage request skips the title straight into the run.
     bool onTitle = true;
     bool quit = false;
     bool quitConfirm = false;
+    if (cliStage >= 1) {
+        StartRunAtStage(&state, cliStage);
+        if (cliBoss) SkipToStageEnd(&state);
+        onTitle = false;
+    }
 
     while (!WindowShouldClose() && !quit) {
         float dt = GetFrameTime();
@@ -108,6 +141,10 @@ int main(void) {
             // coverage, then auto-starts (no input injection headlessly).
             if (smokeFrames > 0 && framesRun == 3) title.screen = TITLE_SCREEN_OPTIONS;
             if (smokeFrames > 0 && framesRun == 5) title.screen = TITLE_SCREEN_CONTROLS;
+            if (smokeFrames > 0 && framesRun == 7) {
+                title.devtools = true;
+                title.screen = TITLE_SCREEN_STAGE_SELECT;
+            }
             TitleResult titleResult = UpdateTitleScreen(&title, &assets, &settings, &settingsChanged,
                 menuInput, dt);
             if (smokeFrames > 0 && framesRun == 8) titleResult = TITLE_RESULT_START;
@@ -118,7 +155,7 @@ int main(void) {
                 if (IsSoundValid(audio.uiBlip)) PlaySound(audio.uiBlip);
             }
             if (titleResult == TITLE_RESULT_START) {
-                ResetRunState(&state);
+                StartRunAtStage(&state, title.startStage);
                 onTitle = false;
                 if (IsSoundValid(audio.uiBlip)) PlaySound(audio.uiBlip);
             } else if (titleResult == TITLE_RESULT_QUIT) {
