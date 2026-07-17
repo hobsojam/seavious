@@ -78,6 +78,7 @@ const StageDescriptor *GetStageDescriptor(int stageNumber) {
         .hardpoints = STAGE1_TERRAIN_HARDPOINTS,
         .hardpointCount = STAGE1_TERRAIN_HARDPOINT_COUNT,
         .lengthPx = STAGE1_LENGTH_PX,
+        .award = UPGRADE_AWARD_MORTAR,
     };
     stages[1] = (StageDescriptor){
         .events = STAGE2_EVENTS,
@@ -87,9 +88,31 @@ const StageDescriptor *GetStageDescriptor(int stageNumber) {
         .hardpoints = STAGE2_TERRAIN_HARDPOINTS,
         .hardpointCount = STAGE2_TERRAIN_HARDPOINT_COUNT,
         .lengthPx = STAGE2_LENGTH_PX,
+        .award = UPGRADE_AWARD_TARGETING_COMPUTER,
     };
     if (stageNumber < 1 || stageNumber > 2) stageNumber = 1;
     return &stages[stageNumber - 1];
+}
+
+void ApplyUpgradeAward(GameState *state, UpgradeAward award) {
+    switch (award) {
+        case UPGRADE_AWARD_MORTAR: state->hasMortar = true; break;
+        case UPGRADE_AWARD_TARGETING_COMPUTER: state->hasTargetingComputer = true; break;
+        case UPGRADE_AWARD_NONE: break;
+    }
+}
+
+void GrantUpgradesThroughStage(GameState *state, int lastClearedStage) {
+    if (lastClearedStage > StageCount()) lastClearedStage = StageCount();
+    for (int s = 1; s <= lastClearedStage; s++) {
+        ApplyUpgradeAward(state, GetStageDescriptor(s)->award);
+    }
+}
+
+void SkipToStageEnd(GameState *state) {
+    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
+    state->scrollDistance = (float)stage->lengthPx;
+    state->stageCursor = stage->eventCount;
 }
 
 void UpdateStageScript(GameState *state, float dt) {

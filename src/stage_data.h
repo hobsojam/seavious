@@ -41,6 +41,16 @@ typedef struct {
     int y;         // top edge in play-area coordinates
 } StageTerrainHardpoint;
 
+// What clearing the stage awards the run. Declared per stage so the
+// boss salvage and the devtools stage select share one source of truth:
+// starting at stage N is defined as holding the awards of stages 1..N-1
+// (GrantUpgradesThroughStage in stage.h).
+typedef enum {
+    UPGRADE_AWARD_NONE,
+    UPGRADE_AWARD_MORTAR,
+    UPGRADE_AWARD_TARGETING_COMPUTER
+} UpgradeAward;
+
 // One stage's compiled content behind a single handle: the engine reads
 // the current stage through GameState.stageNumber + GetStageDescriptor
 // (stage.h) instead of naming STAGE1_* directly, so adding Stage 2 is a
@@ -53,6 +63,7 @@ typedef struct {
     const StageTerrainHardpoint *hardpoints;
     int hardpointCount;
     int lengthPx;
+    UpgradeAward award;
 } StageDescriptor;
 
 extern const StageSpawnEvent STAGE1_EVENTS[];

@@ -306,6 +306,45 @@ static void TestNextStageNumberWraps(void) {
     CHECK(NextStageNumber(99) == 1);
 }
 
+static void TestStageAwardLoadout(void) {
+    // The stage table's awards are the single source of truth for both
+    // the boss salvage and the devtools stage-select loadout.
+    CHECK(GetStageDescriptor(1)->award == UPGRADE_AWARD_MORTAR);
+    CHECK(GetStageDescriptor(2)->award == UPGRADE_AWARD_TARGETING_COMPUTER);
+
+    GameState state;
+    ResetRunState(&state);
+    // Entering Stage 1 grants nothing.
+    GrantUpgradesThroughStage(&state, 0);
+    CHECK(!state.hasMortar && !state.hasTargetingComputer);
+    // Entering Stage 2 holds Stage 1's salvage and nothing further.
+    GrantUpgradesThroughStage(&state, 1);
+    CHECK(state.hasMortar && !state.hasTargetingComputer);
+    // A request past the table clamps instead of reading off the end.
+    ResetRunState(&state);
+    GrantUpgradesThroughStage(&state, 99);
+    CHECK(state.hasMortar && state.hasTargetingComputer);
+
+    // The shared primitive the salvage dock calls.
+    ResetRunState(&state);
+    ApplyUpgradeAward(&state, UPGRADE_AWARD_NONE);
+    CHECK(!state.hasMortar && !state.hasTargetingComputer);
+    ApplyUpgradeAward(&state, UPGRADE_AWARD_TARGETING_COMPUTER);
+    CHECK(state.hasTargetingComputer && !state.hasMortar);
+}
+
+static void TestSkipToStageEnd(void) {
+    // The --boss fast-forward: the lock rises on the next script update
+    // with none of the skipped spawn events firing.
+    GameState state;
+    ResetRunState(&state);
+    BeginStage(&state, 2);
+    SkipToStageEnd(&state);
+    UpdateStageScript(&state, 0.001f);
+    CHECK(state.bossLock);
+    CHECK(CountActiveAir(&state) + CountActiveSurface(&state) + CountActiveLand(&state) == 0);
+}
+
 static void TestStageScriptRunsAgainAfterAdvance(void) {
     GameState state;
     ResetRunState(&state);
@@ -411,6 +450,8 @@ static void TestBeginStageCarriesRunProgression(void) {
 int main(void) {
     TestStageDescriptor();
     TestNextStageNumberWraps();
+    TestStageAwardLoadout();
+    TestSkipToStageEnd();
     TestBeginStageCarriesRunProgression();
     TestContinueRun();
     TestStageScriptRunsAgainAfterAdvance();

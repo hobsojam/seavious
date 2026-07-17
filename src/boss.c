@@ -1,4 +1,5 @@
 #include "boss.h"
+#include "stage.h"
 
 #include <math.h>
 
@@ -657,9 +658,10 @@ void UpdateBossFight(GameState *state, float dt) {
                 });
                 boss->phase = BOSS_PHASE_CLEARED;
                 boss->phaseTimer = 0.0f;
-                // The dock is the pickup and survives the stage transition.
-                if (boss->fortressAtoll) state->hasTargetingComputer = true;
-                else state->hasMortar = true;
+                // The dock is the pickup and survives the stage transition;
+                // the award comes from the stage table so the devtools
+                // stage-select loadout can never drift from the real drop.
+                ApplyUpgradeAward(state, GetStageDescriptor(state->stageNumber)->award);
                 state->stageClear = true;
             }
             break;

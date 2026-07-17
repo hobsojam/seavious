@@ -19,6 +19,7 @@ typedef enum {
 
 typedef enum {
     TITLE_SCREEN_ROOT,
+    TITLE_SCREEN_STAGE_SELECT,
     TITLE_SCREEN_OPTIONS,
     TITLE_SCREEN_CONTROLS
 } TitleSubScreen;
@@ -31,6 +32,15 @@ typedef struct {
     float oceanOverlayScroll;
     WakeParticle wake[MAX_WAKE_PARTICLES];
     float wakeEmitTimer;
+    // Playtesting stage select (README "Playtesting devtools"): the
+    // caller opts in (--devtools) and injects the stage count, keeping
+    // this module pure UI with no dependency on the stage table.
+    bool devtools;
+    int stageCount;
+    // Which stage TITLE_RESULT_START asks for: 1 from START, the chosen
+    // stage from the devtools stage select. The caller owns deriving that
+    // stage's loadout (GrantUpgradesThroughStage) before BeginStage.
+    int startStage;
 } TitleScreen;
 
 void ResetTitleScreen(TitleScreen *title);
