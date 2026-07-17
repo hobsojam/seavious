@@ -407,7 +407,7 @@ static bool TerrainFootprintsTouch(StageTerrainFootprint first, StageTerrainFoot
 // among them, so adjacent chain segments and neighboring islands vary
 // instead of stamping one winner (the "two identical islands next to
 // each other" playtest note).
-static Texture2D PickIsletVariant(const GameAssets *assets, float destAspect,
+static int PickIsletVariant(const GameAssets *assets, float destAspect,
     unsigned int seed) {
     float score[STAGE1_ISLET_VARIANT_COUNT];
     float best = 1e9f;
@@ -423,7 +423,7 @@ static Texture2D PickIsletVariant(const GameAssets *assets, float destAspect,
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
         if (score[i] <= best + 0.30f) candidates[count++] = i;
     }
-    return assets->stage1IsletTex[candidates[seed % (unsigned int)count]];
+    return candidates[seed % (unsigned int)count];
 }
 
 // One island group's art: a single aspect-matched islet for compact and
@@ -444,18 +444,29 @@ static void DrawIsletGroup(const GameAssets *assets, Rectangle destination,
     // instead of reading as separate stamped islets.
     float segWidth = segments > 1 ? stride * 1.4f : destination.width;
 
-    for (int seg = 0; seg < segments; seg++) {
-        Texture2D islet = PickIsletVariant(assets, segWidth / destination.height,
-            seed + 31u * (unsigned int)seg);
-        Rectangle source = { 0.0f, 0.0f, (float)islet.width, (float)islet.height };
-        // Alternate horizontal flips off the seed so a repeated variant
-        // doesn't read as a copy-paste row.
-        if (((seed >> seg) ^ seg) & 1) source.width = -source.width;
-        Rectangle dst = {
-            destination.x + stride * (float)seg + (stride - segWidth) / 2.0f,
-            destination.y, segWidth, destination.height
-        };
-        DrawTexturePro(islet, source, dst, (Vector2){ 0 }, 0.0f, WHITE);
+    // Full sprites establish the silhouette and external shore. For a
+    // composite, inset copies then cover any coast pixels that landed inside
+    // another segment, leaving one continuous landmass instead of a cyan seam.
+    int layerCount = segments > 1 ? 2 : 1;
+    for (int layer = 0; layer < layerCount; layer++) {
+        for (int seg = 0; seg < segments; seg++) {
+            int variant = PickIsletVariant(assets,
+                segWidth / destination.height, seed + 31u * (unsigned int)seg);
+            Texture2D islet = layer == 0 ? assets->stage1IsletTex[variant]
+                : assets->stage1IsletInteriorTex[variant];
+            Rectangle source = {
+                0.0f, 0.0f, (float)islet.width, (float)islet.height
+            };
+            // Alternate horizontal flips off the seed so a repeated variant
+            // doesn't read as a copy-paste row.
+            if (((seed >> seg) ^ seg) & 1) source.width = -source.width;
+            Rectangle dst = {
+                destination.x + stride * (float)seg
+                    + (stride - segWidth) / 2.0f,
+                destination.y, segWidth, destination.height
+            };
+            DrawTexturePro(islet, source, dst, (Vector2){ 0 }, 0.0f, WHITE);
+        }
     }
 }
 

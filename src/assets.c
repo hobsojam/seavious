@@ -1,6 +1,45 @@
 #include "assets.h"
 
-static Texture2D LoadTerrainSprite(const char *path) {
+enum { TERRAIN_INTERIOR_INSET = 10 };
+
+static Image CreateTerrainInterior(Image source) {
+    Image interior = ImageCopy(source);
+    ImageFormat(&interior, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+    Color *pixels = interior.data;
+    int pixelCount = interior.width * interior.height;
+    unsigned char *alpha = MemAlloc((unsigned int)pixelCount);
+    unsigned char *nextAlpha = MemAlloc((unsigned int)pixelCount);
+
+    for (int i = 0; i < pixelCount; i++) alpha[i] = pixels[i].a;
+    for (int pass = 0; pass < TERRAIN_INTERIOR_INSET; pass++) {
+        for (int i = 0; i < pixelCount; i++) nextAlpha[i] = alpha[i];
+        for (int y = 0; y < interior.height; y++) {
+            for (int x = 0; x < interior.width; x++) {
+                int i = y * interior.width + x;
+                if (alpha[i] == 0) continue;
+                bool edge = x == 0 || y == 0
+                    || x == interior.width - 1 || y == interior.height - 1;
+                if (!edge) {
+                    edge = alpha[i - 1] == 0 || alpha[i + 1] == 0
+                        || alpha[i - interior.width] == 0
+                        || alpha[i + interior.width] == 0;
+                }
+                if (edge) nextAlpha[i] = 0;
+            }
+        }
+        unsigned char *swap = alpha;
+        alpha = nextAlpha;
+        nextAlpha = swap;
+    }
+    for (int i = 0; i < pixelCount; i++) pixels[i].a = alpha[i];
+
+    MemFree(nextAlpha);
+    MemFree(alpha);
+    return interior;
+}
+
+static void LoadTerrainSprite(const char *path, Texture2D *texture,
+    Texture2D *interiorTexture) {
     Image image = LoadImage(path);
     Rectangle alphaBorder = GetImageAlphaBorder(image, 0.1f);
     ImageCrop(&image, alphaBorder);
@@ -13,10 +52,13 @@ static Texture2D LoadTerrainSprite(const char *path) {
     if (width < 64) width = 64;
     if (width > 320) width = 320;
     ImageResizeNN(&image, width, 128);
-    Texture2D texture = LoadTextureFromImage(image);
+    Image interior = CreateTerrainInterior(image);
+    *texture = LoadTextureFromImage(image);
+    *interiorTexture = LoadTextureFromImage(interior);
     UnloadImage(image);
-    SetTextureFilter(texture, TEXTURE_FILTER_POINT);
-    return texture;
+    UnloadImage(interior);
+    SetTextureFilter(*texture, TEXTURE_FILTER_POINT);
+    SetTextureFilter(*interiorTexture, TEXTURE_FILTER_POINT);
 }
 
 static Texture2D LoadTerrainTile(const char *path, int width, int height, bool cropAlpha) {
@@ -115,7 +157,8 @@ GameAssets LoadGameAssets(void) {
         "assets/sprites/stage1_islet_long.png",
     };
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
-        assets.stage1IsletTex[i] = LoadTerrainSprite(isletPaths[i]);
+        LoadTerrainSprite(isletPaths[i], &assets.stage1IsletTex[i],
+            &assets.stage1IsletInteriorTex[i]);
     }
     assets.terrainGroundTex = LoadTerrainTile("assets/tiles/terrain_ground.png", 128, 128, false);
     assets.terrainShoreTex = LoadTerrainTile("assets/tiles/terrain_shore_top.png", 128, 16, true);
@@ -148,6 +191,7 @@ void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->oceanTex);
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
         UnloadTexture(assets->stage1IsletTex[i]);
+        UnloadTexture(assets->stage1IsletInteriorTex[i]);
     }
     UnloadTexture(assets->terrainHardpointTex);
     UnloadTexture(assets->terrainTidePoolTex);
