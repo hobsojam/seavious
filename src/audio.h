@@ -8,9 +8,11 @@
 typedef struct {
     Music stage;
     Music boss;
+    Music stage2;
+    Music boss2;
     Music lament;
     Music menu;      // "driver" theme, title/menu screens
-    Music *current;  // points at one of the four streams above
+    Music *current;  // points at one of the six streams above
 
     Sound gunShot;
     Sound torpedoLaunch;

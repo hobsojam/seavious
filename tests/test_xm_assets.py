@@ -34,6 +34,8 @@ FILES = {
     'stage1_theme_b.xm': (2, 6, 5, 12.62),
     'boss1_theme_a.xm': (2, 6, 5, 12.62),
     'boss1_theme_b.xm': (2, 6, 5, 12.62),
+    'stage2_theme_a.xm': (2, 6, 5, 12.62),
+    'boss2_theme_a.xm': (2, 6, 5, 12.62),
 }
 
 failures = []

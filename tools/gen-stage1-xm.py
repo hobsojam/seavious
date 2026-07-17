@@ -7,6 +7,8 @@
   boss1_drums_bass.xm   - boss backing: same drums, bass in parallel minor
   boss1_theme_a.xm      - boss backing + candidate boss tune A ("siren")
   boss1_theme_b.xm      - boss backing + candidate boss tune B ("hammer")
+  stage2_theme_a.xm     - D-Dorian archipelago theme ("strait")
+  boss2_theme_a.xm      - D-Dorian fortress-atoll theme ("gate")
 
 152 BPM, 4/4, linear frequency table. 16 rows/bar (speed=6 ticks/row gives
 exactly 4 rows/beat at this BPM). Each 64-row pattern = 4 bars:
@@ -241,6 +243,16 @@ BASS_MINOR = [  # i-VI-iv-v: Am - F - Dm - Em (parallel minor, same roots)
     (48, ('E', 3)), (52, ('G', 3)), (56, ('B', 3)), (60, ('A', 3)),
 ]
 
+# D Dorian: Dm - C - G - Am. The B natural in the G chord is the modal
+# lift: less settled than natural minor, fitting a dangerous archipelago
+# that still has forward motion rather than Stage 1's open-water anthem.
+BASS_D_DORIAN = [
+    (0, ('D', 3)), (4, ('F', 3)), (8, ('A', 3)), (12, ('C', 3)),
+    (16, ('C', 3)), (20, ('E', 3)), (24, ('G', 3)), (28, ('F#', 3)),
+    (32, ('G', 3)), (36, ('B', 3)), (40, ('D', 4)), (44, ('G#', 3)),
+    (48, ('A', 3)), (52, ('C', 4)), (56, ('E', 4)), (60, ('C#', 4)),
+]
+
 
 def backing_events(bass_notes):
     """Drum + bass events for one 64-row (4-bar) pattern."""
@@ -343,6 +355,34 @@ TUNE_BOSS_B = [  # "hammer" - straight-8ths arpeggio grind, half-step stabs
     (7, 10, 'F', 5), (7, 12, 'G', 5), (7, 14, 'G#', 5),
 ]
 
+# D-Dorian stage: a salt-air climbing line. The B natural is held over the
+# G bar each pass so the mode reads clearly without turning the whole tune
+# into a scale exercise.
+TUNE_STAGE2_A = [
+    (0, 0, 'D', 5), (0, 4, 'F', 5), (0, 8, 'A', 5), (0, 12, 'C', 5),
+    (1, 0, 'E', 5), (1, 6, 'G', 5), (1, 12, 'A', 5),
+    (2, 0, 'B', 5), (2, 8, 'A', 5), (2, 12, 'G', 5),
+    (3, 0, 'E', 5), (3, 8, 'C', 5), (3, 12, 'D', 5),
+    (4, 0, 'F', 5), (4, 4, 'A', 5), (4, 8, 'C', 6), (4, 12, 'A', 5),
+    (5, 0, 'G', 5), (5, 8, 'E', 5), (5, 12, 'D', 5),
+    (6, 0, 'B', 5), (6, 4, 'D', 6), (6, 8, 'A', 5), (6, 12, 'G', 5),
+    (7, 0, 'E', 5), (7, 6, 'F', 5), (7, 10, 'C', 5), (7, 14, 'C#', 5),
+]
+
+# Fortress atoll: the same modal colors, but a lower two-note ostinato
+# answers itself against the bass. The final C# is a brief gate-opening
+# pull into the loop's D, not a change of key.
+TUNE_BOSS2_A = [
+    (0, 0, 'D', 4), (0, 4, 'A', 4), (0, 8, 'F', 4), (0, 12, 'A', 4),
+    (1, 0, 'C', 4), (1, 4, 'G', 4), (1, 8, 'E', 4), (1, 12, 'G', 4),
+    (2, 0, 'G', 4), (2, 4, 'D', 5), (2, 8, 'B', 4), (2, 12, 'D', 5),
+    (3, 0, 'A', 4), (3, 4, 'E', 5), (3, 8, 'C', 5), (3, 12, 'E', 5),
+    (4, 0, 'D', 5), (4, 4, 'A', 4), (4, 8, 'F', 5), (4, 12, 'A', 4),
+    (5, 0, 'C', 5), (5, 4, 'G', 4), (5, 8, 'E', 5), (5, 12, 'G', 4),
+    (6, 0, 'B', 4), (6, 4, 'D', 5), (6, 8, 'G', 5), (6, 12, 'D', 5),
+    (7, 0, 'A', 4), (7, 4, 'C', 5), (7, 8, 'E', 5), (7, 12, 'C#', 5),
+]
+
 
 def lead_events(tune, first_bar, lead_channel, lead_inst):
     """Events for bars [first_bar, first_bar+4) mapped into one pattern."""
@@ -413,6 +453,8 @@ def main(out_dir=None):
         ('stage1_theme_b.xm', 'stage1 theme B driver', BASS_MAJOR, TUNE_B),
         ('boss1_theme_a.xm', 'boss1 theme A siren', BASS_MINOR, TUNE_BOSS_A),
         ('boss1_theme_b.xm', 'boss1 theme B hammer', BASS_MINOR, TUNE_BOSS_B),
+        ('stage2_theme_a.xm', 'stage2 theme A strait', BASS_D_DORIAN, TUNE_STAGE2_A),
+        ('boss2_theme_a.xm', 'boss2 theme A gate', BASS_D_DORIAN, TUNE_BOSS2_A),
     ]:
         patterns = []
         for first_bar in (0, 4):
