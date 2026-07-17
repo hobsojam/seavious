@@ -36,7 +36,10 @@ typedef struct {
 // ends it (see README "Stage 1 boss design"). These phases only sequence
 // the bookends - entrance slide-in, death chain, and the salvage beat
 // that awards the mortar.
-#define MAX_MORTAR_SHELLS 3
+// Sized for the fortress's three lobbers (central atoll + two ring
+// batteries) with one slot of headroom; a full pool skips the lob, the
+// same starve rule as every projectile pool.
+#define MAX_MORTAR_SHELLS 4
 #define BOSS_ENTRANCE_DURATION 3.0f
 #define BOSS_DEATH_DURATION 2.4f
 #define BOSS_SALVAGE_APPROACH_DURATION 1.6f

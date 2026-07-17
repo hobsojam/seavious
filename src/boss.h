@@ -54,6 +54,6 @@ bool BossPartAlive(const BossState *boss, BossPartId part);
 // Boss bar currency: gun-hit equivalents across all destructible parts
 // (hull-section torpedoes count BOSS_HULL_SECTION_TORPEDO_WORTH each).
 int BossRemainingHp(const BossState *boss);
-int BossTotalHp(void);
+int BossTotalHp(const BossState *boss);
 
 #endif

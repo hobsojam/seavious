@@ -694,7 +694,20 @@ mortar cadence plus dodging. Boss: a **fortress atoll** — the arena
 locks around a fortified island: gun-weak AA pods on towers, mortar-only
 shore batteries on the ring, and a core behind **sea gates** that cycle
 open at the waterline — the torpedo's moment; all three weapons required,
-the way the Leviathan made the original two literal. Salvage reward: a
+the way the Leviathan made the original two literal. Fight-flow rework
+pass 1 (playtest-driven, 2026-07-17): the ring batteries **return fire**
+on the stage's own mortar cadence, staggered against the central atoll's
+lob so 2–3 shadow telegraphs overlap and silencing each battery audibly
+thins the barrage — pressure holds through the mid-fight instead of
+collapsing once the pods die, and the three weapon jobs run
+simultaneously rather than as a checklist. The sea gates **cycle from
+the fight's first seconds** (open dwell longer than closed, every edge
+announced by sound and a gate flash), so the player learns the torpedo
+window's rhythm while the outer fight is still on; closed gates always
+block, and core exposure only raises the core into the target list
+behind them. The gate voice borrows the mortar thump until a dedicated
+SFX pass; second-pass ideas deliberately deferred: Drone Bunker hatches
+mid-fight, parts on a literal visible ring. Salvage reward: a
 **targeting computer** enabling lead-aimed torpedoes (the
 `FireLeadTorpedo` math already preserved in `gameplay.c`), so Stage 2
 ends with an earned upgrade like Stage 1 did. Structure: same authored

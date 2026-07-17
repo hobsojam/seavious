@@ -105,7 +105,7 @@ static void DrawHud(const GameState *state) {
     if (state->boss.phase == BOSS_PHASE_ENTERING || state->boss.phase == BOSS_PHASE_FIGHTING) {
         DrawText(BossIsFortressAtoll(&state->boss) ? "FORTRESS" : "LEVIATHAN",
             389, top + 4, 8, (Color){ 232, 72, 72, 255 });
-        int fill = (int)(115.0f * (float)BossRemainingHp(&state->boss) / (float)BossTotalHp());
+        int fill = (int)(115.0f * (float)BossRemainingHp(&state->boss) / (float)BossTotalHp(&state->boss));
         DrawRectangle(389, top + 12, fill, 8, (Color){ 232, 72, 72, 255 });
     }
 }
@@ -151,14 +151,31 @@ static void DrawBoss(const GameState *state, const GameAssets *assets) {
             DrawCircleLines((int)pos.x, (int)pos.y, pod ? 10.0f : 14.0f, ring);
             DrawCircleV(pos, 3.0f, (Color){ 255, 246, 216, 255 });
         }
-        if (boss->coreExposed && BossPartAlive(boss, BOSS_PART_CORE)) {
+        if (BossPartAlive(boss, BOSS_PART_CORE)) {
             Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
-            DrawCircleV(core, 12.0f, (Color){ 12, 20, 22, 255 });
-            DrawCircleLines((int)core.x, (int)core.y, 12.0f,
-                boss->gatesOpen ? (Color){ 76, 224, 232, 255 } : (Color){ 232, 72, 72, 255 });
-            DrawCircleV(core, 4.0f, (Color){ 255, 246, 216, 255 });
-            if (!boss->gatesOpen) DrawRectangle((int)core.x - 22, (int)core.y - 28, 28, 56,
-                (Color){ 36, 48, 48, 240 });
+            // The core rises into view only once the outer defenses fall.
+            if (boss->coreExposed) {
+                DrawCircleV(core, 12.0f, (Color){ 12, 20, 22, 255 });
+                DrawCircleLines((int)core.x, (int)core.y, 12.0f,
+                    boss->gatesOpen ? (Color){ 76, 224, 232, 255 } : (Color){ 232, 72, 72, 255 });
+                DrawCircleV(core, 4.0f, (Color){ 255, 246, 216, 255 });
+            }
+            // The sea gates cycle for the whole fight so the rhythm can
+            // be learned early; a bright edge flashes at each toggle
+            // (the visual half of the gate-cycle telegraph).
+            bool justToggled = boss->phase == BOSS_PHASE_FIGHTING && boss->gateTimer < 0.2f;
+            Color gateEdge = justToggled
+                ? (Color){ 232, 248, 248, 255 } : (Color){ 96, 128, 124, 255 };
+            if (boss->gatesOpen) {
+                // Open: the slabs retract to stubs at the channel mouth.
+                DrawRectangle((int)core.x - 22, (int)core.y - 28, 28, 8, (Color){ 36, 48, 48, 240 });
+                DrawRectangle((int)core.x - 22, (int)core.y + 20, 28, 8, (Color){ 36, 48, 48, 240 });
+                DrawRectangleLines((int)core.x - 22, (int)core.y - 28, 28, 8, gateEdge);
+                DrawRectangleLines((int)core.x - 22, (int)core.y + 20, 28, 8, gateEdge);
+            } else {
+                DrawRectangle((int)core.x - 22, (int)core.y - 28, 28, 56, (Color){ 36, 48, 48, 240 });
+                DrawRectangleLines((int)core.x - 22, (int)core.y - 28, 28, 56, gateEdge);
+            }
         }
         return;
     }
