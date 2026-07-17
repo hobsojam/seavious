@@ -30,8 +30,12 @@ GREEN = (108, 224, 96)      # land family (Stage 2 installations)
 # absent, not merely unrequired)
 
 # generator script -> [(output file, width, height, family color), ...]
+# A fifth tuple element names the assets/ subdirectory (default 'sprites').
 GENERATORS = {
     'gen-casemate.py': [('casemate.png', 24, 24, AMBER)],
+    'gen-islet-ridge.py': [('stage1_islet_ridge.png', 288, 128, None)],
+    'gen-terrain-hardpoint.py': [
+        ('terrain_island_hardpoint.png', 32, 32, GREEN, 'tiles')],
     'gen-tracking-turret.py': [('tracking_turret.png', 24, 24, AMBER)],
     'gen-mobile-platform.py': [('mobile_platform.png', 36, 18, AMBER)],
     'gen-gunship.py': [('gunship.png', 32, 24, MAGENTA)],
@@ -127,7 +131,10 @@ def main():
         gen = load_tool(script)
         with tempfile.TemporaryDirectory() as tmp:
             gen.main(tmp)
-            for out_name, exp_w, exp_h, family_color in outputs:
+            for output in outputs:
+                out_name, exp_w, exp_h, family_color = output[:4]
+                subdir = output[4] if len(output) > 4 else 'sprites'
+                asset_dir = os.path.join(REPO, 'assets', subdir)
                 total += 1
                 path = os.path.join(tmp, out_name)
                 check(os.path.exists(path), f'{script} did not write {out_name}')
@@ -137,9 +144,9 @@ def main():
                     data = f.read()
                 validate_sprite(out_name, data, exp_w, exp_h, family_color)
 
-                committed_path = os.path.join(ASSET_DIR, out_name)
+                committed_path = os.path.join(asset_dir, out_name)
                 check(os.path.exists(committed_path),
-                      f'{out_name}: missing from assets/sprites')
+                      f'{out_name}: missing from assets/{subdir}')
                 if os.path.exists(committed_path):
                     with open(committed_path, 'rb') as f:
                         committed = f.read()

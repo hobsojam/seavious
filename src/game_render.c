@@ -326,24 +326,30 @@ static bool TerrainFootprintsTouch(StageTerrainFootprint first, StageTerrainFoot
         && first.y <= secondBottom && firstBottom >= second.y;
 }
 
-// The islet variant whose native aspect best matches the destination -
+// An islet variant whose native aspect suits the destination -
 // stretching a round islet over Stage 2's 7:1 merged groups read as
-// obvious horizontal smearing (playtest 2026-07-17). Ties in look are
-// broken per-call by the seed's horizontal flip below, not here.
-static Texture2D PickIsletVariant(const GameAssets *assets, float destAspect) {
-    Texture2D best = assets->stage1IsletTex[0];
-    float bestScore = 1e9f;
+// obvious horizontal smearing (playtest 2026-07-17). Every variant
+// within tolerance of the best score is a candidate and the seed picks
+// among them, so adjacent chain segments and neighboring islands vary
+// instead of stamping one winner (the "two identical islands next to
+// each other" playtest note).
+static Texture2D PickIsletVariant(const GameAssets *assets, float destAspect,
+    unsigned int seed) {
+    float score[STAGE1_ISLET_VARIANT_COUNT];
+    float best = 1e9f;
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
         Texture2D candidate = assets->stage1IsletTex[i];
         float aspect = candidate.height > 0
             ? (float)candidate.width / (float)candidate.height : 1.0f;
-        float score = fabsf(logf(aspect / destAspect));
-        if (score < bestScore) {
-            bestScore = score;
-            best = candidate;
-        }
+        score[i] = fabsf(logf(aspect / destAspect));
+        if (score[i] < best) best = score[i];
     }
-    return best;
+    int candidates[STAGE1_ISLET_VARIANT_COUNT];
+    int count = 0;
+    for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
+        if (score[i] <= best + 0.30f) candidates[count++] = i;
+    }
+    return assets->stage1IsletTex[candidates[seed % (unsigned int)count]];
 }
 
 // One island group's art: a single aspect-matched islet for compact
@@ -363,7 +369,8 @@ static void DrawIsletGroup(const GameAssets *assets, Rectangle destination,
     float segWidth = segments > 1 ? stride * 1.4f : destination.width;
 
     for (int seg = 0; seg < segments; seg++) {
-        Texture2D islet = PickIsletVariant(assets, segWidth / destination.height);
+        Texture2D islet = PickIsletVariant(assets, segWidth / destination.height,
+            seed + 31u * (unsigned int)seg);
         Rectangle source = { 0.0f, 0.0f, (float)islet.width, (float)islet.height };
         // Alternate horizontal flips off the seed so a repeated variant
         // doesn't read as a copy-paste row.

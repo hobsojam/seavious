@@ -104,6 +104,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       spine (playtest 2026-07-17). Done: the shell launches from the
       player center (where the salvage docks the dome) while the
       reticle stays nose-anchored, preserving the tuned reach
+- [ ] Mines should be more than obstacles (playtest 2026-07-17): add a
+      proximity fuse — detonate when the player flies close, not only
+      on hull contact — and a larger explosion splash radius, so the
+      blast threatens nearby traffic and mines become a spacing threat
+      rather than static furniture
 - [ ] Targeting-computer torpedoes (`FireLeadTorpedo`) skip the terrain
       reticle clamp, so the lead reticle can point past land the shot
       will actually die against (in-flight land collision still
@@ -112,6 +117,16 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 
 ## Content
 
+- [x] Island art variety (playtest 2026-07-17: "almost all are two
+      identical islands next to each other"): terrain sprites now load
+      aspect-preserving — the old square 128x128 resize flattened every
+      islet to 1:1, so the aspect picker always stamped variant 0 down
+      a chain — plus a generated wide ridge islet (~2.25:1,
+      `tools/gen-islet-ridge.py`, palette sampled from the painted
+      set) and seed-varied choice among near-best variants so adjacent
+      segments differ. The bare hardpoint pad (a raw 1254px
+      magenta-keyed export that scaled to a flat green square) replaced
+      by a designed stone pad (`tools/gen-terrain-hardpoint.py`)
 - [x] Fortress rework pass 1 (playtest 2026-07-17, see README Stage 2
       design): ring batteries return staggered mortar fire on the
       stage's cadence; sea gates cycle from fight start (open dwell >
