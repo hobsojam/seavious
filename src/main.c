@@ -7,11 +7,11 @@
 #include "input.h"
 #include "menu.h"
 #include "present.h"
+#include "screenshot.h"
 #include "settings.h"
 #include "stage.h"
 #include "title.h"
 #include "raylib.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -41,17 +41,31 @@ static void StartRunAtStage(GameState *state, int stageNumber) {
     BeginStage(state, stageNumber);
 }
 
-static void SaveGameplayScreenshot(void) {
-    MakeDirectory("screenshots");
-    char path[64];
-    for (int number = 1; number < 1000000; number++) {
-        snprintf(path, sizeof path, "screenshots/seavious-%06d.png", number);
-        if (FileExists(path)) continue;
-        TakeScreenshot(path);
-        TraceLog(LOG_INFO, "Screenshot saved: %s", path);
-        return;
-    }
-    TraceLog(LOG_WARNING, "Screenshot skipped: screenshots folder is full");
+static bool MakeScreenshotDirectory(const char *path, void *context) {
+    (void)context;
+    return MakeDirectory(path) == 0 || DirectoryExists(path);
+}
+
+static bool ScreenshotPathExists(const char *path, void *context) {
+    (void)context;
+    return FileExists(path);
+}
+
+static bool WriteScreenshot(const char *path, void *context) {
+    (void)context;
+    TakeScreenshot(path);
+    return true;
+}
+
+static void SaveRuntimeGameplayScreenshot(void) {
+    ScreenshotOps ops = {
+        .makeDirectory = MakeScreenshotDirectory,
+        .fileExists = ScreenshotPathExists,
+        .takeScreenshot = WriteScreenshot,
+    };
+    char path[SCREENSHOT_PATH_CAPACITY];
+    if (SaveGameplayScreenshot(&ops, path)) TraceLog(LOG_INFO, "Screenshot saved: %s", path);
+    else TraceLog(LOG_WARNING, "Screenshot skipped: couldn't create a screenshot");
 }
 
 int main(int argc, char **argv) {
@@ -363,8 +377,9 @@ int main(int argc, char **argv) {
 
         // Capture the presented gameplay frame while it is still unobscured:
         // a pause or quit modal never appears in the saved image.
-        bool captureScreenshot = runGameFrame && !state.paused && !quitConfirm
-            && InputActionPressed(INPUT_SCREENSHOT);
+        bool smokeScreenshot = smokeFrames > 0 && framesRun == 220;
+        bool captureScreenshot = ShouldCaptureGameplayScreenshot(runGameFrame, state.paused,
+            quitConfirm, InputActionPressed(INPUT_SCREENSHOT) || smokeScreenshot);
 
         if (runGameFrame && !quitConfirm) {
             UpdateGame(&state, &assets, dt,
@@ -422,7 +437,7 @@ int main(int argc, char **argv) {
             );
         EndDrawing();
 
-        if (captureScreenshot) SaveGameplayScreenshot();
+        if (captureScreenshot) SaveRuntimeGameplayScreenshot();
 
         if (smokeFrames > 0) {
             framesRun++;

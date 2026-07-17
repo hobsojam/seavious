@@ -21,6 +21,7 @@ add_executable(seavious
     src/main.c
     src/menu.c
     src/present.c
+    src/screenshot.c
     src/settings.c
     src/stage.c
     src/stage1_data.c
@@ -78,6 +79,13 @@ if(BUILD_TESTING)
     target_include_directories(settings_tests PRIVATE src)
     target_link_libraries(settings_tests PRIVATE raylib glfw)
     add_test(NAME settings_tests COMMAND settings_tests)
+
+    add_executable(screenshot_tests
+        tests/screenshot_tests.c
+        src/screenshot.c
+    )
+    target_include_directories(screenshot_tests PRIVATE src)
+    add_test(NAME screenshot_tests COMMAND screenshot_tests)
 
     add_executable(boss_tests
         tests/boss_tests.c
