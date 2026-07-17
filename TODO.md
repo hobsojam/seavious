@@ -98,9 +98,27 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       center-left, live torpedo ready/flight/reload status right, and space
       reserved at far right for the future boss health bar. Losing lives and
       game-over behavior remain part of the separate lives-system task
+- [x] Player mortar shells launch from the nose (`player.x + halfW`,
+      the same origin as the torpedo) — move the launch point aft so
+      the shell visibly leaves at/near the salvaged mortar dome on the
+      spine (playtest 2026-07-17). Done: the shell launches from the
+      player center (where the salvage docks the dome) while the
+      reticle stays nose-anchored, preserving the tuned reach
+- [ ] Targeting-computer torpedoes (`FireLeadTorpedo`) skip the terrain
+      reticle clamp, so the lead reticle can point past land the shot
+      will actually die against (in-flight land collision still
+      applies); decide whether the lead solution should clamp to land
+      edges like the fixed-range shot does
 
 ## Content
 
+- [ ] Stage-map authoring rule (playtest 2026-07-17): land glyphs (`M`/`D`)
+      should sit on multi-cell islands with the installation inset from
+      the coastline, not on single 1-cell islets where the building
+      overhangs the beach into the sea — audit stage2.txt against this
+      once terrain rendering is confirmed fixed (most pads already sit
+      on larger islands in the data; the "1 square islands" seen in the
+      playtest were the invisible-terrain render bug)
 - [x] Enemy roster design (air + ground, beyond the first proof-of-concept
       pair), including per-enemy silhouette/visual description — see
       README for the full Stage 1 roster

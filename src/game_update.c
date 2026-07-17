@@ -226,8 +226,14 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     bool fireMortar = state->hasMortar && !bossOwnsPlayer
         && (InputActionPressed(INPUT_FIRE_MORTAR) || forceMortarFire);
     if (!state->playerDestroyed && fireMortar && !state->mortarShell.active && state->mortarCooldown <= 0.0f) {
-        Vector2 mortarSpawn = { state->player.x + halfW, state->player.y };
-        FirePlayerMortar(&state->mortarShell, mortarSpawn, CalculateMortarReticle(mortarSpawn));
+        // The shell leaves from the salvaged dome on the spine - the
+        // salvage docks it at the player center (see the boss render
+        // path) - while the reticle stays nose-anchored like the
+        // torpedo's, so the corrected launch point doesn't shorten the
+        // weapon's playtest-tuned reach.
+        Vector2 mortarSpawn = { state->player.x, state->player.y };
+        Vector2 mortarNose = { state->player.x + halfW, state->player.y };
+        FirePlayerMortar(&state->mortarShell, mortarSpawn, CalculateMortarReticle(mortarNose));
         state->mortarCooldown = PLAYER_MORTAR_COOLDOWN;
         PushGameEvent(&state->gameEvents, (GameEvent){
             .type = GAME_EVENT_MORTAR_FIRED, .pos = mortarSpawn
