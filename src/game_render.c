@@ -6,6 +6,80 @@
 #include "rlgl.h"
 #include <math.h>
 
+static float Clamp01(float value) {
+    if (value < 0.0f) return 0.0f;
+    if (value > 1.0f) return 1.0f;
+    return value;
+}
+
+static float Fraction(float value) {
+    return value - floorf(value);
+}
+
+static void DrawMineExplosion(const ExplosionEffect *effect) {
+    float progress = Clamp01(effect->age / effect->lifetime);
+    Vector2 center = effect->pos;
+
+    // The damage footprint reads on the water as a low foam ring. Its
+    // vertical squash separates it from the generic circular energy burst.
+    float foamT = Clamp01((progress - 0.06f) / 0.94f);
+    float foamRadius = effect->radius * (0.18f + 0.82f * foamT);
+    unsigned char foamAlpha = (unsigned char)(230.0f * (1.0f - foamT));
+    DrawEllipseLines((int)center.x, (int)center.y,
+        foamRadius, foamRadius * 0.38f, (Color){ 224, 248, 244, foamAlpha });
+    DrawEllipse((int)center.x, (int)center.y,
+        foamRadius * 0.42f, foamRadius * 0.16f, (Color){ 82, 180, 190, (unsigned char)(90.0f * (1.0f - foamT)) });
+
+    // A compact underwater pulse gives the plume a dark base rather than
+    // the hot orange center used by ordinary surface explosions.
+    float pulseRadius = effect->radius * (0.22f + 0.22f * progress);
+    DrawCircleV(center, pulseRadius,
+        (Color){ 20, 92, 112, (unsigned char)(150.0f * (1.0f - progress)) });
+
+    // The water column rises and collapses during the first three quarters
+    // of the effect. A triangle keeps the silhouette crisp at 512x384.
+    float plumeT = progress / 0.74f;
+    if (plumeT < 1.0f) {
+        float rise = 32.0f * sinf(PI * plumeT);
+        float halfBase = 7.0f - 2.0f * plumeT;
+        unsigned char plumeAlpha = (unsigned char)(235.0f * (1.0f - 0.55f * plumeT));
+        Vector2 top = { center.x, center.y - rise };
+        DrawTriangle(
+            (Vector2){ center.x - halfBase, center.y + 2.0f },
+            (Vector2){ center.x + halfBase, center.y + 2.0f },
+            top,
+            (Color){ 138, 218, 224, plumeAlpha }
+        );
+        DrawCircleV(top, 3.0f + 2.0f * sinf(PI * plumeT),
+            (Color){ 238, 252, 248, plumeAlpha });
+    }
+
+    // Stable position-derived variation avoids flickering as the effect is
+    // redrawn while still keeping adjacent mines from looking cloned.
+    float seed = Fraction(fabsf(center.x * 0.071f + center.y * 0.113f));
+    float dropT = Clamp01((progress - 0.08f) / 0.92f);
+    unsigned char dropAlpha = (unsigned char)(220.0f * (1.0f - dropT));
+    for (int i = 0; i < 8; i++) {
+        float variation = Fraction(seed + 0.6180339f * (float)i);
+        float angle = 2.0f * PI * ((float)i / 8.0f + seed * 0.12f);
+        float travel = effect->radius * (0.38f + 0.42f * variation) * dropT;
+        float loft = (12.0f + 12.0f * variation) * sinf(PI * dropT);
+        Vector2 droplet = {
+            center.x + cosf(angle) * travel,
+            center.y + sinf(angle) * travel * 0.38f - loft
+        };
+        DrawCircleV(droplet, variation > 0.55f ? 2.0f : 1.0f,
+            (Color){ 218, 246, 244, dropAlpha });
+    }
+
+    // The initiating charge is deliberately brief and nearly white.
+    if (progress < 0.16f) {
+        float flashT = progress / 0.16f;
+        DrawCircleV(center, 4.0f + 9.0f * flashT,
+            (Color){ 255, 252, 224, (unsigned char)(255.0f * (1.0f - flashT)) });
+    }
+}
+
 static void DrawHudShipSlot(Vector2 center, Color color) {
     DrawTriangleLines(
         (Vector2){ center.x + 6.0f, center.y },
@@ -809,6 +883,10 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
 
     for (int i = 0; i < MAX_EXPLOSION_EFFECTS; i++) {
         if (!state->explosions[i].active) continue;
+        if (state->explosions[i].type == EXPLOSION_MINE) {
+            DrawMineExplosion(&state->explosions[i]);
+            continue;
+        }
         float progress = state->explosions[i].age / state->explosions[i].lifetime;
         float radius = state->explosions[i].radius * (0.45f + 0.75f * progress);
         unsigned char alpha = (unsigned char)(255.0f * (1.0f - progress));
