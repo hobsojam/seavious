@@ -93,6 +93,7 @@ typedef struct {
     bool fortressAtoll;
     bool gatesOpen;
     float gateTimer;
+    int fortressGateOpenCount;
     float mortarTimer;
     MortarShell shells[MAX_MORTAR_SHELLS];
     BossMissile missiles[MAX_BOSS_MISSILES];

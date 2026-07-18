@@ -198,6 +198,28 @@ static void DrawTextureRotatedAt(Texture2D tex, Vector2 center, float rotation) 
     );
 }
 
+// Torpedo impacts sit above boss/terrain art.  A gate or core impact is
+// feedback about that exact surface, so drawing it underneath the boss would
+// make a successful hit look like a vanished projectile.
+static void DrawTorpedoImpact(const GameState *state) {
+    if (state->torpedoImpactTimer <= 0.0f) return;
+
+    float life = state->torpedoImpactTimer / 0.18f;
+    if (state->torpedoImpactType == TORPEDO_IMPACT_EXPLOSION) {
+        DrawCircleLines((int)state->torpedoImpactPos.x, (int)state->torpedoImpactPos.y,
+            TORPEDO_SPLASH_RADIUS * (1.0f + 0.25f * (1.0f - life)),
+            (Color){ 255, 220, 140, (unsigned char)(220.0f * life) });
+        DrawCircleV(state->torpedoImpactPos, 5.0f,
+            (Color){ 255, 246, 216, (unsigned char)(180.0f * life) });
+    } else {
+        DrawCircleLines((int)state->torpedoImpactPos.x, (int)state->torpedoImpactPos.y,
+            8.0f * (1.0f + 0.35f * (1.0f - life)),
+            (Color){ 255, 188, 88, (unsigned char)(220.0f * life) });
+        DrawCircleV(state->torpedoImpactPos, 4.0f,
+            (Color){ 255, 246, 216, (unsigned char)(220.0f * life) });
+    }
+}
+
 // The boss's water-level body: hull base, shell shadows, live parts,
 // exposed core, and the mortar dome (until the salvage lifts it off).
 // Drawn with the surface layer, under the player and everything airborne.
@@ -207,49 +229,47 @@ static void DrawBoss(const GameState *state, const GameAssets *assets) {
 
     if (BossIsFortressAtoll(boss)) {
         Vector2 c = boss->hullCenter;
-        // A low, fortified island rather than a vehicle: layered coast,
-        // dark stone, and green installation rings identify the Stage 2
-        // land family without needing a second sprite set.
-        DrawCircleV(c, 86.0f, (Color){ 40, 104, 112, 255 });
-        DrawCircleV(c, 78.0f, (Color){ 224, 218, 172, 255 });
-        DrawCircleV(c, 68.0f, (Color){ 58, 66, 42, 255 });
-        DrawCircleV(c, 54.0f, (Color){ 28, 35, 30, 255 });
+        DrawTexture(assets->fortressAtollTex,
+            (int)(c.x - assets->fortressAtollTex.width / 2.0f),
+            (int)(c.y - assets->fortressAtollTex.height / 2.0f), WHITE);
         for (int part = BOSS_PART_POD_FORE; part <= BOSS_PART_HULL_AFT; part++) {
             Vector2 pos = BossPartPosition(boss, (BossPartId)part);
             bool pod = part <= BOSS_PART_POD_AFT;
             if (!BossPartAlive(boss, (BossPartId)part)) {
-                DrawCircleV(pos, pod ? 10.0f : 14.0f, (Color){ 20, 24, 21, 240 });
+                DrawCircleV(pos, pod ? 13.0f : 16.0f, (Color){ 20, 24, 21, 230 });
+                DrawCircleLines((int)pos.x, (int)pos.y, pod ? 13.0f : 16.0f,
+                    (Color){ 8, 14, 14, 235 });
                 continue;
             }
-            Color ring = pod ? (Color){ 232, 72, 72, 255 } : (Color){ 108, 224, 96, 255 };
-            DrawCircleV(pos, pod ? 10.0f : 14.0f, (Color){ 18, 26, 25, 255 });
-            DrawCircleLines((int)pos.x, (int)pos.y, pod ? 10.0f : 14.0f, ring);
-            DrawCircleV(pos, 3.0f, (Color){ 255, 246, 216, 255 });
+            DrawTextureRotatedAt(pod ? assets->fortressGunTex : assets->fortressMortarTex,
+                pos, 0.0f);
         }
         if (BossPartAlive(boss, BOSS_PART_CORE)) {
             Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
             // The core rises into view only once the outer defenses fall.
             if (boss->coreExposed) {
-                DrawCircleV(core, 12.0f, (Color){ 12, 20, 22, 255 });
-                DrawCircleLines((int)core.x, (int)core.y, 12.0f,
-                    boss->gatesOpen ? (Color){ 76, 224, 232, 255 } : (Color){ 232, 72, 72, 255 });
-                DrawCircleV(core, 4.0f, (Color){ 255, 246, 216, 255 });
+                DrawTextureRotatedAt(assets->fortressCoreTex, core, 0.0f);
             }
-            // The sea gates cycle for the whole fight so the rhythm can
-            // be learned early; a bright edge flashes at each toggle
-            // (the visual half of the gate-cycle telegraph).
+            // The sea gate cycles for the whole fight; its art retracts
+            // into two cap pieces when open, leaving the water lane clear.
             bool justToggled = boss->phase == BOSS_PHASE_FIGHTING && boss->gateTimer < 0.2f;
-            Color gateEdge = justToggled
-                ? (Color){ 232, 248, 248, 255 } : (Color){ 96, 128, 124, 255 };
+            Color gateTint = justToggled
+                ? (Color){ 232, 248, 248, 255 } : WHITE;
+            int gateX = (int)core.x - assets->fortressGateTex.width / 2 - 26;
+            int gateY = (int)core.y - assets->fortressGateTex.height / 2;
             if (boss->gatesOpen) {
-                // Open: the slabs retract to stubs at the channel mouth.
-                DrawRectangle((int)core.x - 22, (int)core.y - 28, 28, 8, (Color){ 36, 48, 48, 240 });
-                DrawRectangle((int)core.x - 22, (int)core.y + 20, 28, 8, (Color){ 36, 48, 48, 240 });
-                DrawRectangleLines((int)core.x - 22, (int)core.y - 28, 28, 8, gateEdge);
-                DrawRectangleLines((int)core.x - 22, (int)core.y + 20, 28, 8, gateEdge);
+                DrawTexturePro(assets->fortressGateTex,
+                    (Rectangle){ 0, 0, (float)assets->fortressGateTex.width, 7.0f },
+                    (Rectangle){ (float)gateX, (float)gateY, (float)assets->fortressGateTex.width, 7.0f },
+                    (Vector2){ 0 }, 0.0f, gateTint);
+                DrawTexturePro(assets->fortressGateTex,
+                    (Rectangle){ 0, (float)assets->fortressGateTex.height - 7.0f,
+                        (float)assets->fortressGateTex.width, 7.0f },
+                    (Rectangle){ (float)gateX, (float)gateY + 21.0f,
+                        (float)assets->fortressGateTex.width, 7.0f },
+                    (Vector2){ 0 }, 0.0f, gateTint);
             } else {
-                DrawRectangle((int)core.x - 22, (int)core.y - 28, 28, 56, (Color){ 36, 48, 48, 240 });
-                DrawRectangleLines((int)core.x - 22, (int)core.y - 28, 28, 56, gateEdge);
+                DrawTexture(assets->fortressGateTex, gateX, gateY, gateTint);
             }
         }
         return;
@@ -652,7 +672,7 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     }
     // The boss's armored hull clamps the reticle like a land edge, so a
     // shielded lane reads before firing.
-    Rectangle bossBlockers[2];
+    Rectangle bossBlockers[3];
     int bossBlockerCount = BossHullBlockers(&state->boss, bossBlockers);
     torpedoReticle = ClampReticleToRects(torpedoSpawn, torpedoReticle, bossBlockers, bossBlockerCount);
 
@@ -770,18 +790,6 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
             (int)target.x, (int)(target.y + markerRadius + 3.0f), marker);
     }
 
-    if (state->torpedoImpactTimer > 0.0f) {
-        float life = state->torpedoImpactTimer / (state->torpedoImpactType == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f);
-        if (state->torpedoImpactType == TORPEDO_IMPACT_EXPLOSION) {
-            DrawCircleLines((int)state->torpedoImpactPos.x, (int)state->torpedoImpactPos.y,
-                TORPEDO_SPLASH_RADIUS * (1.0f + 0.25f * (1.0f - life)),
-                (Color){ 255, 220, 140, (unsigned char)(220.0f * life) });
-            DrawCircleV(state->torpedoImpactPos, 5.0f, (Color){ 255, 246, 216, (unsigned char)(180.0f * life) });
-        } else {
-            DrawCircleV(state->torpedoImpactPos, 3.0f, (Color){ 207, 239, 240, (unsigned char)(160.0f * life) });
-        }
-    }
-
     // Surface layer: ground targets draw under everything airborne.
     for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
         if (!state->surfaceTargets[i].active) continue;
@@ -847,6 +855,7 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     // The boss's body belongs to the surface layer: above the surface
     // targets it dwarfs, below the player and everything airborne.
     DrawBoss(state, assets);
+    DrawTorpedoImpact(state);
 
     // Ship points right (direction of travel / forward fire). It is
     // hidden during its explosion; respawn follows once the effect ends.

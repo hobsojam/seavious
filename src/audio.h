@@ -28,6 +28,8 @@ typedef struct {
     Sound enemyShot;
     Sound samLaunch;
     Sound mortarBlast;
+    Sound fortressGateOpen;
+    Sound fortressGateClose;
 } GameAudio;
 
 // Initializes the audio device and starts the stage theme at the given

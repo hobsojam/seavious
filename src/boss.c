@@ -21,7 +21,52 @@ static const struct {
     [BOSS_PART_CORE]      = { { 15.0f, 0.0f }, 12.0f },
 };
 
+// The Fortress Atoll uses the same five gameplay parts as the Leviathan,
+// but they sit on its four literal diagonal pads.  This leaves the west
+// channel free as the readable torpedo approach to the harbour aperture.
+static const struct {
+    Vector2 offset;
+    float radius;
+} FORTRESS_PART_GEOMETRY[BOSS_PART_COUNT] = {
+    [BOSS_PART_POD_FORE]  = { { 26.0f, -27.0f }, 12.0f },
+    [BOSS_PART_POD_AFT]   = { { -27.0f, 26.0f }, 12.0f },
+    [BOSS_PART_HULL_FORE] = { { -27.0f, -27.0f }, 15.0f },
+    [BOSS_PART_HULL_AFT]  = { { 26.0f, 26.0f }, 15.0f },
+    [BOSS_PART_CORE]      = { { 0.0f, 0.0f }, 18.0f },
+};
+
 static const Vector2 BOSS_MORTAR_OFFSET = { 78.0f, 0.0f };
+
+// A gate opening has a concrete purpose: one patrol craft sorties through
+// the harbour channel.  It is not ordinary scrolling water traffic, so it
+// keeps moving while the boss lock freezes the stage behind it.
+static bool LaunchFortressSortie(GameState *state) {
+    for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
+        SurfaceTarget *boat = &state->surfaceTargets[i];
+        if (boat->active) continue;
+        Vector2 core = BossPartPosition(&state->boss, BOSS_PART_CORE);
+        *boat = (SurfaceTarget){
+            .type = SURFACE_TARGET_MOBILE_PLATFORM,
+            .pos = { core.x - 38.0f, core.y },
+            .radius = MOBILE_PLATFORM_RADIUS,
+            .hp = MOBILE_PLATFORM_HP,
+            .aimDirection = { -1.0f, 0.0f },
+            .fortressSortie = true,
+            .active = true,
+        };
+        return true;
+    }
+    return false;
+}
+
+static void UpdateFortressSorties(GameState *state, float dt) {
+    for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
+        SurfaceTarget *boat = &state->surfaceTargets[i];
+        if (!boat->active || !boat->fortressSortie) continue;
+        boat->pos.x -= MOBILE_PLATFORM_SPEED * dt;
+        if (boat->pos.x < -boat->radius) boat->active = false;
+    }
+}
 
 // Hull content half-extents in sprite space: 190 long (bow-stern), 72
 // wide. Sailing vertically the armor blocker is 72 wide by 190 tall.
@@ -89,10 +134,23 @@ static Vector2 BossOffsetPosition(const BossState *boss, Vector2 offset) {
 }
 
 Vector2 BossPartPosition(const BossState *boss, BossPartId part) {
+    if (boss->fortressAtoll) {
+        Vector2 offset = FORTRESS_PART_GEOMETRY[part].offset;
+        return (Vector2){ boss->hullCenter.x + offset.x,
+            boss->hullCenter.y + boss->settleOffset + offset.y };
+    }
     return BossOffsetPosition(boss, BOSS_PART_GEOMETRY[part].offset);
 }
 
+static float BossPartRadius(const BossState *boss, BossPartId part) {
+    return boss->fortressAtoll ? FORTRESS_PART_GEOMETRY[part].radius
+        : BOSS_PART_GEOMETRY[part].radius;
+}
+
 Vector2 BossMortarPosition(const BossState *boss) {
+    if (boss->fortressAtoll) {
+        return (Vector2){ boss->hullCenter.x, boss->hullCenter.y + boss->settleOffset };
+    }
     return BossOffsetPosition(boss, BOSS_MORTAR_OFFSET);
 }
 
@@ -108,7 +166,7 @@ bool BossSectionFacesPlayer(const BossState *boss, BossPartId part) {
 // Empty from the death chain on - the settled wreck is inert like every
 // wreck. The blocker stays the sailing footprint during the brief
 // in-place turn (the sweeping bow/stern are an accepted approximation).
-int BossHullBlockers(const BossState *boss, Rectangle out[2]) {
+int BossHullBlockers(const BossState *boss, Rectangle out[3]) {
     if (boss->phase != BOSS_PHASE_ENTERING && boss->phase != BOSS_PHASE_FIGHTING) return 0;
 
     // The fortress's sea gates close over the only torpedo route to the
@@ -117,10 +175,17 @@ int BossHullBlockers(const BossState *boss, Rectangle out[2]) {
     // block - what changes at core exposure is only that the core rises
     // into the target list behind them.
     if (boss->fortressAtoll) {
-        if (boss->gatesOpen) return 0;
         Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
-        out[0] = (Rectangle){ core.x - 22.0f, core.y - 28.0f, 28.0f, 56.0f };
-        return 1;
+        // The painted atoll is real torpedo-blocking land.  Only its
+        // horizontal west channel remains navigable, so the diagonal
+        // defenses cannot be bypassed with a level torpedo shot.
+        out[0] = (Rectangle){ core.x - 96.0f, core.y - 96.0f, 192.0f, 78.0f };
+        out[1] = (Rectangle){ core.x - 96.0f, core.y + 18.0f, 192.0f, 78.0f };
+        if (boss->gatesOpen) return 2;
+        // A narrow, visible sluice gate sits across the west-channel mouth;
+        // it no longer disguises the whole harbour as a solid rectangle.
+        out[2] = (Rectangle){ core.x - 30.0f, core.y - 13.0f, 7.0f, 26.0f };
+        return 3;
     }
 
     float left = boss->hullCenter.x - BOSS_HULL_HALF_WIDTH;
@@ -206,6 +271,7 @@ static void StartBossFight(GameState *state) {
     boss->fortressAtoll = state->stageNumber == 2;
     boss->gatesOpen = false;
     boss->gateTimer = 0.0f;
+    boss->fortressGateOpenCount = 0;
     boss->hullCenter = boss->fortressAtoll
         ? (Vector2){ 404.0f, 176.0f }
         : (Vector2){ BOSS_PATROL_X, (float)PLAY_HEIGHT + BOSS_HULL_HALF_LENGTH + 15.0f };
@@ -411,7 +477,7 @@ static void FireBossGuns(GameState *state, float dt) {
         while (boss->partFireTimer[part] >= interval) {
             boss->partFireTimer[part] -= interval;
             Vector2 from = BossPartPosition(boss, (BossPartId)part);
-            float muzzle = BOSS_PART_GEOMETRY[part].radius + 3.0f;
+            float muzzle = BossPartRadius(boss, part) + 3.0f;
             if (pod) {
                 // Pods fire turret-style aimed shots.
                 Vector2 dir = AimAt(from, state->player);
@@ -486,7 +552,7 @@ static void ResolveBulletBossPartCollisions(GameState *state) {
             BossPartId part = gunTargets[i];
             if (part == BOSS_PART_CORE && (!boss->coreExposed || boss->fortressAtoll)) continue;
             if (!BossPartAlive(boss, part)) continue;
-            float hitDist = BULLET_RADIUS + BOSS_PART_GEOMETRY[part].radius;
+            float hitDist = BULLET_RADIUS + BossPartRadius(boss, part);
             if (DistanceSquared(state->bullets[b].pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
                 state->bullets[b].active = false;
                 DamageBossPart(boss, part, 1, &state->gameEvents);
@@ -506,7 +572,7 @@ TorpedoImpact ResolveTorpedoBossPartCollision(Torpedo *torpedo, BossState *boss,
         BossPartId part = boss->fortressAtoll ? BOSS_PART_CORE : torpedoTargets[i];
         if (part == BOSS_PART_CORE && (!boss->coreExposed || (boss->fortressAtoll && !boss->gatesOpen))) continue;
         if (!BossPartAlive(boss, part)) continue;
-        float hitDist = BOSS_PART_GEOMETRY[part].radius + TORPEDO_DIRECT_HIT_RADIUS;
+        float hitDist = BossPartRadius(boss, part) + TORPEDO_DIRECT_HIT_RADIUS;
         if (DistanceSquared(torpedo->pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
             Vector2 impactPos = torpedo->pos;
             torpedo->active = false;
@@ -525,7 +591,7 @@ void ResolveBossSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *event
     if (boss->phase != BOSS_PHASE_FIGHTING) return;
     if (boss->fortressAtoll) {
         if (!boss->coreExposed || !boss->gatesOpen || !BossPartAlive(boss, BOSS_PART_CORE)) return;
-        float hitDist = BOSS_PART_GEOMETRY[BOSS_PART_CORE].radius + TORPEDO_SPLASH_RADIUS;
+        float hitDist = BossPartRadius(boss, BOSS_PART_CORE) + TORPEDO_SPLASH_RADIUS;
         if (DistanceSquared(pos, BossPartPosition(boss, BOSS_PART_CORE)) <= hitDist * hitDist) {
             DamageBossPart(boss, BOSS_PART_CORE, BOSS_CORE_TORPEDO_DAMAGE, events);
         }
@@ -537,7 +603,7 @@ void ResolveBossSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *event
         BossPartId part = torpedoTargets[i];
         if (part == BOSS_PART_CORE && !boss->coreExposed) continue;
         if (!BossPartAlive(boss, part)) continue;
-        float hitDist = BOSS_PART_GEOMETRY[part].radius + TORPEDO_SPLASH_RADIUS;
+        float hitDist = BossPartRadius(boss, part) + TORPEDO_SPLASH_RADIUS;
         if (DistanceSquared(pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
             DamageBossPart(boss, part,
                 part == BOSS_PART_CORE ? BOSS_CORE_TORPEDO_DAMAGE : 1, events);
@@ -555,7 +621,7 @@ void ResolveBossMortarSplashDamage(BossState *boss, Vector2 pos, GameEventQueue 
     for (int i = 0; i < 2; i++) {
         BossPartId part = batteries[i];
         if (!BossPartAlive(boss, part)) continue;
-        float hitDist = BOSS_PART_GEOMETRY[part].radius + PLAYER_MORTAR_BLAST_RADIUS;
+        float hitDist = BossPartRadius(boss, part) + PLAYER_MORTAR_BLAST_RADIUS;
         if (DistanceSquared(pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
             DamageBossPart(boss, part, 1, events);
         }
@@ -563,7 +629,12 @@ void ResolveBossMortarSplashDamage(BossState *boss, Vector2 pos, GameEventQueue 
 }
 
 bool ResolveBossContactDamage(const BossState *boss, Vector2 playerPos, float playerRadius) {
-    Rectangle blockers[2];
+    // The player flies safely over regular land, and the fixed fortress
+    // atoll follows that established rule. Its channel and harbour are
+    // visually water, so reusing their torpedo blockers as lethal contact
+    // geometry made otherwise safe water look arbitrarily deadly.
+    if (boss->fortressAtoll) return false;
+    Rectangle blockers[3];
     int count = BossHullBlockers(boss, blockers);
     for (int i = 0; i < count; i++) {
         float right = blockers[i].x + blockers[i].width;
@@ -623,12 +694,21 @@ void UpdateBossFight(GameState *state, float dt) {
                 // asymmetric dwell (open runs longer than closed), each
                 // edge announced by an event for the sound and the gate
                 // visual - a rhythm to learn, not a coin flip.
+                // Existing boats leave before this frame's gate state can
+                // create the next one, so a newly opened gate visibly
+                // starts with its craft at the channel mouth.
+                UpdateFortressSorties(state, dt);
                 boss->gateTimer += dt;
                 float dwell = boss->gatesOpen
                     ? FORTRESS_GATE_OPEN_DURATION : FORTRESS_GATE_CLOSED_DURATION;
                 while (boss->gateTimer >= dwell) {
                     boss->gateTimer -= dwell;
                     boss->gatesOpen = !boss->gatesOpen;
+                    // A sortie on alternate openings halves boat pressure
+                    // without shortening the core's attack window.
+                    if (boss->gatesOpen && (boss->fortressGateOpenCount++ % 2) == 0) {
+                        LaunchFortressSortie(state);
+                    }
                     PushGameEvent(&state->gameEvents, (GameEvent){
                         .type = boss->gatesOpen
                             ? GAME_EVENT_BOSS_GATES_OPENED : GAME_EVENT_BOSS_GATES_CLOSED,

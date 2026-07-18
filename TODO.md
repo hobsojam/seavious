@@ -138,6 +138,13 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       restyled against those references and a continuous double-length
       island was added; check the remaining crag variant at game scale
       before deciding whether it also needs replacement
+- [ ] Reusable terrain tiles: prototype a native-pixel tile/autotile system
+      for scrolling island chains — shoreline, beach, ground, cliffs, and
+      transition/corner tiles assembled from a terrain mask, with authored
+      crag/cove/ruin overlays for distinctive landmarks. This should replace
+      arbitrary resizing for reusable terrain and make long connected land
+      pieces tessellate cleanly. Keep the Fortress Atoll as its bespoke
+      one-off sprite; it is not part of this migration.
 - [x] Fortress rework pass 1 (playtest 2026-07-17, see
       `docs/game-design.md`): ring batteries return staggered mortar fire on the
       stage's cadence; sea gates cycle from fight start (open dwell >
@@ -145,10 +152,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       closed gates always block the core route; fortress part HP and
       gate dwells promoted to named constants; HP bar weights fortress
       parts 1:1 — needs a Windows playtest for cadence/dwell tuning
-- [ ] Fortress rework pass 2 (deferred by design): Drone Bunker hatches
-      during the boss fight; place the fortress parts on a literal
-      visible ring; dedicated gate open/close SFX (currently borrows
-      the mortar thump)
+- [ ] Fortress rework pass 2: the fortress now uses a literal visible
+      atoll ring with aligned gun/mortar hardpoints and an open-gate core
+      aperture; remaining work is Drone Bunker hatches during the boss
+      fight. The gate now has dedicated opening and closing SFX.
 - [x] Stage-map authoring rule (playtest 2026-07-17): all Stage 2 land
       glyphs (`B`/`K`) now sit within a full terrain ring, rather than
       overhanging a coastline or occupying a single-cell islet. The map

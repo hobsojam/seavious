@@ -124,7 +124,7 @@ def main():
     length = int(re.search(r'STAGE1_LENGTH_PX = (\d+);', generated).group(1))
     check(length == 7200, f'stage length {length} != 7200')
     stage2_length = int(re.search(r'STAGE2_LENGTH_PX = (\d+);', generated_stage2).group(1))
-    check(stage2_length == 7680, f'Stage 2 length {stage2_length} != 7680')
+    check(stage2_length == 8192, f'Stage 2 length {stage2_length} != 8192')
     check_stage2_installations_are_inset()
 
     # Terrain rects must cover exactly the map's land cell area.

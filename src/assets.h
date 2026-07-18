@@ -22,6 +22,11 @@ typedef struct {
     Texture2D leviathanHullSectionTex;
     Texture2D leviathanMortarTex;
     Texture2D leviathanCoreTex;
+    Texture2D fortressAtollTex;
+    Texture2D fortressGunTex;
+    Texture2D fortressMortarTex;
+    Texture2D fortressCoreTex;
+    Texture2D fortressGateTex;
     Texture2D stage1IsletTex[STAGE1_ISLET_VARIANT_COUNT];
     Texture2D stage1IsletInteriorTex[STAGE1_ISLET_VARIANT_COUNT];
     Texture2D terrainGroundTex;

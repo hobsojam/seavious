@@ -92,7 +92,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     UpdateBossFight(state, dt);
     // The boss's armored hull blocks torpedoes like land does; these are
     // its screen-space blocker rects for this frame (0 when no boss).
-    Rectangle bossBlockers[2];
+    Rectangle bossBlockers[3];
     int bossBlockerCount = BossHullBlockers(&state->boss, bossBlockers);
     float scrollDt = state->bossLock ? 0.0f : dt;
 
@@ -182,6 +182,13 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     );
     UpdateEnemyBullets(state->enemyBullets, MAX_ENEMY_BULLETS, dt);
 
+    // The fortress atoll's painted land banks are real torpedo blockers,
+    // so they take priority over its pad defenses.  The Leviathan instead
+    // keeps its proud part-before-hull ordering.
+    if (torpedoImpact.type == TORPEDO_IMPACT_NONE && BossIsFortressAtoll(&state->boss)) {
+        torpedoImpact = ResolveTorpedoRectCollision(&state->torpedo, bossBlockers, bossBlockerCount);
+    }
+
     // Torpedo-vs-surface collision — the gun deliberately has no case
     // here: bullets pass over ground targets (dual-targeting rule). Boss
     // parts join the same chain: hull sections (and the exposed core)
@@ -193,7 +200,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // The armored hull itself: parts are checked first because the
     // player-facing section sits proud of the armor edge; a torpedo in
     // any other lane detonates (or fizzles) on the hull like on land.
-    if (torpedoImpact.type == TORPEDO_IMPACT_NONE) {
+    if (torpedoImpact.type == TORPEDO_IMPACT_NONE && !BossIsFortressAtoll(&state->boss)) {
         torpedoImpact = ResolveTorpedoRectCollision(&state->torpedo, bossBlockers, bossBlockerCount);
     }
     if (torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION) {
@@ -209,7 +216,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     if (torpedoImpact.type != TORPEDO_IMPACT_NONE) {
         state->torpedoImpactType = torpedoImpact.type;
         state->torpedoImpactPos = torpedoImpact.pos;
-        state->torpedoImpactTimer = torpedoImpact.type == TORPEDO_IMPACT_EXPLOSION ? 0.18f : 0.10f;
+        state->torpedoImpactTimer = 0.18f;
         PushGameEvent(&state->gameEvents, (GameEvent){
             .type = GAME_EVENT_TORPEDO_IMPACT, .pos = torpedoImpact.pos,
             .target.torpedoImpact = torpedoImpact.type

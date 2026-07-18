@@ -32,7 +32,9 @@ Music is authored as XM modules. Stage 1 and Stage 2 each have a stage and a
 boss theme; the title and game-over screen use their own existing cues. Music
 changes are hard cuts at title, boss, and game-over state changes rather than
 live layers or crossfades. SFX sources live in `assets/audio/sfx/` and their
-mix is centralized in `src/audio.c`.
+mix is centralized in `src/audio.c`. The Fortress Atoll gate has paired
+opening and closing cues: these deliberately telegraph the torpedo channel's
+state without borrowing a weapon sound.
 
 Regenerate and verify derived audio with:
 
