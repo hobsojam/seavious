@@ -12,9 +12,10 @@ Map semantics:
     screen edge; ground glyphs are world positions entering there — the
     engine treats both as "fire at scrollDistance >= px".
   - `#` cells are terrain and `H` cells are terrain hardpoints; contiguous
-    cells merge into blocking
-    footprint rectangles (horizontal runs, then vertically stacked
-    identical runs).
+    cells merge into blocking footprint rectangles (horizontal runs, then
+    vertically stacked identical runs). Stage 2 replaces that coarse terrain
+    layer with stage2_terrain.txt's 16px mask while retaining this map's
+    encounter/hardpoint layer.
 
 Output: src/stage1_data.c and src/stage2_data.c (do not edit by hand);
 the type definitions live in the hand-written src/stage_data.h. A drift
@@ -30,6 +31,10 @@ import genlib
 
 COLUMN_PX = 32
 LANES = 11
+TERRAIN_TILE_PX = 16
+TERRAIN_LANES = 22
+TERRAIN_COLUMNS = 48
+TERRAIN_BLOCK_PX = TERRAIN_TILE_PX * TERRAIN_COLUMNS
 
 GLYPH_KINDS = {
     'd': 'STAGE_SPAWN_DRONE',
@@ -104,15 +109,15 @@ def parse_map(path):
     return events, merge_terrain(terrain_cells), sorted(hardpoints), length_px
 
 
-def merge_terrain(cells):
+def merge_terrain(cells, cell_px=COLUMN_PX):
     """Merge contiguous terrain cells into rectangles: horizontal runs per
     row first, then vertically stacked identical runs."""
     runs = []  # (px, row, width_px)
     for px, row in sorted(cells, key=lambda c: (c[1], c[0])):
         if runs and runs[-1][1] == row and runs[-1][0] + runs[-1][2] == px:
-            runs[-1] = (runs[-1][0], row, runs[-1][2] + COLUMN_PX)
+            runs[-1] = (runs[-1][0], row, runs[-1][2] + cell_px)
         else:
-            runs.append((px, row, COLUMN_PX))
+            runs.append((px, row, cell_px))
 
     rects = []  # (px, row, width_px, rows)
     for px, row, width in sorted(runs, key=lambda r: (r[1], r[0])):
@@ -127,7 +132,72 @@ def merge_terrain(cells):
     return sorted(rects)
 
 
-def emit(events, terrain, hardpoints, length_px, out_path, source_rel, stage_name):
+def parse_terrain_mask(path, expected_length_px):
+    """Parse a Stage 2-only 16px terrain layer.
+
+    Encounter glyphs deliberately remain in the normal 32px stage map;
+    this finer layer owns only coastline/collision geometry.  Keeping the
+    concerns separate lets a designer reshape a shore without moving a
+    spawn's timing or its hardpoint.
+    """
+    cells = set()
+    block_px = None
+    rows_seen = 0
+    block_offsets = []
+
+    for lineno, raw in enumerate(open(path, encoding='utf-8'), 1):
+        line = raw.rstrip('\n')
+        if not line.strip() or line.lstrip().startswith(';'):
+            continue
+        if line.startswith('@'):
+            if block_px is not None and rows_seen != TERRAIN_LANES:
+                raise SystemExit(f'{path}:{lineno}: block @{block_px} has '
+                                 f'{rows_seen} rows, want {TERRAIN_LANES}')
+            block_px = int(line[1:])
+            block_offsets.append(block_px)
+            rows_seen = 0
+            continue
+        if block_px is None:
+            raise SystemExit(f'{path}:{lineno}: grid row before any @ header')
+        if rows_seen >= TERRAIN_LANES:
+            raise SystemExit(f'{path}:{lineno}: block @{block_px} has more '
+                             f'than {TERRAIN_LANES} rows')
+        if any(ch not in '.#' for ch in line):
+            raise SystemExit(f'{path}:{lineno}: terrain masks use only . and #')
+        if len(line) != TERRAIN_COLUMNS:
+            raise SystemExit(f'{path}:{lineno}: row has {len(line)} columns, '
+                             f'want {TERRAIN_COLUMNS}')
+        for col, ch in enumerate(line):
+            if ch == '#': cells.add((block_px + col * TERRAIN_TILE_PX, rows_seen))
+        rows_seen += 1
+
+    if block_px is not None and rows_seen != TERRAIN_LANES:
+        raise SystemExit(f'{path}: final block @{block_px} has {rows_seen} '
+                         f'rows, want {TERRAIN_LANES}')
+    if not cells:
+        raise SystemExit(f'{path}: terrain mask is empty')
+    expected_offsets = list(range(0, expected_length_px, TERRAIN_BLOCK_PX))
+    if block_offsets != expected_offsets:
+        raise SystemExit(f'{path}: block offsets {block_offsets} do not cover '
+                         f'0..{expected_length_px} in {TERRAIN_BLOCK_PX}px blocks')
+    return merge_terrain(cells, TERRAIN_TILE_PX), cells
+
+
+def validate_hardpoint_terrain(hardpoints, terrain_cells):
+    """Require a 64px square of fine terrain around every B/K mounting pad."""
+    for px, row in hardpoints:
+        y = row * COLUMN_PX
+        for cell_y in range(y - TERRAIN_TILE_PX, y + 3 * TERRAIN_TILE_PX,
+                            TERRAIN_TILE_PX):
+            for cell_x in range(px - TERRAIN_TILE_PX, px + 3 * TERRAIN_TILE_PX,
+                                TERRAIN_TILE_PX):
+                if (cell_x, cell_y // TERRAIN_TILE_PX) not in terrain_cells:
+                    raise SystemExit('hardpoint at '
+                                     f'({px}, {y}) lacks a 64px terrain pad')
+
+
+def emit(events, terrain, hardpoints, length_px, out_path, source_rel, stage_name,
+         terrain_cell_px=COLUMN_PX):
     symbol = stage_name.upper()
     lines = [
         '// Generated by tools/gen-stage-table.py from ' + source_rel,
@@ -149,7 +219,8 @@ def emit(events, terrain, hardpoints, length_px, out_path, source_rel, stage_nam
         f'const StageTerrainFootprint {symbol}_TERRAIN[] = {{',
     ]
     for px, row, width, rows in terrain:
-        lines.append(f'    {{ {px}, {row * COLUMN_PX}, {width}, {rows * COLUMN_PX} }},')
+        lines.append(f'    {{ {px}, {row * terrain_cell_px}, {width}, '
+                     f'{rows * terrain_cell_px} }},')
     lines += [
         '};',
         '',
@@ -189,9 +260,18 @@ def main(out_dir=None):
         if not os.path.exists(map_path):
             continue
         events, terrain, hardpoints, length_px = parse_map(map_path)
+        source_rel = 'assets/stages/' + stage_name + '.txt'
+        terrain_cell_px = COLUMN_PX
+        if stage_name == 'stage2':
+            mask_path = os.path.join(genlib.repo_root(), 'assets', 'stages',
+                                     'stage2_terrain.txt')
+            terrain, terrain_cells = parse_terrain_mask(mask_path, length_px)
+            validate_hardpoint_terrain(hardpoints, terrain_cells)
+            source_rel += ' + assets/stages/stage2_terrain.txt'
+            terrain_cell_px = TERRAIN_TILE_PX
         emit(events, terrain, hardpoints, length_px,
-             os.path.join(out_dir, stage_name + '_data.c'),
-             'assets/stages/' + stage_name + '.txt', stage_name)
+             os.path.join(out_dir, stage_name + '_data.c'), source_rel,
+             stage_name, terrain_cell_px)
 
 
 if __name__ == '__main__':

@@ -19,6 +19,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAP_PATH = os.path.join(REPO, 'assets', 'stages', 'stage1.txt')
 COMMITTED = os.path.join(REPO, 'src', 'stage1_data.c')
 STAGE2_MAP_PATH = os.path.join(REPO, 'assets', 'stages', 'stage2.txt')
+STAGE2_TERRAIN_PATH = os.path.join(REPO, 'assets', 'stages', 'stage2_terrain.txt')
 STAGE2_COMMITTED = os.path.join(REPO, 'src', 'stage2_data.c')
 
 failures = []
@@ -91,6 +92,32 @@ def check_stage2_installations_are_inset():
                       f'{glyph} at @{offset}, row {y}, col {x} is not inset in terrain')
 
 
+def check_stage2_fine_terrain_pads(gen):
+    _, _, hardpoints, length_px = gen.parse_map(STAGE2_MAP_PATH)
+    _, terrain_cells = gen.parse_terrain_mask(STAGE2_TERRAIN_PATH, length_px)
+    try:
+        gen.validate_hardpoint_terrain(hardpoints, terrain_cells)
+    except SystemExit as error:
+        check(False, str(error))
+
+
+def check_stage2_emitted_hardpoints(generated):
+    """The 16px source rows must not be emitted at the old 32px pitch."""
+    terrain_text = generated.split('STAGE2_TERRAIN[]')[1].split('};', 1)[0]
+    rects = [tuple(map(int, match)) for match in re.findall(
+        r'\{ (\d+), (\d+), (\d+), (\d+) \},', terrain_text)]
+    gen = load_generator()
+    _, _, hardpoints, _ = gen.parse_map(STAGE2_MAP_PATH)
+    for px, row in hardpoints:
+        y = row * 32
+        # A B/K cell must be land at all four corners of its 32px pad.
+        for probe_x in (px, px + 16):
+            for probe_y in (y, y + 16):
+                check(any(x <= probe_x < x + width and top <= probe_y < top + height
+                          for x, top, width, height in rects),
+                      f'emitted Stage 2 terrain misses hardpoint at ({px}, {y})')
+
+
 def main():
     gen = load_generator()
 
@@ -126,6 +153,8 @@ def main():
     stage2_length = int(re.search(r'STAGE2_LENGTH_PX = (\d+);', generated_stage2).group(1))
     check(stage2_length == 7680, f'Stage 2 length {stage2_length} != 7680')
     check_stage2_installations_are_inset()
+    check_stage2_fine_terrain_pads(gen)
+    check_stage2_emitted_hardpoints(generated_stage2)
 
     # Terrain rects must cover exactly the map's land cell area.
     rects = re.findall(r'\{ (\d+), (\d+), (\d+), (\d+) \},',

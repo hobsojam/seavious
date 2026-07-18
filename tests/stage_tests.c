@@ -388,11 +388,9 @@ static void TestNextStageNumberWraps(void) {
 }
 
 static void TestTerrainTableFitsRenderCap(void) {
-    // The island renderer sizes its grouping scratch arrays to
-    // MAX_STAGE_TERRAIN_RECTS and skips drawing entirely beyond it.
-    // Stage 2 once shipped 43 rects against a silent 32-rect cap: every
-    // island went invisible while collision still used them. Every
-    // stage's compiled table must fit the render contract.
+    // Every stage's generated terrain table must fit the engine's explicit
+    // cap. Stage 2's fine shoreline mask intentionally has many more
+    // rectangles than the former coarse island groupings.
     for (int s = 1; s <= StageCount(); s++) {
         const StageDescriptor *stage = GetStageDescriptor(s);
         CHECK(stage->terrainCount > 0);

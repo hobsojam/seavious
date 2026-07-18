@@ -162,6 +162,8 @@ GameAssets LoadGameAssets(void) {
     }
     assets.terrainGroundTex = LoadTerrainTile("assets/tiles/terrain_ground.png", 128, 128, false);
     assets.terrainShoreTex = LoadTerrainTile("assets/tiles/terrain_shore_top.png", 128, 16, true);
+    assets.terrainTileAtlasTex = LoadTerrainTile("assets/tiles/terrain_tile_atlas.png", 1152, 1152, false);
+    assets.terrainFeatureAtlasTex = LoadTerrainTile("assets/tiles/terrain_feature_atlas.png", 256, 64, false);
     assets.terrainHardpointTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_island_hardpoint.png", 32, 32);
     assets.terrainBrushTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_brush_cluster.png", 36, 24);
     assets.terrainRockTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_rock_scatter.png", 28, 24);
@@ -197,6 +199,8 @@ void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->terrainTidePoolTex);
     UnloadTexture(assets->terrainRockTex);
     UnloadTexture(assets->terrainBrushTex);
+    UnloadTexture(assets->terrainFeatureAtlasTex);
+    UnloadTexture(assets->terrainTileAtlasTex);
     UnloadTexture(assets->terrainShoreTex);
     UnloadTexture(assets->terrainGroundTex);
     UnloadTexture(assets->leviathanCoreTex);

@@ -392,133 +392,151 @@ static void DrawBossAirborne(const GameState *state, const GameAssets *assets) {
     }
 }
 
-static bool TerrainFootprintsTouch(StageTerrainFootprint first, StageTerrainFootprint second) {
-    const float firstRight = first.px + first.widthPx;
-    const float firstBottom = first.y + first.heightPx;
-    const float secondRight = second.px + second.widthPx;
-    const float secondBottom = second.y + second.heightPx;
-    return first.px <= secondRight && firstRight >= second.px
-        && first.y <= secondBottom && firstBottom >= second.y;
+enum { TERRAIN_TILE_SIZE = 32 };
+enum { TERRAIN_WANG_PROFILE_COUNT = 81, TERRAIN_WANG_ATLAS_COLUMNS = 36 };
+
+static bool TerrainHasCell(const StageDescriptor *stage, int px, int y) {
+    for (int i = 0; i < stage->terrainCount; i++) {
+        StageTerrainFootprint footprint = stage->terrain[i];
+        if (px >= footprint.px && px < footprint.px + footprint.widthPx
+            && y >= footprint.y && y < footprint.y + footprint.heightPx) return true;
+    }
+    return false;
 }
 
-// An islet variant whose native aspect suits the destination -
-// stretching a round islet over Stage 2's 7:1 merged groups read as
-// obvious horizontal smearing (playtest 2026-07-17). Every variant
-// within tolerance of the best score is a candidate and the seed picks
-// among them, so adjacent chain segments and neighboring islands vary
-// instead of stamping one winner (the "two identical islands next to
-// each other" playtest note).
-static int PickIsletVariant(const GameAssets *assets, float destAspect,
-    unsigned int seed) {
-    float score[STAGE1_ISLET_VARIANT_COUNT];
-    float best = 1e9f;
-    for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
-        Texture2D candidate = assets->stage1IsletTex[i];
-        float aspect = candidate.height > 0
-            ? (float)candidate.width / (float)candidate.height : 1.0f;
-        score[i] = fabsf(logf(aspect / destAspect));
-        if (score[i] < best) best = score[i];
-    }
-    int candidates[STAGE1_ISLET_VARIANT_COUNT];
-    int count = 0;
-    for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
-        if (score[i] <= best + 0.30f) candidates[count++] = i;
-    }
-    return candidates[seed % (unsigned int)count];
+static bool TerrainVisualVertexLand(const StageDescriptor *stage, int px, int y) {
+    // Majority-filter the four 16px collision cells around a 32px visual-grid
+    // vertex. This preserves authored bays and hardpoint islands while
+    // removing the one-cell cog teeth visible in the first Wang prototype.
+    int land = 0;
+    if (TerrainHasCell(stage, px - 16, y - 16)) land++;
+    if (TerrainHasCell(stage, px, y - 16)) land++;
+    if (TerrainHasCell(stage, px - 16, y)) land++;
+    if (TerrainHasCell(stage, px, y)) land++;
+    return land >= 2;
 }
 
-// One island group's art: a single aspect-matched islet for compact and
-// double-length groups, and for very long groups a chain of overlapping
-// aspect-preserved islets along the axis (an archipelago ridge) instead of
-// one sprite stretched to the whole bounding box. Adapts to any stage's
-// shapes with no per-stage art.
-static void DrawIsletGroup(const GameAssets *assets, Rectangle destination,
-    unsigned int seed) {
-    float aspect = destination.height > 0.0f
-        ? destination.width / destination.height : 1.0f;
-    // The authored long variant is continuous at about 3:1. Preserve it as
-    // one landform; only start composing sprites beyond that useful aspect.
-    int segments = (int)ceilf(aspect / 3.2f);
-    if (segments < 1) segments = 1;
-    float stride = destination.width / (float)segments;
-    // Segments overlap ~40% so the chained blobs fuse into one landmass
-    // instead of reading as separate stamped islets.
-    float segWidth = segments > 1 ? stride * 1.4f : destination.width;
-
-    // Full sprites establish the silhouette and external shore. For a
-    // composite, inset copies then cover any coast pixels that landed inside
-    // another segment, leaving one continuous landmass instead of a cyan seam.
-    int layerCount = segments > 1 ? 2 : 1;
-    for (int layer = 0; layer < layerCount; layer++) {
-        for (int seg = 0; seg < segments; seg++) {
-            int variant = PickIsletVariant(assets,
-                segWidth / destination.height, seed + 31u * (unsigned int)seg);
-            Texture2D islet = layer == 0 ? assets->stage1IsletTex[variant]
-                : assets->stage1IsletInteriorTex[variant];
-            Rectangle source = {
-                0.0f, 0.0f, (float)islet.width, (float)islet.height
-            };
-            // Alternate horizontal flips off the seed so a repeated variant
-            // doesn't read as a copy-paste row.
-            if (((seed >> seg) ^ seg) & 1) source.width = -source.width;
-            Rectangle dst = {
-                destination.x + stride * (float)seg
-                    + (stride - segWidth) / 2.0f,
-                destination.y, segWidth, destination.height
-            };
-            DrawTexturePro(islet, source, dst, (Vector2){ 0 }, 0.0f, WHITE);
-        }
-    }
+static float TerrainInterfaceLatticeValue(int gridX, int gridY, unsigned int salt) {
+    unsigned int value = (unsigned int)gridX * 0x9e3779b9u
+        + (unsigned int)gridY * 0x85ebca6bu + salt;
+    value ^= value >> 16;
+    value *= 0x7feb352du;
+    value ^= value >> 15;
+    return (float)(value & 0xffffu) / 32767.5f - 1.0f;
 }
 
-// Collision retains the authored rectangular cells. Rendering merges every
-// touching group, so islet art replaces the visibly stacked shore rings
-// while targets still use the same stage coordinates. Islet art is still
-// the Stage 1 set; per-stage art selection remains Stage 2 content work.
+static float TerrainSmoothInterfaceNoise(float x, float y, unsigned int salt) {
+    int x0 = (int)floorf(x);
+    int y0 = (int)floorf(y);
+    float tx = x - (float)x0;
+    float ty = y - (float)y0;
+    tx = tx * tx * (3.0f - 2.0f * tx);
+    ty = ty * ty * (3.0f - 2.0f * ty);
+    float topLeft = TerrainInterfaceLatticeValue(x0, y0, salt);
+    float top = topLeft
+        + (TerrainInterfaceLatticeValue(x0 + 1, y0, salt) - topLeft) * tx;
+    float bottomLeft = TerrainInterfaceLatticeValue(x0, y0 + 1, salt);
+    float bottom = bottomLeft
+        + (TerrainInterfaceLatticeValue(x0 + 1, y0 + 1, salt) - bottomLeft) * tx;
+    return top + (bottom - top) * ty;
+}
+
+static unsigned int TerrainEdgeInterfaceLevel(int gridX, int gridY, bool vertical) {
+    // A shared world-grid edge still owns its interface, but sample a smooth
+    // field instead of hashing every edge independently. Crossing positions
+    // therefore drift over several tiles instead of alternating abruptly
+    // between opposite extremes and creating star-shaped coastlines.
+    float noise = TerrainSmoothInterfaceNoise(
+        (float)gridX * 0.28f + (vertical ? 7.25f : 0.0f),
+        (float)gridY * 0.28f + (vertical ? 3.75f : 0.0f),
+        vertical ? 0xc2b2ae35u : 0x27d4eb2fu);
+    if (noise < -0.24f) return 0u;
+    if (noise > 0.24f) return 2u;
+    return 1u;
+}
+
+// Select one 32px Wang tile from four shared corner states plus explicit
+// quarter/centre/three-quarter crossings on N/E/S/W. The atlas connects those
+// edge interfaces with a smooth pixel-field curve across the whole tile.
 static void DrawStandaloneTerrain(const GameState *state, const GameAssets *assets) {
     const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
-    // Belt and braces: stage_tests enforce the cap, so this bail can't
-    // fire for shipped data - and if it somehow does, invisible-but-
-    // colliding islands must never come back.
-    if (stage->terrainCount > MAX_STAGE_TERRAIN_RECTS) return;
+    int firstPx = (int)floorf((state->scrollDistance - GAME_WIDTH)
+        / TERRAIN_TILE_SIZE) * TERRAIN_TILE_SIZE;
+    int lastPx = (int)ceilf(state->scrollDistance / TERRAIN_TILE_SIZE)
+        * TERRAIN_TILE_SIZE;
+    for (int y = -TERRAIN_TILE_SIZE; y < PLAY_HEIGHT; y += TERRAIN_TILE_SIZE) {
+        for (int px = firstPx; px <= lastPx; px += TERRAIN_TILE_SIZE) {
+            int mask = 0;
+            if (TerrainVisualVertexLand(stage, px, y)) mask |= 1;
+            if (TerrainVisualVertexLand(stage, px + TERRAIN_TILE_SIZE, y)) mask |= 2;
+            if (TerrainVisualVertexLand(stage, px + TERRAIN_TILE_SIZE,
+                    y + TERRAIN_TILE_SIZE)) mask |= 4;
+            if (TerrainVisualVertexLand(stage, px, y + TERRAIN_TILE_SIZE)) mask |= 8;
+            if (mask == 0) continue;
 
-    bool visited[MAX_STAGE_TERRAIN_RECTS] = { false };
-
-    for (int start = 0; start < stage->terrainCount; start++) {
-        if (visited[start]) continue;
-
-        int pending[MAX_STAGE_TERRAIN_RECTS];
-        int next = 0;
-        int pendingCount = 1;
-        pending[0] = start;
-        float minX = 100000.0f, minY = 100000.0f, maxX = -100000.0f, maxY = -100000.0f;
-        visited[start] = true;
-
-        while (next < pendingCount) {
-            int current = pending[next++];
-            Rectangle currentRect = TerrainScreenRect(stage->terrain[current], state->scrollDistance);
-            if (currentRect.x < minX) minX = currentRect.x;
-            if (currentRect.y < minY) minY = currentRect.y;
-            if (currentRect.x + currentRect.width > maxX) maxX = currentRect.x + currentRect.width;
-            if (currentRect.y + currentRect.height > maxY) maxY = currentRect.y + currentRect.height;
-
-            for (int candidate = 0; candidate < stage->terrainCount; candidate++) {
-                if (!visited[candidate] && TerrainFootprintsTouch(stage->terrain[current], stage->terrain[candidate])) {
-                    visited[candidate] = true;
-                    pending[pendingCount++] = candidate;
-                }
-            }
+            int gridX = px / TERRAIN_TILE_SIZE;
+            int gridY = y / TERRAIN_TILE_SIZE;
+            unsigned int north = TerrainEdgeInterfaceLevel(gridX, gridY, false);
+            unsigned int east = TerrainEdgeInterfaceLevel(gridX + 1, gridY, true);
+            unsigned int south = TerrainEdgeInterfaceLevel(gridX, gridY + 1, false);
+            unsigned int west = TerrainEdgeInterfaceLevel(gridX, gridY, true);
+            int profile = (int)(north * 27u + east * 9u + south * 3u + west);
+            int tileIndex = mask * TERRAIN_WANG_PROFILE_COUNT + profile;
+            Rectangle source = {
+                (float)(tileIndex % TERRAIN_WANG_ATLAS_COLUMNS * TERRAIN_TILE_SIZE),
+                (float)(tileIndex / TERRAIN_WANG_ATLAS_COLUMNS * TERRAIN_TILE_SIZE),
+                TERRAIN_TILE_SIZE, TERRAIN_TILE_SIZE
+            };
+            float screenX = (float)px - state->scrollDistance + GAME_WIDTH;
+            DrawTextureRec(assets->terrainTileAtlasTex, source,
+                (Vector2){ screenX, (float)y }, WHITE);
         }
+    }
+}
 
-        const float shorelineMargin = 10.0f;
-        Rectangle destination = {
-            minX - shorelineMargin, minY - shorelineMargin,
-            maxX - minX + shorelineMargin * 2.0f, maxY - minY + shorelineMargin * 2.0f
-        };
-        if (destination.x > (float)GAME_WIDTH + shorelineMargin || destination.x + destination.width < -shorelineMargin) continue;
-        unsigned int variantSeed = (unsigned int)stage->terrain[start].px * 17u
-            ^ (unsigned int)stage->terrain[start].y * 31u ^ (unsigned int)start;
-        DrawIsletGroup(assets, destination, variantSeed);
+static unsigned int TerrainFeatureSeed(int px, int y) {
+    // Feature placement remains on a calm 32px cadence over the finer
+    // shoreline grid, so large land does not turn into visual noise.
+    unsigned int seed = (unsigned int)(px / 32) * 0x9e3779b9u
+        + (unsigned int)(y / 32) * 0x85ebca6bu;
+    seed ^= seed >> 16;
+    seed *= 0x7feb352du;
+    return seed ^ (seed >> 15);
+}
+
+static bool TerrainFeatureHasHardpoint(const StageDescriptor *stage, int px, int y) {
+    for (int i = 0; i < stage->hardpointCount; i++) {
+        StageTerrainHardpoint hardpoint = stage->hardpoints[i];
+        if (hardpoint.px >= px && hardpoint.px < px + 64
+            && hardpoint.y >= y && hardpoint.y < y + 64) return true;
+    }
+    return false;
+}
+
+// The 16px tiles construct continuous coastline. Sparse 64px overlays then
+// provide the larger, cross-tile crag/scrub masses seen in the island-art
+// reference. Only place them where all four underlying 32px quadrants exist;
+// they never spill over an inlet or a hardpoint pad.
+static void DrawTerrainFeatures(const GameState *state, const GameAssets *assets) {
+    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
+    int firstPx = (int)floorf((state->scrollDistance - GAME_WIDTH) / 64.0f) * 64;
+    int lastPx = (int)ceilf(state->scrollDistance / 64.0f) * 64;
+    for (int y = 0; y + 64 <= PLAY_HEIGHT; y += 64) {
+        for (int px = firstPx; px <= lastPx; px += 64) {
+            // Sample inside each quadrant. Requiring a full 64px plot keeps
+            // the transparent stamp away from bays and narrow necks.
+            if (!TerrainHasCell(stage, px + 16, y + 16)
+                || !TerrainHasCell(stage, px + 48, y + 16)
+                || !TerrainHasCell(stage, px + 16, y + 48)
+                || !TerrainHasCell(stage, px + 48, y + 48)) continue;
+            if (TerrainFeatureHasHardpoint(stage, px, y)) continue;
+            unsigned int seed = TerrainFeatureSeed(px, y);
+            if (seed % 2u != 0u) continue;
+            float screenX = (float)px - state->scrollDistance + GAME_WIDTH;
+            Rectangle source = { (float)((seed >> 4 & 3u) * 64u), 0.0f, 64.0f, 64.0f };
+            DrawTextureRec(assets->terrainFeatureAtlasTex, source,
+                (Vector2){ screenX, (float)y }, WHITE);
+        }
     }
 }
 
@@ -711,7 +729,7 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     }
 
     DrawStandaloneTerrain(state, assets);
-    DrawTerrainDetails(state, assets);
+    DrawTerrainFeatures(state, assets);
     DrawTerrainHardpoints(state, assets);
     DrawLandTargets(state, assets);
     DrawLandMortarShadows(state);

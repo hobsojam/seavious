@@ -53,6 +53,7 @@ enables it through `VCPKG_OVERLAY_PORTS`.
 
 - [Game design and progression](docs/game-design.md)
 - [Stage authoring](docs/stage-authoring.md)
+- [Terrain rendering experiments and direction](docs/terrain-rendering.md)
 - [Assets and audio](docs/assets-and-audio.md)
 - [Architecture and runtime structure](docs/architecture.md)
 - [Development, tests, and playtesting](docs/development.md)

@@ -25,6 +25,8 @@ MAGENTA = (216, 72, 192)    # air family
 WHITE_HOT = (255, 246, 216) # explosion-center palette (boss core)
 CYAN = (76, 224, 232)       # player faction (ship tech, title wordmark)
 GREEN = (108, 224, 96)      # land family (Stage 2 installations)
+SURF = (102, 224, 228)      # terrain-tile shoreline cyan
+SAND = (220, 174, 70)       # terrain-tile beach ochre
 # family color None = deliberately faction-less (the boss mortar: bare
 # steel means "no weapon works on this", so both faction colors must be
 # absent, not merely unrequired)
@@ -58,6 +60,14 @@ TERRAIN_COMPONENTS = {
     'stage1_islet_crescent.png': (1774, 887),
     'stage1_islet_atoll.png': (1448, 1086),
     'stage1_islet_long.png': (1774, 887),
+}
+
+TILE_GENERATORS = {
+    'gen-terrain-tile-atlas.py': ('terrain_tile_atlas.png', 1152, 1152),
+}
+
+FEATURE_GENERATORS = {
+    'gen-terrain-feature-atlas.py': ('terrain_feature_atlas.png', 256, 64),
 }
 
 failures = []
@@ -152,6 +162,67 @@ def validate_terrain_component(name, data, exp_w, exp_h):
               f'{name}: corner ({cx},{cy}) not transparent')
 
 
+def validate_tile_atlas(name, data, exp_w, exp_h):
+    width, height, pixels = parse_png(name, data)
+    check((width, height) == (exp_w, exp_h),
+          f'{name}: {width}x{height}, want {exp_w}x{exp_h}')
+    flat = [p for row in pixels for p in row]
+    opaque = [p for p in flat if p[3] == 255]
+    check(len(opaque) > len(flat) * 0.40,
+          f'{name}: only {len(opaque)} opaque pixels - atlas is unexpectedly sparse')
+    check(any(p[:3] == SURF for p in opaque), f'{name}: surf color missing')
+    check(any(p[:3] == SAND for p in opaque), f'{name}: beach color missing')
+
+
+def validate_wang_interfaces(gen):
+    """Shared crossings must join through land, beach, surf, and water."""
+    def profile(north, east, south, west):
+        return north * 27 + east * 9 + south * 3 + west
+
+    def band(pixel):
+        if pixel[3] == 0:
+            return 'water'
+        if pixel in (gen.SURF, gen.FOAM, gen.WASH):
+            return 'surf'
+        if pixel in (gen.SAND_DARK, gen.SAND, gen.SAND_LIT):
+            return 'beach'
+        return 'land'
+
+    horizontal_mask = gen.NW | gen.NE  # land above, water below
+    vertical_mask = gen.NW | gen.SW    # land left, water right
+    for level in range(3):
+        left = gen.make_tile(horizontal_mask, profile(0, level, 2, 1))
+        right = gen.make_tile(horizontal_mask, profile(2, 0, 1, level))
+        for y in range(gen.TILE):
+            check(band(left[y * gen.TILE + gen.TILE - 1])
+                  == band(right[y * gen.TILE]),
+                  f'Wang east/west seam differs at level {level}, y={y}')
+
+        upper = gen.make_tile(vertical_mask, profile(0, 2, level, 1))
+        lower = gen.make_tile(vertical_mask, profile(level, 1, 0, 2))
+        for x in range(gen.TILE):
+            check(band(upper[(gen.TILE - 1) * gen.TILE + x])
+                  == band(lower[x]),
+                  f'Wang north/south seam differs at level {level}, x={x}')
+
+    silhouettes = {tuple(gen.make_tile(gen.NW, profile(level, level, level, level)))
+                   for level in range(3)}
+    check(len(silhouettes) == 3,
+          'Wang interface levels do not produce distinct shoreline depths')
+
+
+def validate_feature_atlas(name, data, exp_w, exp_h):
+    width, height, pixels = parse_png(name, data)
+    check((width, height) == (exp_w, exp_h),
+          f'{name}: {width}x{height}, want {exp_w}x{exp_h}')
+    flat = [p for row in pixels for p in row]
+    opaque = [p for p in flat if p[3] == 255]
+    check(len(opaque) > len(flat) * 0.04,
+          f'{name}: only {len(opaque)} opaque pixels - feature atlas is unexpectedly sparse')
+    check(any(p[:3] == (109, 85, 64) for p in opaque), f'{name}: rock color missing')
+    check(any(p[:3] == (64, 109, 37) for p in opaque), f'{name}: scrub color missing')
+
+
 def main():
     total = 0
     for script, outputs in GENERATORS.items():
@@ -188,6 +259,49 @@ def main():
         if os.path.exists(path):
             with open(path, 'rb') as f:
                 validate_terrain_component(name, f.read(), *dimensions)
+
+    for script, (name, exp_w, exp_h) in TILE_GENERATORS.items():
+        total += 1
+        gen = load_tool(script)
+        with tempfile.TemporaryDirectory() as tmp:
+            gen.main(tmp)
+            path = os.path.join(tmp, name)
+            check(os.path.exists(path), f'{script} did not write {name}')
+            if not os.path.exists(path):
+                continue
+            with open(path, 'rb') as f:
+                data = f.read()
+            validate_tile_atlas(name, data, exp_w, exp_h)
+            validate_wang_interfaces(gen)
+            committed_path = os.path.join(REPO, 'assets', 'tiles', name)
+            check(os.path.exists(committed_path), f'{name}: missing from assets/tiles')
+            if os.path.exists(committed_path):
+                with open(committed_path, 'rb') as f:
+                    committed = f.read()
+                check(committed == data,
+                      f'{name}: committed asset differs from generator output '
+                      f'- rerun tools/{script} and commit the result')
+
+    for script, (name, exp_w, exp_h) in FEATURE_GENERATORS.items():
+        total += 1
+        gen = load_tool(script)
+        with tempfile.TemporaryDirectory() as tmp:
+            gen.main(tmp)
+            path = os.path.join(tmp, name)
+            check(os.path.exists(path), f'{script} did not write {name}')
+            if not os.path.exists(path):
+                continue
+            with open(path, 'rb') as f:
+                data = f.read()
+            validate_feature_atlas(name, data, exp_w, exp_h)
+            committed_path = os.path.join(REPO, 'assets', 'tiles', name)
+            check(os.path.exists(committed_path), f'{name}: missing from assets/tiles')
+            if os.path.exists(committed_path):
+                with open(committed_path, 'rb') as f:
+                    committed = f.read()
+                check(committed == data,
+                      f'{name}: committed asset differs from generator output '
+                      f'- rerun tools/{script} and commit the result')
 
     if failures:
         print(f'\n{len(failures)} failure(s)')

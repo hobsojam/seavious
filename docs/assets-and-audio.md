@@ -1,7 +1,7 @@
 # Assets and audio
 
 [Back to the README](../README.md) · [Stage authoring](stage-authoring.md) ·
-[Development guide](development.md)
+[Terrain rendering](terrain-rendering.md) · [Development guide](development.md)
 
 Runtime assets live under `assets/` and are copied beside the executable by
 CMake. Most source generation scripts are in `tools/`; keep a generated asset
@@ -25,6 +25,11 @@ atoll, ridge, and double-length variants.
 Hardpoint pads are functional markers, not generic decoration: they belong
 only below an actual land installation. Keep their stonework, shadow, and
 scale coherent with the surrounding island.
+
+Before changing reusable terrain composition, read the
+[terrain rendering decision record](terrain-rendering.md). It documents the
+resizing, mirroring, overlapping-sprite, binary-autotile, feature-overlay, and
+automatic-carving experiments, plus the agreed shoreline-interface direction.
 
 ## Audio
 

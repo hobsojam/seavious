@@ -36,13 +36,10 @@ typedef struct {
     int heightPx;
 } StageTerrainFootprint;
 
-// Ceiling on compiled terrain rects per stage: the island renderer's
-// grouping pass walks fixed-size scratch arrays sized to this, and
-// stage_tests assert every stage's table fits. The contract exists
-// because Stage 2 once shipped 43 rects past a silent 32-rect render
-// cap: every island went invisible while collision still used them,
-// and torpedoes died against open-looking water.
-#define MAX_STAGE_TERRAIN_RECTS 64
+// Ceiling on compiled terrain rects per stage. Stage 2's 16px coastline
+// mask intentionally creates more small rectangles than the old 32px map;
+// tests keep the table within this explicit engine contract.
+#define MAX_STAGE_TERRAIN_RECTS 256
 
 typedef struct {
     int px;        // left edge, map scroll-distance coordinates

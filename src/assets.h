@@ -26,6 +26,8 @@ typedef struct {
     Texture2D stage1IsletInteriorTex[STAGE1_ISLET_VARIANT_COUNT];
     Texture2D terrainGroundTex;
     Texture2D terrainShoreTex;
+    Texture2D terrainTileAtlasTex;
+    Texture2D terrainFeatureAtlasTex;
     Texture2D terrainHardpointTex;
     Texture2D terrainBrushTex;
     Texture2D terrainRockTex;
