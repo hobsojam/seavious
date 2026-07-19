@@ -65,7 +65,8 @@ typedef struct {
 // and phase behavior that key off this type differ per boss.
 typedef enum {
     BOSS_TYPE_LEVIATHAN,
-    BOSS_TYPE_FORTRESS_ATOLL
+    BOSS_TYPE_FORTRESS_ATOLL,
+    BOSS_TYPE_STORM_WARDEN
 } BossType;
 
 typedef enum {
@@ -100,6 +101,10 @@ typedef struct {
     float partFireTimer[BOSS_PART_COUNT];
     bool coreExposed;
     BossType type;
+    // Shared timed-vulnerability-window state: the fortress's sea gates
+    // and the Storm Warden's STORM/CALM weather cycle both just use
+    // "open" as their vulnerable window. fortressGateOpenCount is
+    // fortress-only sortie flavor - the Storm Warden never touches it.
     bool gatesOpen;
     float gateTimer;
     int fortressGateOpenCount;

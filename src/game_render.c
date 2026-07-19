@@ -178,8 +178,9 @@ static void DrawHud(const GameState *state) {
     DrawRectangle(389, top + 12, 115, 8, panelInset);
     DrawRectangleLines(389, top + 12, 115, 8, (Color){ 74, 94, 102, 90 });
     if (state->boss.phase == BOSS_PHASE_ENTERING || state->boss.phase == BOSS_PHASE_FIGHTING) {
-        DrawText(BossIsFortressAtoll(&state->boss) ? "FORTRESS" : "LEVIATHAN",
-            389, top + 4, 8, (Color){ 232, 72, 72, 255 });
+        const char *bossName = state->boss.type == BOSS_TYPE_FORTRESS_ATOLL ? "FORTRESS"
+            : state->boss.type == BOSS_TYPE_STORM_WARDEN ? "WARDEN" : "LEVIATHAN";
+        DrawText(bossName, 389, top + 4, 8, (Color){ 232, 72, 72, 255 });
         int fill = (int)(115.0f * (float)BossRemainingHp(&state->boss) / (float)BossTotalHp(&state->boss));
         DrawRectangle(389, top + 12, fill, 8, (Color){ 232, 72, 72, 255 });
     }
@@ -227,7 +228,14 @@ static void DrawBoss(const GameState *state, const GameAssets *assets) {
     const BossState *boss = &state->boss;
     if (boss->phase == BOSS_PHASE_INACTIVE) return;
 
-    if (BossIsFortressAtoll(boss)) {
+    // The Storm Warden has no art of its own yet (see TODO.md): it
+    // borrows the fortress's static-installation rendering wholesale
+    // rather than the Leviathan's rotating-hull one, which would be a
+    // worse mismatch for a fixed boss. The gate sprite's open/closed
+    // read still lines up semantically with gatesOpen (the Storm
+    // Warden's CALM window), even though the art itself will need
+    // replacing.
+    if (boss->type != BOSS_TYPE_LEVIATHAN) {
         Vector2 c = boss->hullCenter;
         DrawTexture(assets->fortressAtollTex,
             (int)(c.x - assets->fortressAtollTex.width / 2.0f),
@@ -406,7 +414,11 @@ static void DrawBossAirborne(const GameState *state, const GameAssets *assets) {
             ? state->player : boss->salvageDomePos;
         Texture2D salvageTex = assets->leviathanMortarTex;
         float rotation = 0.0f;
-        if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
+        // The Storm Warden's stabilizer salvage reuses the fortress's
+        // core-module art too (see the borrowed rendering note above) -
+        // both read as "extracting a glowing tech module," which fits
+        // better than reusing the plain mortar dome extraction.
+        if (boss->type != BOSS_TYPE_LEVIATHAN) {
             salvageTex = assets->fortressCoreTex;
             rotation = 360.0f * u;
             if (boss->phase == BOSS_PHASE_SALVAGE_DOCK) {

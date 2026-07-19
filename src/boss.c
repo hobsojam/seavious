@@ -35,6 +35,21 @@ static const struct {
     [BOSS_PART_CORE]      = { { 0.0f, 0.0f }, 18.0f },
 };
 
+// The Storm Warden is fixed like the fortress, but on a cardinal cross
+// rather than diagonal pads - a placeholder layout distinct from both
+// existing bosses pending real art. The core sits at the eye of the
+// storm, literally and in its larger radius.
+static const struct {
+    Vector2 offset;
+    float radius;
+} STORM_WARDEN_PART_GEOMETRY[BOSS_PART_COUNT] = {
+    [BOSS_PART_POD_FORE]  = { { 0.0f, -34.0f }, 11.0f },
+    [BOSS_PART_POD_AFT]   = { { 0.0f, 34.0f }, 11.0f },
+    [BOSS_PART_HULL_FORE] = { { -34.0f, 0.0f }, 13.0f },
+    [BOSS_PART_HULL_AFT]  = { { 34.0f, 0.0f }, 13.0f },
+    [BOSS_PART_CORE]      = { { 0.0f, 0.0f }, 16.0f },
+};
+
 static const Vector2 BOSS_MORTAR_OFFSET = { 78.0f, 0.0f };
 
 // A gate opening has a concrete purpose: one patrol craft sorties through
@@ -133,9 +148,22 @@ static Vector2 BossOffsetPosition(const BossState *boss, Vector2 offset) {
     };
 }
 
+// Both fixed installations (fortress, Storm Warden) place parts at a
+// constant offset from a static hullCenter; only the Leviathan rotates
+// its offsets with the ship's heading.
+static Vector2 StaticBossPartOffset(const BossState *boss, BossPartId part) {
+    return boss->type == BOSS_TYPE_FORTRESS_ATOLL
+        ? FORTRESS_PART_GEOMETRY[part].offset : STORM_WARDEN_PART_GEOMETRY[part].offset;
+}
+
+static float StaticBossPartRadius(const BossState *boss, BossPartId part) {
+    return boss->type == BOSS_TYPE_FORTRESS_ATOLL
+        ? FORTRESS_PART_GEOMETRY[part].radius : STORM_WARDEN_PART_GEOMETRY[part].radius;
+}
+
 Vector2 BossPartPosition(const BossState *boss, BossPartId part) {
-    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
-        Vector2 offset = FORTRESS_PART_GEOMETRY[part].offset;
+    if (boss->type != BOSS_TYPE_LEVIATHAN) {
+        Vector2 offset = StaticBossPartOffset(boss, part);
         return (Vector2){ boss->hullCenter.x + offset.x,
             boss->hullCenter.y + boss->settleOffset + offset.y };
     }
@@ -143,12 +171,12 @@ Vector2 BossPartPosition(const BossState *boss, BossPartId part) {
 }
 
 static float BossPartRadius(const BossState *boss, BossPartId part) {
-    return boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_PART_GEOMETRY[part].radius
+    return boss->type != BOSS_TYPE_LEVIATHAN ? StaticBossPartRadius(boss, part)
         : BOSS_PART_GEOMETRY[part].radius;
 }
 
 Vector2 BossMortarPosition(const BossState *boss) {
-    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
+    if (boss->type != BOSS_TYPE_LEVIATHAN) {
         return (Vector2){ boss->hullCenter.x, boss->hullCenter.y + boss->settleOffset };
     }
     return BossOffsetPosition(boss, BOSS_MORTAR_OFFSET);
@@ -168,6 +196,13 @@ bool BossSectionFacesPlayer(const BossState *boss, BossPartId part) {
 // in-place turn (the sweeping bow/stern are an accepted approximation).
 int BossHullBlockers(const BossState *boss, Rectangle out[3]) {
     if (boss->phase != BOSS_PHASE_ENTERING && boss->phase != BOSS_PHASE_FIGHTING) return 0;
+
+    // The Storm Warden's STORM/CALM cycle is a temporal gate, not a
+    // spatial one - unlike the fortress's painted land, there is no
+    // physical geometry here for a torpedo to hit; it just does nothing
+    // useful against a currently-shielded part (see the damage-eligibility
+    // checks below).
+    if (boss->type == BOSS_TYPE_STORM_WARDEN) return 0;
 
     // The fortress's sea gates close over the only torpedo route to the
     // core. They cycle for the whole fight (the player learns the rhythm
@@ -224,6 +259,10 @@ int BossTotalHp(const BossState *boss) {
     if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
         return 2 * FORTRESS_POD_HP + 2 * FORTRESS_RING_BATTERY_HP + FORTRESS_CORE_HP;
     }
+    if (boss->type == BOSS_TYPE_STORM_WARDEN) {
+        return 2 * STORM_WARDEN_POD_HP
+            + 2 * BOSS_HULL_SECTION_TORPEDO_WORTH * STORM_WARDEN_HULL_HP + STORM_WARDEN_CORE_HP;
+    }
     return 2 * BOSS_POD_HP + 2 * BOSS_HULL_SECTION_TORPEDO_WORTH * BOSS_HULL_SECTION_HP + BOSS_CORE_HP;
 }
 
@@ -247,7 +286,10 @@ static bool DamageBossPart(BossState *boss, BossPartId part, int damage, GameEve
     });
     bool outerDestroyed = !BossPartAlive(boss, BOSS_PART_HULL_FORE)
         && !BossPartAlive(boss, BOSS_PART_HULL_AFT);
-    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
+    // Both fixed installations require every outer part down (not just
+    // the hull-slot pair) before the core exposes - the Leviathan's
+    // narrower two-part requirement is specific to its mobile hull.
+    if (boss->type != BOSS_TYPE_LEVIATHAN) {
         outerDestroyed = outerDestroyed && !BossPartAlive(boss, BOSS_PART_POD_FORE)
             && !BossPartAlive(boss, BOSS_PART_POD_AFT);
     }
@@ -262,17 +304,34 @@ static bool DamageBossPart(BossState *boss, BossPartId part, int damage, GameEve
     return true;
 }
 
+// Starting HP per part, by boss type - pulled out of StartBossFight since
+// a fifth 3-way ternary per part reads worse than naming the cases.
+static int InitialPartHp(BossType type, BossPartId part) {
+    bool pod = part == BOSS_PART_POD_FORE || part == BOSS_PART_POD_AFT;
+    bool hull = part == BOSS_PART_HULL_FORE || part == BOSS_PART_HULL_AFT;
+    switch (type) {
+        case BOSS_TYPE_FORTRESS_ATOLL:
+            return pod ? FORTRESS_POD_HP : hull ? FORTRESS_RING_BATTERY_HP : FORTRESS_CORE_HP;
+        case BOSS_TYPE_STORM_WARDEN:
+            return pod ? STORM_WARDEN_POD_HP : hull ? STORM_WARDEN_HULL_HP : STORM_WARDEN_CORE_HP;
+        default:
+            return pod ? BOSS_POD_HP : hull ? BOSS_HULL_SECTION_HP : BOSS_CORE_HP;
+    }
+}
+
 static void StartBossFight(GameState *state) {
     BossState *boss = &state->boss;
     boss->phase = BOSS_PHASE_ENTERING;
     boss->phaseTimer = 0.0f;
     // Sails into view from below the arena, bow up, already on its
-    // patrol column.
-    boss->type = state->stageNumber == 2 ? BOSS_TYPE_FORTRESS_ATOLL : BOSS_TYPE_LEVIATHAN;
+    // patrol column - only the mobile Leviathan does; both fixed
+    // installations start already parked at their static position.
+    boss->type = state->stageNumber == 2 ? BOSS_TYPE_FORTRESS_ATOLL
+        : state->stageNumber == 3 ? BOSS_TYPE_STORM_WARDEN : BOSS_TYPE_LEVIATHAN;
     boss->gatesOpen = false;
     boss->gateTimer = 0.0f;
     boss->fortressGateOpenCount = 0;
-    boss->hullCenter = boss->type == BOSS_TYPE_FORTRESS_ATOLL
+    boss->hullCenter = boss->type != BOSS_TYPE_LEVIATHAN
         ? (Vector2){ 404.0f, 176.0f }
         : (Vector2){ BOSS_PATROL_X, (float)PLAY_HEIGHT + BOSS_HULL_HALF_LENGTH + 15.0f };
     boss->rotation = 90.0f;
@@ -281,13 +340,9 @@ static void StartBossFight(GameState *state) {
     boss->turnTimer = 0.0f;
     boss->settleOffset = 0.0f;
     boss->coreExposed = false;
-    boss->partHp[BOSS_PART_POD_FORE] = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_POD_HP : BOSS_POD_HP;
-    boss->partHp[BOSS_PART_POD_AFT] = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_POD_HP : BOSS_POD_HP;
-    boss->partHp[BOSS_PART_HULL_FORE] =
-        boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_RING_BATTERY_HP : BOSS_HULL_SECTION_HP;
-    boss->partHp[BOSS_PART_HULL_AFT] =
-        boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_RING_BATTERY_HP : BOSS_HULL_SECTION_HP;
-    boss->partHp[BOSS_PART_CORE] = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_CORE_HP : BOSS_CORE_HP;
+    for (int part = 0; part < BOSS_PART_COUNT; part++) {
+        boss->partHp[part] = InitialPartHp(boss->type, (BossPartId)part);
+    }
     for (int part = 0; part < BOSS_PART_COUNT; part++) {
         float interval = part <= BOSS_PART_POD_AFT ? BOSS_POD_FIRE_INTERVAL
             : (boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_RING_MORTAR_INTERVAL : BOSS_SAM_INTERVAL);
@@ -470,8 +525,11 @@ static void FireBossGuns(GameState *state, float dt) {
         float interval = pod ? BOSS_POD_FIRE_INTERVAL : BOSS_SAM_INTERVAL;
         // A shielded (far-side) section holds pre-armed, like enemies at
         // the activation line: its first shot comes right as the turn
-        // swings it around to face the player.
-        if (!pod && !BossSectionFacesPlayer(boss, (BossPartId)part)) {
+        // swings it around to face the player. Only the mobile Leviathan's
+        // broadside patrol makes "facing" meaningful; the Storm Warden is
+        // fixed (like the fortress's ring batteries, handled above via
+        // their own branch), so both its SAM cells fire continuously.
+        if (!pod && boss->type == BOSS_TYPE_LEVIATHAN && !BossSectionFacesPlayer(boss, (BossPartId)part)) {
             boss->partFireTimer[part] = interval;
             continue;
         }
@@ -552,7 +610,14 @@ static void ResolveBulletBossPartCollisions(GameState *state) {
         if (!state->bullets[b].active) continue;
         for (int i = 0; i < 3; i++) {
             BossPartId part = gunTargets[i];
-            if (part == BOSS_PART_CORE && (!boss->coreExposed || boss->type == BOSS_TYPE_FORTRESS_ATOLL)) continue;
+            // The deep core is torpedo-only on both fixed installations
+            // (the fortress channel/gate, the Storm Warden's own calm
+            // gate below); only the mobile Leviathan's core is dual-weapon.
+            if (part == BOSS_PART_CORE && (!boss->coreExposed || boss->type != BOSS_TYPE_LEVIATHAN)) continue;
+            // The Storm Warden shields every part in STORM, not just the
+            // core - the skill the stage teaches (wait for the calm
+            // window) becomes the boss's own mechanic.
+            if (boss->type == BOSS_TYPE_STORM_WARDEN && !boss->gatesOpen) continue;
             if (!BossPartAlive(boss, part)) continue;
             float hitDist = BULLET_RADIUS + BossPartRadius(boss, part);
             if (DistanceSquared(state->bullets[b].pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
@@ -574,6 +639,9 @@ TorpedoImpact ResolveTorpedoBossPartCollision(Torpedo *torpedo, BossState *boss,
         BossPartId part = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? BOSS_PART_CORE : torpedoTargets[i];
         if (part == BOSS_PART_CORE
             && (!boss->coreExposed || (boss->type == BOSS_TYPE_FORTRESS_ATOLL && !boss->gatesOpen))) continue;
+        // Unlike the fortress (core-only gate), the Storm Warden's calm
+        // window gates every part, hull sections included.
+        if (boss->type == BOSS_TYPE_STORM_WARDEN && !boss->gatesOpen) continue;
         if (!BossPartAlive(boss, part)) continue;
         float hitDist = BossPartRadius(boss, part) + TORPEDO_DIRECT_HIT_RADIUS;
         if (DistanceSquared(torpedo->pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
@@ -605,6 +673,7 @@ void ResolveBossSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *event
     for (int i = 0; i < 3; i++) {
         BossPartId part = torpedoTargets[i];
         if (part == BOSS_PART_CORE && !boss->coreExposed) continue;
+        if (boss->type == BOSS_TYPE_STORM_WARDEN && !boss->gatesOpen) continue;
         if (!BossPartAlive(boss, part)) continue;
         float hitDist = BossPartRadius(boss, part) + TORPEDO_SPLASH_RADIUS;
         if (DistanceSquared(pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
@@ -632,11 +701,13 @@ void ResolveBossMortarSplashDamage(BossState *boss, Vector2 pos, GameEventQueue 
 }
 
 bool ResolveBossContactDamage(const BossState *boss, Vector2 playerPos, float playerRadius) {
-    // The player flies safely over regular land, and the fixed fortress
-    // atoll follows that established rule. Its channel and harbour are
-    // visually water, so reusing their torpedo blockers as lethal contact
-    // geometry made otherwise safe water look arbitrarily deadly.
-    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) return false;
+    // The player flies safely over regular land, and both fixed
+    // installations (fortress, Storm Warden) follow that established
+    // rule. Their surroundings are visually water, so reusing their
+    // torpedo geometry as lethal contact geometry made otherwise safe
+    // water look arbitrarily deadly; only the mobile Leviathan's hull is
+    // a real physical obstacle.
+    if (boss->type != BOSS_TYPE_LEVIATHAN) return false;
     Rectangle blockers[3];
     int count = BossHullBlockers(boss, blockers);
     for (int i = 0; i < count; i++) {
@@ -671,7 +742,9 @@ void UpdateBossFight(GameState *state, float dt) {
 
     switch (boss->phase) {
         case BOSS_PHASE_ENTERING: {
-            if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
+            if (boss->type != BOSS_TYPE_LEVIATHAN) {
+                // Both fixed installations start already parked; only the
+                // mobile Leviathan has anywhere to sail in from.
                 if (boss->phaseTimer >= BOSS_ENTRANCE_DURATION) {
                     boss->phase = BOSS_PHASE_FIGHTING;
                     boss->phaseTimer = 0.0f;
@@ -691,7 +764,28 @@ void UpdateBossFight(GameState *state, float dt) {
             break;
         }
         case BOSS_PHASE_FIGHTING:
-            if (boss->type != BOSS_TYPE_FORTRESS_ATOLL) UpdateBossPatrol(boss, dt);
+            if (boss->type == BOSS_TYPE_LEVIATHAN) UpdateBossPatrol(boss, dt);
+            if (boss->type == BOSS_TYPE_STORM_WARDEN) {
+                // The same cycle shape as the fortress's sea gates
+                // (dwell timer, alternating open/closed, an event on
+                // every edge), reused as weather instead of a physical
+                // gate - no sortie boat, and every part (not just the
+                // core) is gated by it.
+                boss->gateTimer += dt;
+                float dwell = boss->gatesOpen
+                    ? STORM_WARDEN_CALM_DURATION : STORM_WARDEN_STORM_DURATION;
+                while (boss->gateTimer >= dwell) {
+                    boss->gateTimer -= dwell;
+                    boss->gatesOpen = !boss->gatesOpen;
+                    PushGameEvent(&state->gameEvents, (GameEvent){
+                        .type = boss->gatesOpen
+                            ? GAME_EVENT_BOSS_GATES_OPENED : GAME_EVENT_BOSS_GATES_CLOSED,
+                        .pos = BossPartPosition(boss, BOSS_PART_CORE)
+                    });
+                    dwell = boss->gatesOpen
+                        ? STORM_WARDEN_CALM_DURATION : STORM_WARDEN_STORM_DURATION;
+                }
+            }
             if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
                 // Gates cycle from the fight's first seconds with an
                 // asymmetric dwell (open runs longer than closed), each
@@ -770,14 +864,17 @@ void UpdateBossFight(GameState *state, float dt) {
         case BOSS_PHASE_SALVAGE_DOCK: {
             // The stage's upgrade module lifts from the boss and docks onto
             // the spine. Stage 1 uses the mortar dome; Stage 2 extracts the
-            // targeting computer from the fortress core at this same point.
+            // targeting computer from the fortress core; Stage 3 extracts
+            // the stabilizer from the Storm Warden's core at this same point.
             float u = SmoothStep01(boss->phaseTimer / BOSS_SALVAGE_DOCK_DURATION);
             boss->salvageDomePos = LerpV(BossMortarPosition(boss), state->player, u);
             if (boss->phaseTimer >= BOSS_SALVAGE_DOCK_DURATION) {
                 boss->salvageDomePos = state->player;
+                GameEventType salvageType = GAME_EVENT_MORTAR_SALVAGED;
+                if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) salvageType = GAME_EVENT_TARGETING_COMPUTER_SALVAGED;
+                if (boss->type == BOSS_TYPE_STORM_WARDEN) salvageType = GAME_EVENT_STABILIZER_SALVAGED;
                 PushGameEvent(&state->gameEvents, (GameEvent){
-                    .type = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? GAME_EVENT_TARGETING_COMPUTER_SALVAGED
-                        : GAME_EVENT_MORTAR_SALVAGED,
+                    .type = salvageType,
                     .pos = state->player
                 });
                 boss->phase = BOSS_PHASE_CLEARED;

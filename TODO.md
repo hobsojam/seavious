@@ -408,12 +408,39 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       clean build, all 6 CTest suites pass (`boss_tests` covers both
       existing bosses unchanged), and the game runs end-to-end through
       `SEAVIOUS_SMOKE_FRAMES=480`
-- [ ] Storm Warden boss: fixed weather-control installation, STORM/CALM
-      cycle reusing the fortress gate-cycle timers/telegraph-event
-      pattern (`gateTimer`, dwell durations, `PushGameEvent`) with parts
-      vulnerable only in CALM; core salvage grants the stabilizer
-      (`GAME_EVENT_STABILIZER_SALVAGED` alongside the existing mortar/
-      targeting-computer salvage events)
+- [x] Storm Warden boss (`BOSS_TYPE_STORM_WARDEN`): fixed weather-control
+      installation on a cardinal-cross placeholder layout (own
+      `STORM_WARDEN_PART_GEOMETRY`). Reuses the fortress's `gatesOpen`/
+      `gateTimer`/`PushGameEvent` cycle machinery for STORM/CALM, but
+      unlike the fortress (core-only gate) every part is damage-immune
+      in STORM and vulnerable to its normal weapon class only in CALM -
+      pods stay gun-weak, hull parts are torpedo-weak (Leviathan-style,
+      not the fortress's mortar-only ring batteries), the deep core is
+      torpedo-only once exposed (both fixed installations share that
+      rule; only the mobile Leviathan's core is dual-weapon). Exposing
+      the core requires all 4 outer parts down, like the fortress, not
+      the Leviathan's narrower 2-part rule. No physical torpedo blocker
+      - the gate is temporal, not spatial, so `BossHullBlockers` returns
+      0 and a torpedo during STORM just finds nothing to hit rather than
+      being blocked like land; non-contact-lethal like the fortress.
+      Hull-slot parts fire SAM missiles (Leviathan's mechanic) rather
+      than mortar lobs, continuously since there's no patrol/facing to
+      gate them. Core salvage pushes `GAME_EVENT_STABILIZER_SALVAGED`
+      (wired into `audio.c`'s switch, reusing the shared salvage cue -
+      no dedicated jingle yet). Unit-tested in `boss_tests.c`
+      (`TestStormWardenCalmGatesEveryPart`,
+      `TestStormWardenCoreNeedsAllFourOuterParts`,
+      `TestStormWardenNotContactLethalNoBlockers`,
+      `TestStormWardenCycleRhythmAndSalvage`). Verified against a real
+      Windows build: full clean build, all 6 CTest suites pass, and
+      `--stage 3 --boss` runs the actual fight end-to-end.
+      Placeholder/still open: no art at all yet (borrows the fortress's
+      textures wholesale for its full body, part icons, and salvage
+      module - a closer stand-in than the Leviathan's rotating-hull
+      rendering would be, but still not its own look); the STORM/CALM
+      cycle borrows the fortress's gate-creak SFX rather than a
+      dedicated weather cue; the `SEAVIOUS_SMOKE_FRAMES` headless
+      sequence still only scripts through Stage 1/2 (separate item below)
 - [x] Author `assets/stages/stage3.txt` and compile it: 8 beats, 5760px,
       open water (no terrain - the drift/rogue-wave mechanics are the
       point, not islands), escalating pressure over the existing

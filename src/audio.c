@@ -205,6 +205,9 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
                 break;
             case GAME_EVENT_MORTAR_SALVAGED:
             case GAME_EVENT_TARGETING_COMPUTER_SALVAGED:
+            // No dedicated stabilizer jingle yet (see TODO.md) - reuses
+            // the shared salvage cue rather than staying silent.
+            case GAME_EVENT_STABILIZER_SALVAGED:
                 PlayIfValid(audio->mortarSalvage);
                 break;
         }
