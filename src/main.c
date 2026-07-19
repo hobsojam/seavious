@@ -371,6 +371,40 @@ int main(int argc, char **argv) {
             state.boss.salvageDomePos = state.player;
             state.stageClear = true;
         }
+        // Same template again for Stage 3 / the Storm Warden: another
+        // ContinueRun off the Stage 2 clear above, a hand-built live
+        // snapshot (one dead part and one dead pod cover the scorch
+        // render branch too), then forced phase jumps to salvage/cleared.
+        if (smokeFrames > 0 && framesRun == 500 && state.stageClear) {
+            ContinueRun(&state);
+            // A live rogue wave mid-swell exercises DrawRogueWaves, and
+            // starting the boss in STORM (gatesOpen false) exercises the
+            // screen-wide storm wash before the CALM flip below clears it.
+            state.rogueWaves[0] = (RogueWave){
+                .pos = { 300.0f, 150.0f },
+                .t = 0.3f,
+                .active = true,
+            };
+            state.boss = (BossState){
+                .phase = BOSS_PHASE_FIGHTING,
+                .type = BOSS_TYPE_STORM_WARDEN,
+                .coreExposed = true,
+                .hullCenter = { 404.0f, 176.0f },
+                .gatesOpen = false,
+                .partHp = { 0, STORM_WARDEN_POD_HP, STORM_WARDEN_HULL_HP, 0, 1 },
+            };
+        }
+        if (smokeFrames > 0 && framesRun == 503) state.boss.gatesOpen = true;
+        if (smokeFrames > 0 && framesRun == 505) {
+            state.boss.phase = BOSS_PHASE_SALVAGE_DOCK;
+            state.boss.phaseTimer = 0.6f;
+            state.boss.salvageDomePos = BossPartPosition(&state.boss, BOSS_PART_CORE);
+        }
+        if (smokeFrames > 0 && framesRun == 507) {
+            state.boss.phase = BOSS_PHASE_CLEARED;
+            state.boss.salvageDomePos = state.player;
+            state.stageClear = true;
+        }
 
         if (quitConfirm) {
             QuitConfirmationResult confirmResult = UpdateQuitConfirmation(menuInput);

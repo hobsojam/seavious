@@ -689,9 +689,17 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       built on vcpkg's raylib 6.0 shows a permanently blank window at
       uncapped fps. Worked around locally via `vcpkg-overlays/raylib`
       (forces the flag OFF); affects raylib upstream and the vcpkg port
-- [ ] Extend the `SEAVIOUS_SMOKE_FRAMES` headless sequence (`main.c`) to
-      cover Stage 3: it's hand-scripted per frame number, not
-      table-driven, so this means another `ContinueRun` call plus a
-      hand-built Storm Warden `BossState` snapshot and forced
-      stage-clear trigger, following the existing Stage 2/fortress block
-      (~frames 474-479) as the template
+- [x] Extend the `SEAVIOUS_SMOKE_FRAMES` headless sequence (`main.c`) to
+      cover Stage 3: another `ContinueRun` off the Stage 2 clear, a
+      hand-built live Storm Warden `BossState` snapshot (one dead pod
+      and one dead hull part cover the scorch-render branch too), a live
+      rogue wave mid-swell, and a `gatesOpen` STORM→CALM flip so the new
+      `DrawStormOverlay` wash/clear paths both get exercised - then the
+      same forced salvage-dock/cleared jump as the Stage 2/fortress block
+      (frames 500-507, following the existing ~474-479 template).
+      `game_smoke`'s CTest budget raised from 480 to 510 frames to fit
+      it. Verified against a real Windows build: full clean build, all 6
+      CTest suites pass (`game_smoke` itself is Linux/xvfb-only so this
+      couldn't be exercised through CTest on Windows, but the same
+      scripted timeline was run headfully via `SEAVIOUS_SMOKE_FRAMES=510
+      ./seavious-dev.exe` with no crash)
