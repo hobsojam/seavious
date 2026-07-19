@@ -69,7 +69,7 @@ TitleResult UpdateTitleScreen(TitleScreen *title, const GameAssets *assets,
             });
         }
     }
-    UpdateWakeParticles(title->wake, MAX_WAKE_PARTICLES, dt);
+    UpdateWakeParticles(title->wake, MAX_WAKE_PARTICLES, dt, OCEAN_SCROLL_SPEED * dt);
 
     switch (title->screen) {
         case TITLE_SCREEN_ROOT: {

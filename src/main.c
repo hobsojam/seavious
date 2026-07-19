@@ -394,6 +394,12 @@ int main(int argc, char **argv) {
                 .partHp = { 0, STORM_WARDEN_POD_HP, STORM_WARDEN_HULL_HP, 0, 1 },
             };
         }
+        // Pushes gateTimer into the storm wash's fade-out window (still
+        // below the CALM-flip threshold) so DrawStormOverlay's fade-out
+        // branch actually executes headlessly, not just its fade-in one.
+        if (smokeFrames > 0 && framesRun == 502) {
+            state.boss.gateTimer = STORM_WARDEN_STORM_DURATION - 0.2f;
+        }
         if (smokeFrames > 0 && framesRun == 503) state.boss.gatesOpen = true;
         if (smokeFrames > 0 && framesRun == 505) {
             state.boss.phase = BOSS_PHASE_SALVAGE_DOCK;

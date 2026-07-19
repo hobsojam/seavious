@@ -47,7 +47,7 @@ static void TestMovementAndProjectiles(void) {
     WakeParticle wake[1] = { 0 };
     CHECK(TryEmitWakeParticle(wake, 1, (Vector2){ 10, 4 }));
     CHECK(!TryEmitWakeParticle(wake, 1, (Vector2){ 0, 0 }));
-    UpdateWakeParticles(wake, 1, WAKE_LIFETIME);
+    UpdateWakeParticles(wake, 1, WAKE_LIFETIME, 0.0f);
     CHECK(!wake[0].active);
 
     // The player wake covers the stern through its midpoint and the full
