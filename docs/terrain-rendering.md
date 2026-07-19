@@ -168,3 +168,81 @@ This remains a prototype. Its next evaluation is visual: check whether the
 coherent interfaces remove the pointed outline without making collision and
 apparent shore diverge noticeably. Multiple art variants for a given
 interface tuple should wait until that geometry is accepted.
+
+## Painted tile workflow
+
+`tools/export-terrain-art-templates.py` ranks the coast signatures actually
+used by Stage 2 and exports the twelve most common as an enlarged art-task
+sheet with a Markdown edge-contract brief. The first reviewed sheet lives in
+`assets/tiles/art-sources/`; it is source material, not a runtime texture.
+
+The first in-game import applied the sheet's painted ground inside selected
+coast tiles. Although the outer edge contract remained intact, those tiles
+appeared as rectangular moss patches beside generated/full-land neighbours.
+Small amounts of black preview water also became dark opaque wedges where the
+art draft drifted inside the authoritative alpha mask. That runtime import was
+removed. Its source sheet and templates remain as an experiment record; do not
+repeat the approach. Ground, crags, scrub, and soil variation must use larger
+metatiles so they cross the 32px grid and cannot reveal which coastline
+signature was selected.
+
+Rotation and mirroring should reduce the final authored set, but only for
+direction-neutral coast material. Transform the mask and all four edge
+interfaces together and test the transformed seams. Do not freely rotate or
+vertically mirror mountains, cast shadows, or other directional scenery;
+those belong in intentionally authored metatile variants.
+
+## Terrain metatiles
+
+Stage 2 uses the Wang atlas for topology, shoreline, and ground. Each shoreline
+signature has four phase variants: the four 32px quarters of the seamless 64px
+`terrain_ground_tile.png`. Runtime selects the quarter from the parity of the
+world-space Wang-grid coordinate. The ground texture therefore continues over
+tile boundaries, but remains baked inside the Wang shoreline silhouette; there
+are no rectangular interior overlays that can expose the grid.
+
+`terrain_ground.png` remains the reviewed high-resolution source. Run
+`python3 tools/gen-terrain-ground-tile.py` only when deliberately re-importing
+that art, then regenerate the Wang atlas. The importer reduces it to native
+pixel scale and reconciles only the opposite edge pixels. The
+committed 64px tile keeps routine atlas generation deterministic and fast.
+
+The inland part of every coastal Wang tile samples that same phased texture.
+Its opaque silhouette and interface positions remain unchanged, while the sand
+band is wider and mottled and the foam and cyan wash use broken colour patterns.
+This prevents the shoreline from reading as uniform yellow and cyan ribbons
+without weakening the exact edge contract.
+
+A separate reviewed atlas, `assets/tiles/terrain_feature_atlas.png`, contains
+four transparent 128px mountain compositions and four forest compositions.
+A stable hash of each Stage 2 hardpoint position chooses a family and variant,
+so an island remains visually identical every run without every island sharing
+the same scenery. Each variant combines three offset, complementary reviewed layouts so
+the selected family forms a main visual mass plus supporting detail instead of
+one isolated object. Rendering centres the composition on the installation before
+drawing the hardpoint itself. Every variant has a transparent 28px central pad:
+the visible mounting pad is 24px, leaving a two-pixel safety margin.
+Forest-family islands also receive the larger reviewed
+`terrain_brush_cluster.png` at a hashed side of the installation. A smaller
+fraction of either family receives `terrain_tide_pool.png` on the opposite
+side. These are stable per-island landmarks, not per-tile noise, and both are
+positioned outside the hardpoint clearance area.
+
+The current high-resolution 2x2 art sheet is retained at
+`assets/tiles/art-sources/terrain-metatiles-v2-source.png`; `v1` records the
+rejected dense import whose magenta edge pixels survived in game. Run
+`python3 tools/gen-terrain-feature-atlas.py` after deliberately changing that
+source. The importer removes the magenta matte, samples each composition at
+native resolution, rejects isolated olive specks that collapsed into repeated
+beads during the first Windows playtest, preserves only substantial asymmetric
+foliage clusters, and restores the clear hardpoint pad. The importer uses `ffmpeg` when
+available for fast decoding and has a Python standard-library fallback, but
+importing the large source is intentionally not part of routine tests. Tests
+validate the committed native atlas's dimensions, transparency, palette
+families, and all four central pads instead.
+
+Metatiles may cross visual tile boundaries, but they must remain transparent
+outside their feature mass. Use rotation or horizontal mirroring only for
+direction-neutral scrub and stones. Ridges, cliffs, lighting, and cast shadows
+need intentional variants. In-game review must check that a metatile neither
+spills visibly into water nor makes the collision shoreline appear to move.

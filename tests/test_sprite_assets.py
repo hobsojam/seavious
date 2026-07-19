@@ -27,6 +27,7 @@ CYAN = (76, 224, 232)       # player faction (ship tech, title wordmark)
 GREEN = (108, 224, 96)      # land family (Stage 2 installations)
 SURF = (102, 224, 228)      # terrain-tile shoreline cyan
 SAND = (220, 174, 70)       # terrain-tile beach ochre
+GROUND = (139, 110, 56)     # terrain-ground transition base
 # family color None = deliberately faction-less (the boss mortar: bare
 # steel means "no weapon works on this", so both faction colors must be
 # absent, not merely unrequired)
@@ -63,11 +64,11 @@ TERRAIN_COMPONENTS = {
 }
 
 TILE_GENERATORS = {
-    'gen-terrain-tile-atlas.py': ('terrain_tile_atlas.png', 1152, 1152),
+    'gen-terrain-tile-atlas.py': ('terrain_tile_atlas.png', 2304, 2304),
 }
 
-FEATURE_GENERATORS = {
-    'gen-terrain-feature-atlas.py': ('terrain_feature_atlas.png', 256, 64),
+FEATURE_ASSETS = {
+    'terrain_feature_atlas.png': (1024, 128),
 }
 
 failures = []
@@ -172,6 +173,12 @@ def validate_tile_atlas(name, data, exp_w, exp_h):
           f'{name}: only {len(opaque)} opaque pixels - atlas is unexpectedly sparse')
     check(any(p[:3] == SURF for p in opaque), f'{name}: surf color missing')
     check(any(p[:3] == SAND for p in opaque), f'{name}: beach color missing')
+    ground_colors = {
+        p[:3] for p in opaque
+        if p[0] > p[1] and p[1] > p[2] and 50 < p[2] < 150
+    }
+    check(len(ground_colors) > 24,
+          f'{name}: baked ground texture has too little colour variation')
 
 
 def validate_wang_interfaces(gen):
@@ -210,6 +217,15 @@ def validate_wang_interfaces(gen):
     check(len(silhouettes) == 3,
           'Wang interface levels do not produce distinct shoreline depths')
 
+    full_land = gen.NW | gen.NE | gen.SE | gen.SW
+    phases = {
+        tuple(gen.make_tile(full_land, 0, phase_x, phase_y))
+        for phase_y in range(gen.PHASES)
+        for phase_x in range(gen.PHASES)
+    }
+    check(len(phases) == gen.PHASE_COUNT,
+          'Wang ground phases do not produce four distinct texture quarters')
+
 
 def validate_feature_atlas(name, data, exp_w, exp_h):
     width, height, pixels = parse_png(name, data)
@@ -217,10 +233,45 @@ def validate_feature_atlas(name, data, exp_w, exp_h):
           f'{name}: {width}x{height}, want {exp_w}x{exp_h}')
     flat = [p for row in pixels for p in row]
     opaque = [p for p in flat if p[3] == 255]
-    check(len(opaque) > len(flat) * 0.04,
+    check(len(opaque) > len(flat) * 0.01,
           f'{name}: only {len(opaque)} opaque pixels - feature atlas is unexpectedly sparse')
-    check(any(p[:3] == (109, 85, 64) for p in opaque), f'{name}: rock color missing')
-    check(any(p[:3] == (64, 109, 37) for p in opaque), f'{name}: scrub color missing')
+    transparent = [p for p in flat if p[3] == 0]
+    check(len(transparent) > len(flat) * 0.45,
+          f'{name}: metatile atlas lacks transparent negative space')
+    check(any(p[0] > p[1] and p[1] > p[2] and p[0] > 80 for p in opaque),
+          f'{name}: rock family missing')
+    foliage = [p for p in opaque
+               if p[1] >= p[0] * 0.78 and p[2] < p[1] * 0.65]
+    check(len(foliage) > 150,
+          f'{name}: substantial foliage clusters are missing')
+    for tile in range(8):
+        tile_opaque = sum(
+            pixels[y][x][3] == 255
+            for y in range(128)
+            for x in range(tile * 128, tile * 128 + 128)
+        )
+        check(tile_opaque > 20,
+              f'{name}: metatile {tile} has too little feature art')
+        tile_foliage = sum(
+            pixels[y][x][3] == 255
+            and pixels[y][x][1] >= pixels[y][x][0] * 0.78
+            and pixels[y][x][2] < pixels[y][x][1] * 0.65
+            for y in range(128)
+            for x in range(tile * 128, tile * 128 + 128)
+        )
+        if tile < 4:
+            check(tile_foliage == 0,
+                  f'{name}: mountain metatile {tile} contains foliage')
+        else:
+            check(tile_foliage > 20,
+                  f'{name}: forest metatile {tile} lacks a readable foliage cluster')
+        pad_is_clear = all(
+            pixels[y][x][3] == 0
+            for y in range(50, 78)
+            for x in range(tile * 128 + 50, tile * 128 + 78)
+        )
+        check(pad_is_clear,
+              f'{name}: metatile {tile} obstructs its hardpoint pad')
 
 
 def main():
@@ -282,26 +333,16 @@ def main():
                       f'{name}: committed asset differs from generator output '
                       f'- rerun tools/{script} and commit the result')
 
-    for script, (name, exp_w, exp_h) in FEATURE_GENERATORS.items():
+    # Feature metatiles are reviewed bitmap art rather than procedurally
+    # authored sprites. Validate the committed native atlas directly; the
+    # high-resolution source importer is intentionally a manual art tool.
+    for name, (exp_w, exp_h) in FEATURE_ASSETS.items():
         total += 1
-        gen = load_tool(script)
-        with tempfile.TemporaryDirectory() as tmp:
-            gen.main(tmp)
-            path = os.path.join(tmp, name)
-            check(os.path.exists(path), f'{script} did not write {name}')
-            if not os.path.exists(path):
-                continue
+        path = os.path.join(REPO, 'assets', 'tiles', name)
+        check(os.path.exists(path), f'{name}: missing from assets/tiles')
+        if os.path.exists(path):
             with open(path, 'rb') as f:
-                data = f.read()
-            validate_feature_atlas(name, data, exp_w, exp_h)
-            committed_path = os.path.join(REPO, 'assets', 'tiles', name)
-            check(os.path.exists(committed_path), f'{name}: missing from assets/tiles')
-            if os.path.exists(committed_path):
-                with open(committed_path, 'rb') as f:
-                    committed = f.read()
-                check(committed == data,
-                      f'{name}: committed asset differs from generator output '
-                      f'- rerun tools/{script} and commit the result')
+                validate_feature_atlas(name, f.read(), exp_w, exp_h)
 
     if failures:
         print(f'\n{len(failures)} failure(s)')

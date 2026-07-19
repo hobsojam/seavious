@@ -393,7 +393,11 @@ static void DrawBossAirborne(const GameState *state, const GameAssets *assets) {
 }
 
 enum { TERRAIN_TILE_SIZE = 32 };
-enum { TERRAIN_WANG_PROFILE_COUNT = 81, TERRAIN_WANG_ATLAS_COLUMNS = 36 };
+enum {
+    TERRAIN_WANG_PROFILE_COUNT = 81,
+    TERRAIN_WANG_PHASE_COUNT = 4,
+    TERRAIN_WANG_ATLAS_COLUMNS = 72
+};
 
 static bool TerrainHasCell(const StageDescriptor *stage, int px, int y) {
     for (int i = 0; i < stage->terrainCount; i++) {
@@ -481,7 +485,10 @@ static void DrawStandaloneTerrain(const GameState *state, const GameAssets *asse
             unsigned int south = TerrainEdgeInterfaceLevel(gridX, gridY + 1, false);
             unsigned int west = TerrainEdgeInterfaceLevel(gridX, gridY, true);
             int profile = (int)(north * 27u + east * 9u + south * 3u + west);
-            int tileIndex = mask * TERRAIN_WANG_PROFILE_COUNT + profile;
+            int phaseX = gridX & 1;
+            int phaseY = gridY & 1;
+            int tileIndex = (mask * TERRAIN_WANG_PROFILE_COUNT + profile)
+                * TERRAIN_WANG_PHASE_COUNT + phaseY * 2 + phaseX;
             Rectangle source = {
                 (float)(tileIndex % TERRAIN_WANG_ATLAS_COLUMNS * TERRAIN_TILE_SIZE),
                 (float)(tileIndex / TERRAIN_WANG_ATLAS_COLUMNS * TERRAIN_TILE_SIZE),
@@ -494,48 +501,47 @@ static void DrawStandaloneTerrain(const GameState *state, const GameAssets *asse
     }
 }
 
-static unsigned int TerrainFeatureSeed(int px, int y) {
-    // Feature placement remains on a calm 32px cadence over the finer
-    // shoreline grid, so large land does not turn into visual noise.
-    unsigned int seed = (unsigned int)(px / 32) * 0x9e3779b9u
-        + (unsigned int)(y / 32) * 0x85ebca6bu;
-    seed ^= seed >> 16;
-    seed *= 0x7feb352du;
-    return seed ^ (seed >> 15);
-}
-
-static bool TerrainFeatureHasHardpoint(const StageDescriptor *stage, int px, int y) {
+// Coast tiles deliberately keep a quiet shared ground. One transparent 128px
+// metatile then crosses that grid around each Stage 2 installation. Every art
+// variant has a clear centre, so the hardpoint remains a readable mounting pad.
+static void DrawTerrainFeatures(const GameState *state, const GameAssets *assets) {
+    if (state->stageNumber != 2) return;
+    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
     for (int i = 0; i < stage->hardpointCount; i++) {
         StageTerrainHardpoint hardpoint = stage->hardpoints[i];
-        if (hardpoint.px >= px && hardpoint.px < px + 64
-            && hardpoint.y >= y && hardpoint.y < y + 64) return true;
-    }
-    return false;
-}
+        float screenX = (float)hardpoint.px - state->scrollDistance
+            + GAME_WIDTH - 48.0f;
+        if (screenX > GAME_WIDTH || screenX + 128.0f < 0.0f) continue;
+        unsigned int seed = (unsigned int)hardpoint.px * 0x9e3779b9u
+            + (unsigned int)hardpoint.y * 0x85ebca6bu;
+        seed ^= seed >> 16;
+        seed *= 0x7feb352du;
+        seed ^= seed >> 15;
+        unsigned int family = (seed >> 3) & 1u;
+        unsigned int variant = seed & 3u;
+        Rectangle source = {
+            (float)((family * 4u + variant) * 128u), 0.0f, 128.0f, 128.0f
+        };
+        DrawTextureRec(assets->terrainFeatureAtlasTex, source,
+            (Vector2){ screenX, (float)hardpoint.y - 48.0f }, WHITE);
 
-// The 16px tiles construct continuous coastline. Sparse 64px overlays then
-// provide the larger, cross-tile crag/scrub masses seen in the island-art
-// reference. Only place them where all four underlying 32px quadrants exist;
-// they never spill over an inlet or a hardpoint pad.
-static void DrawTerrainFeatures(const GameState *state, const GameAssets *assets) {
-    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
-    int firstPx = (int)floorf((state->scrollDistance - GAME_WIDTH) / 64.0f) * 64;
-    int lastPx = (int)ceilf(state->scrollDistance / 64.0f) * 64;
-    for (int y = 0; y + 64 <= PLAY_HEIGHT; y += 64) {
-        for (int px = firstPx; px <= lastPx; px += 64) {
-            // Sample inside each quadrant. Requiring a full 64px plot keeps
-            // the transparent stamp away from bays and narrow necks.
-            if (!TerrainHasCell(stage, px + 16, y + 16)
-                || !TerrainHasCell(stage, px + 48, y + 16)
-                || !TerrainHasCell(stage, px + 16, y + 48)
-                || !TerrainHasCell(stage, px + 48, y + 48)) continue;
-            if (TerrainFeatureHasHardpoint(stage, px, y)) continue;
-            unsigned int seed = TerrainFeatureSeed(px, y);
-            if (seed % 2u != 0u) continue;
-            float screenX = (float)px - state->scrollDistance + GAME_WIDTH;
-            Rectangle source = { (float)((seed >> 4 & 3u) * 64u), 0.0f, 64.0f, 64.0f };
-            DrawTextureRec(assets->terrainFeatureAtlasTex, source,
-                (Vector2){ screenX, (float)y }, WHITE);
+        float centreX = screenX + 64.0f;
+        float centreY = (float)hardpoint.y + 16.0f;
+        float directionX = (seed & 0x10u) ? -1.0f : 1.0f;
+        float directionY = (seed & 0x20u) ? -1.0f : 1.0f;
+        if (family == 1u) {
+            DrawTexture(assets->terrainBrushTex,
+                (int)(centreX + directionX * 42.0f
+                    - assets->terrainBrushTex.width / 2.0f),
+                (int)(centreY + directionY * 18.0f
+                    - assets->terrainBrushTex.height / 2.0f), WHITE);
+        }
+        if (((seed >> 6) & 3u) == 0u) {
+            DrawTexture(assets->terrainTidePoolTex,
+                (int)(centreX - directionX * 40.0f
+                    - assets->terrainTidePoolTex.width / 2.0f),
+                (int)(centreY - directionY * 18.0f
+                    - assets->terrainTidePoolTex.height / 2.0f), WHITE);
         }
     }
 }

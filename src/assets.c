@@ -160,14 +160,13 @@ GameAssets LoadGameAssets(void) {
         LoadTerrainSprite(isletPaths[i], &assets.stage1IsletTex[i],
             &assets.stage1IsletInteriorTex[i]);
     }
-    assets.terrainGroundTex = LoadTerrainTile("assets/tiles/terrain_ground.png", 128, 128, false);
     assets.terrainShoreTex = LoadTerrainTile("assets/tiles/terrain_shore_top.png", 128, 16, true);
-    assets.terrainTileAtlasTex = LoadTerrainTile("assets/tiles/terrain_tile_atlas.png", 1152, 1152, false);
-    assets.terrainFeatureAtlasTex = LoadTerrainTile("assets/tiles/terrain_feature_atlas.png", 256, 64, false);
+    assets.terrainTileAtlasTex = LoadTerrainTile("assets/tiles/terrain_tile_atlas.png", 2304, 2304, false);
+    assets.terrainFeatureAtlasTex = LoadTerrainTile("assets/tiles/terrain_feature_atlas.png", 1024, 128, false);
     assets.terrainHardpointTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_island_hardpoint.png", 32, 32);
-    assets.terrainBrushTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_brush_cluster.png", 36, 24);
+    assets.terrainBrushTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_brush_cluster.png", 56, 24);
     assets.terrainRockTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_rock_scatter.png", 28, 24);
-    assets.terrainTidePoolTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_tide_pool.png", 28, 18);
+    assets.terrainTidePoolTex = LoadChromaKeyTerrainTile("assets/tiles/terrain_tide_pool.png", 44, 24);
 
     assets.oceanTex = LoadTexture("assets/tiles/ocean.png");
     SetTextureFilter(assets.oceanTex, TEXTURE_FILTER_POINT);
@@ -202,7 +201,6 @@ void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->terrainFeatureAtlasTex);
     UnloadTexture(assets->terrainTileAtlasTex);
     UnloadTexture(assets->terrainShoreTex);
-    UnloadTexture(assets->terrainGroundTex);
     UnloadTexture(assets->leviathanCoreTex);
     UnloadTexture(assets->leviathanMortarTex);
     UnloadTexture(assets->leviathanHullSectionTex);

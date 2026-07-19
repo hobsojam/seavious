@@ -87,9 +87,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       scroll distance, so the boss lock freezes land for free and ground
       enemies anchored to islets (beat 7's Relay Node) just work by map
       placement. Deferred wreck question decided: wrecks stay inert and
-      do NOT block torpedoes. The later authored-islet pass replaced the
-      old code-drawn coastline treatment; terrain guidance now lives in
-      `docs/assets-and-audio.md`.
+      do NOT block torpedoes. Stage 1 uses authored island components;
+      Stage 2 uses its dedicated 16px collision mask with a Wang-style
+      visual shoreline and sparse installation-centred rocky metatiles. Terrain
+      guidance and experiment history live in `docs/assets-and-audio.md`
+      and `docs/terrain-rendering.md`.
 - [x] Implement HUD (reserved 512x32 bottom bar, play area 512x352):
       two reserve-life icons for the initial three-life count, score
       center-left, live torpedo ready/flight/reload status right, and space
@@ -136,8 +138,18 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       group, to check pixel density, palette, coastline weight, and seams.
 - [ ] Terrain-component visual audit: the crescent and sandy atoll were
       restyled against those references and a continuous double-length
-      island was added; check the remaining crag variant at game scale
-      before deciding whether it also needs replacement
+      island was added; check the remaining Stage 1 crag variant at game
+      scale before deciding whether it also needs replacement
+- [x] Stage 2 Wang terrain art pass: a dedicated 16px terrain mask remains
+      authoritative for collision while coherent 32px shoreline interfaces
+      produce curved, exactly joining visual tiles. Four atlas phases bake a
+      seamless 64px painted ground texture through every Wang cell, while stable
+      per-island selection chooses one of four mountain or four forest metatiles
+      around land installations without exposing the tile grid or hardpoints.
+      The dense first feature import and its magenta fringe were rejected;
+      the asymmetric `terrain-metatiles-v2-source.png` set was accepted in
+      the Windows playtest on 2026-07-18. The failed approaches and current
+      authoring contract are recorded in `docs/terrain-rendering.md`.
 - [x] Fortress rework pass 1 (playtest 2026-07-17, see
       `docs/game-design.md`): ring batteries return staggered mortar fire on the
       stage's cadence; sea gates cycle from fight start (open dwell >
@@ -320,10 +332,11 @@ Milestone — scrolling background + player sprite + 4-directional controls:
 - [x] Sinking surface ships: the Mobile Platform uses its own hull sprite
       as a short underwater, faded sinking treatment instead of leaving the
       generic black wreck circle. Other surface wrecks remain inert.
-- [x] Island/islet terrain art: authored/generated components now replace
-      the former code-drawn rounded coastline look. Keep improving the
-      current set through the terrain visual-audit item above rather than
-      reviving the removed cell-autotile prototype.
+- [x] Island/islet terrain art: Stage 1's authored/generated components
+      replace the former code-drawn rounded coastline look. Stage 2 now uses
+      the separate Wang shoreline system recorded above. Keep improving the
+      Stage 1 component set through the remaining visual-audit item rather
+      than conflating the two terrain pipelines.
 - [x] Air enemy sprites (drone swarms) — Skimmer Drone, Interceptor, and
       Gunship first passes all done (see Art below)
 
