@@ -765,7 +765,9 @@ void UpdateBossFight(GameState *state, float dt) {
             break;
         }
         case BOSS_PHASE_SALVAGE_DOCK: {
-            // The dome lifts off the wreck and docks onto the spine.
+            // The stage's upgrade module lifts from the boss and docks onto
+            // the spine. Stage 1 uses the mortar dome; Stage 2 extracts the
+            // targeting computer from the fortress core at this same point.
             float u = SmoothStep01(boss->phaseTimer / BOSS_SALVAGE_DOCK_DURATION);
             boss->salvageDomePos = LerpV(BossMortarPosition(boss), state->player, u);
             if (boss->phaseTimer >= BOSS_SALVAGE_DOCK_DURATION) {
