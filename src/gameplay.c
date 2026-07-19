@@ -561,8 +561,18 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt) {
     Vector2 toTarget = { torpedo->target.x - torpedo->pos.x, torpedo->target.y - torpedo->pos.y };
     float remaining = sqrtf(toTarget.x * toTarget.x + toTarget.y * toTarget.y);
     float step = TORPEDO_SPEED * dt;
+    float rangeLeft = TORPEDO_MAX_RANGE - torpedo->distanceTravelled;
 
-    if (remaining <= step || remaining <= 0.0f) {
+    // The endpoint drifts with the water and lead shots aim diagonally, so
+    // it is only an aim marker. Range itself is a property of the torpedo:
+    // never allow a moving endpoint to extend the weapon's lifetime.
+    if (rangeLeft <= 0.0f) {
+        torpedo->active = false;
+        return TorpedoImpactAt(torpedo->armed ? TORPEDO_IMPACT_EXPLOSION : TORPEDO_IMPACT_DIRECT,
+            torpedo->pos);
+    }
+
+    if ((remaining <= step && remaining <= rangeLeft) || remaining <= 0.0f) {
         torpedo->pos = torpedo->target;
         torpedo->distanceTravelled += remaining;
         torpedo->armed = torpedo->distanceTravelled >= TORPEDO_ARMING_DISTANCE;
@@ -570,10 +580,16 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt) {
         return TorpedoImpactAt(torpedo->armed ? TORPEDO_IMPACT_EXPLOSION : TORPEDO_IMPACT_DIRECT, torpedo->pos);
     }
 
-    torpedo->pos.x += torpedo->vel.x * dt;
-    torpedo->pos.y += torpedo->vel.y * dt;
-    torpedo->distanceTravelled += step;
+    float travel = step < rangeLeft ? step : rangeLeft;
+    float travelTime = travel / TORPEDO_SPEED;
+    torpedo->pos.x += torpedo->vel.x * travelTime;
+    torpedo->pos.y += torpedo->vel.y * travelTime;
+    torpedo->distanceTravelled += travel;
     if (torpedo->distanceTravelled >= TORPEDO_ARMING_DISTANCE) torpedo->armed = true;
+    if (torpedo->distanceTravelled >= TORPEDO_MAX_RANGE) {
+        torpedo->active = false;
+        return TorpedoImpactAt(TORPEDO_IMPACT_EXPLOSION, torpedo->pos);
+    }
 
     return NoTorpedoImpact();
 }

@@ -205,6 +205,44 @@ static void TestTorpedoes(void) {
     GameEventQueue events = { 0 };
     impact = ResolveTorpedoSurfaceTargetCollision(&torpedo, &target, 1, &events);
     CHECK(impact.type == TORPEDO_IMPACT_DIRECT && !target.active && events.count == 1);
+
+    // The lead path keeps travelling normally while it still has both a
+    // distant endpoint and range budget remaining.
+    Torpedo travelling = {
+        .active = true,
+        .pos = spawn,
+        .target = { 1000, spawn.y },
+        .vel = { TORPEDO_SPEED, 0 },
+    };
+    impact = UpdateTorpedo(&travelling, 0.1f);
+    CHECK(impact.type == TORPEDO_IMPACT_NONE && travelling.active);
+    NEAR(travelling.distanceTravelled, 20.0f);
+
+    // Lead torpedoes use a moving visual endpoint, but their travel budget
+    // remains the same as a fixed-lane torpedo. A large update must stop at
+    // the final permitted unit rather than following the endpoint farther.
+    Torpedo capped = {
+        .active = true,
+        .armed = true,
+        .pos = spawn,
+        .target = { 1000, spawn.y },
+        .vel = { TORPEDO_SPEED, 0 },
+        .distanceTravelled = TORPEDO_MAX_RANGE - 1.0f,
+    };
+    impact = UpdateTorpedo(&capped, 1.0f);
+    CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION && !capped.active);
+    NEAR(capped.distanceTravelled, TORPEDO_MAX_RANGE);
+    NEAR(capped.pos.x, spawn.x + 1.0f);
+
+    // A torpedo which was already at its maximum cannot be revived by a
+    // newly moved endpoint.
+    Torpedo exhausted = capped;
+    exhausted.active = true;
+    exhausted.pos = spawn;
+    impact = UpdateTorpedo(&exhausted, 0.1f);
+    CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION && !exhausted.active);
+    NEAR(exhausted.distanceTravelled, TORPEDO_MAX_RANGE);
+    NEAR(exhausted.pos.x, spawn.x);
 }
 
 static void TestTerrain(void) {
