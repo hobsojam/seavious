@@ -66,7 +66,8 @@ Stage 2 turns shorelines into tactical lanes. It begins by teaching exposed
 Mortar Batteries and Drone Bunkers, builds into a strait run, then ends at the
 fortress atoll. Its boss combines gun-vulnerable pods, mortar-only ring
 batteries, cycling sea gates, and a protected core. Its salvage is the
-targeting computer, which enables lead torpedoes.
+targeting computer: the luminous core module lifts out and docks onto the
+player ship, enabling lead torpedoes.
 
 Stage maps, encounter beats, and glyphs are documented in
 [Stage authoring](stage-authoring.md). Future work belongs in [TODO.md](../TODO.md),

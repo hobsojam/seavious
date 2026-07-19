@@ -393,22 +393,43 @@ static void DrawBossAirborne(const GameState *state, const GameAssets *assets) {
         rlPopMatrix();
     }
 
-    // Salvage: the dome lifts off the wreck, shrinks slightly as it
-    // docks onto the skimmer's spine, and rides there from then on.
+    // Salvage: Stage 1 lifts the mortar dome from the wreck; Stage 2
+    // extracts the fortress core's targeting module. Both shrink onto the
+    // skimmer's spine, but the computer spins inside a cyan acquisition ring
+    // so it cannot be mistaken for the mortar salvaged in the first stage.
     if (boss->phase >= BOSS_PHASE_SALVAGE_DOCK) {
         float u = boss->phase == BOSS_PHASE_SALVAGE_DOCK
             ? boss->phaseTimer / BOSS_SALVAGE_DOCK_DURATION : 1.0f;
         if (u > 1.0f) u = 1.0f;
         float scale = 1.0f - 0.45f * u;
-        Vector2 domePos = boss->phase == BOSS_PHASE_CLEARED ? state->player : boss->salvageDomePos;
-        DrawTextureEx(
-            assets->leviathanMortarTex,
-            (Vector2){
-                domePos.x - assets->leviathanMortarTex.width / 2.0f * scale,
-                domePos.y - assets->leviathanMortarTex.height / 2.0f * scale
-            },
-            0.0f, scale, WHITE
-        );
+        Vector2 salvagePos = boss->phase == BOSS_PHASE_CLEARED
+            ? state->player : boss->salvageDomePos;
+        Texture2D salvageTex = assets->leviathanMortarTex;
+        float rotation = 0.0f;
+        if (boss->fortressAtoll) {
+            salvageTex = assets->fortressCoreTex;
+            rotation = 360.0f * u;
+            if (boss->phase == BOSS_PHASE_SALVAGE_DOCK) {
+                float pulse = 0.5f + 0.5f * sinf(u * PI * 8.0f);
+                float ringRadius = 13.0f + 4.0f * pulse;
+                unsigned char alpha = (unsigned char)(210.0f * (1.0f - 0.55f * u));
+                DrawCircleLines((int)salvagePos.x, (int)salvagePos.y,
+                    ringRadius, (Color){ 76, 224, 232, alpha });
+                DrawLineEx((Vector2){ salvagePos.x - ringRadius - 3.0f, salvagePos.y },
+                    (Vector2){ salvagePos.x - ringRadius + 3.0f, salvagePos.y },
+                    1.0f, (Color){ 232, 248, 248, alpha });
+                DrawLineEx((Vector2){ salvagePos.x + ringRadius - 3.0f, salvagePos.y },
+                    (Vector2){ salvagePos.x + ringRadius + 3.0f, salvagePos.y },
+                    1.0f, (Color){ 232, 248, 248, alpha });
+            }
+        }
+        DrawTexturePro(salvageTex,
+            (Rectangle){ 0, 0, (float)salvageTex.width, (float)salvageTex.height },
+            (Rectangle){ salvagePos.x, salvagePos.y,
+                salvageTex.width * scale, salvageTex.height * scale },
+            (Vector2){ salvageTex.width * scale / 2.0f,
+                salvageTex.height * scale / 2.0f },
+            rotation, WHITE);
     }
 }
 
@@ -1008,12 +1029,19 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         DrawText("GAME OVER", 162, 150, 24, (Color){ 232, 248, 248, 255 });
         DrawText("PRESS R TO RESTART", 132, 184, 12, (Color){ 76, 224, 232, 255 });
     } else if (state->stageClear) {
-        // Lighter dim than game over: the wreck and the docked mortar
+        // Lighter dim than game over: the wreck and the docked upgrade
         // stay readable behind the stage-clear card.
         DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (Color){ 0, 0, 0, 110 });
         DrawText(TextFormat("STAGE %d CLEAR", state->stageNumber), 120, 140, 24,
             (Color){ 232, 248, 248, 255 });
-        DrawText("MORTAR TURRET SALVAGED", 152, 176, 12, (Color){ 232, 148, 44, 255 });
+        const char *salvageMessage = "MORTAR TURRET SALVAGED";
+        Color salvageColor = (Color){ 232, 148, 44, 255 };
+        if (GetStageDescriptor(state->stageNumber)->award == UPGRADE_AWARD_TARGETING_COMPUTER) {
+            salvageMessage = "TARGETING COMPUTER SALVAGED";
+            salvageColor = (Color){ 76, 224, 232, 255 };
+        }
+        DrawText(salvageMessage, (GAME_WIDTH - MeasureText(salvageMessage, 12)) / 2,
+            176, 12, salvageColor);
         DrawText("PRESS R TO CONTINUE", 164, 200, 12, (Color){ 76, 224, 232, 255 });
     } else if (state->respawnInvulnerability > 0.0f) {
         unsigned char blink = (unsigned char)(120 + 80 * sinf(GetTime() * 22.0f));

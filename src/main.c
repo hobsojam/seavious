@@ -361,6 +361,16 @@ int main(int argc, char **argv) {
             };
         }
         if (smokeFrames > 0 && framesRun == 476) state.boss.gatesOpen = true;
+        if (smokeFrames > 0 && framesRun == 477) {
+            state.boss.phase = BOSS_PHASE_SALVAGE_DOCK;
+            state.boss.phaseTimer = 0.6f;
+            state.boss.salvageDomePos = BossPartPosition(&state.boss, BOSS_PART_CORE);
+        }
+        if (smokeFrames > 0 && framesRun == 479) {
+            state.boss.phase = BOSS_PHASE_CLEARED;
+            state.boss.salvageDomePos = state.player;
+            state.stageClear = true;
+        }
 
         if (quitConfirm) {
             QuitConfirmationResult confirmResult = UpdateQuitConfirmation(menuInput);

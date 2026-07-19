@@ -315,7 +315,10 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       stage descriptor: mortar tutorial opening, three-lane escalation,
       strait run, recovery pocket, and fortress-atoll lock
 - [x] Fortress-atoll boss: AA pods (gun), ring batteries (mortar),
-      cycling sea gates (torpedo), core, and targeting-computer salvage
+      cycling sea gates (torpedo), core, and targeting-computer salvage.
+      The clear sequence extracts the luminous core module with its own
+      rotating acquisition-ring animation and names the targeting computer
+      explicitly instead of reusing the Stage 1 mortar art and message.
 - [x] Compose Stage 2 stage and boss themes over the shared drum/bass
       foundation
 - [ ] Plan remaining levels beyond Stage 2 (Stage 3 pencilled: storm)
