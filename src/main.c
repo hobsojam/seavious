@@ -395,6 +395,13 @@ int main(int argc, char **argv) {
                 .partHp = { 0, STORM_WARDEN_POD_HP, STORM_WARDEN_HULL_HP, 0, 1 },
             };
         }
+        // The telegraphed wave above only exercises DrawRogueWaves' still-
+        // building branch; forcing it into the surge here on the next
+        // frame covers the sweeping-wall branch (crest, trailing body,
+        // both whitecap fleck passes) headlessly too.
+        if (smokeFrames > 0 && framesRun == 501) {
+            state.rogueWaves[0].sweeping = true;
+        }
         // Pushes gateTimer into the storm wash's fade-out window (still
         // below the CALM-flip threshold) so DrawStormOverlay's fade-out
         // branch actually executes headlessly, not just its fade-in one.
