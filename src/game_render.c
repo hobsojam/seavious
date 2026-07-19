@@ -670,6 +670,47 @@ static void DrawRogueWaves(const GameState *state) {
     }
 }
 
+#define STORM_OVERLAY_FADE_TIME 0.4f
+#define STORM_OVERLAY_WASH_ALPHA 85.0f
+static const Color STORM_OVERLAY_WASH_COLOR = { 24, 32, 48, 255 };
+
+// One tuning knob set per rain layer, named instead of scattered through
+// the draw call - the parallax look comes entirely from the back/front
+// layers below using different values for the same shared draw.
+typedef struct {
+    float spacing;
+    float slant;
+    float speedPxPerSec;
+    float thickness;
+    float maxAlpha;
+    Color color;
+} StormRainLayer;
+
+static const StormRainLayer STORM_RAIN_BACK_LAYER = {
+    .spacing = 22.0f, .slant = 15.0f, .speedPxPerSec = 90.0f,
+    .thickness = 1.0f, .maxAlpha = 75.0f, .color = { 140, 165, 200, 255 }
+};
+static const StormRainLayer STORM_RAIN_FRONT_LAYER = {
+    .spacing = 34.0f, .slant = 26.0f, .speedPxPerSec = 170.0f,
+    .thickness = 2.0f, .maxAlpha = 160.0f, .color = { 205, 228, 238, 255 }
+};
+
+// A handful of diagonal streaks scrolling at the layer's own speed reads
+// as weather. Driven by wall-clock time rather than scrollDistance:
+// UpdateStageScript freezes scrollDistance once bossLock is set, so a
+// scroll-tied phase would go static for the whole boss fight.
+static void DrawStormRainLayer(const StormRainLayer *layer, float t, float fadeIn) {
+    float phase = fmodf(t * layer->speedPxPerSec, layer->spacing);
+    Color tint = layer->color;
+    tint.a = (unsigned char)(layer->maxAlpha * fadeIn);
+    int spacing = (int)layer->spacing;
+    for (int i = -2; i < GAME_WIDTH / spacing + 2; i++) {
+        float x = (float)i * layer->spacing + phase;
+        DrawLineEx((Vector2){ x, 0.0f }, (Vector2){ x - layer->slant, (float)PLAY_HEIGHT },
+            layer->thickness, tint);
+    }
+}
+
 // Screen-wide wash during the Storm Warden's STORM window: parts are
 // invulnerable behind it, so the whole play field visibly closing off
 // is the readable cue, not just the boss's own tint. Fades in/out at the
@@ -681,44 +722,22 @@ static void DrawStormOverlay(const GameState *state) {
     if (boss->phase != BOSS_PHASE_FIGHTING) return;
     if (boss->gatesOpen) return;
 
-    const float fadeTime = 0.4f;
-    float u = 1.0f;
-    if (boss->gateTimer < fadeTime) {
-        u = boss->gateTimer / fadeTime;
-    } else if (boss->gateTimer > STORM_WARDEN_STORM_DURATION - fadeTime) {
-        u = (STORM_WARDEN_STORM_DURATION - boss->gateTimer) / fadeTime;
+    float fadeIn = 1.0f;
+    if (boss->gateTimer < STORM_OVERLAY_FADE_TIME) {
+        fadeIn = boss->gateTimer / STORM_OVERLAY_FADE_TIME;
+    } else if (boss->gateTimer > STORM_WARDEN_STORM_DURATION - STORM_OVERLAY_FADE_TIME) {
+        fadeIn = (STORM_WARDEN_STORM_DURATION - boss->gateTimer) / STORM_OVERLAY_FADE_TIME;
     }
-    if (u < 0.0f) u = 0.0f;
-    if (u > 1.0f) u = 1.0f;
+    if (fadeIn < 0.0f) fadeIn = 0.0f;
+    if (fadeIn > 1.0f) fadeIn = 1.0f;
 
-    DrawRectangle(0, 0, GAME_WIDTH, PLAY_HEIGHT, (Color){ 24, 32, 48, (unsigned char)(85.0f * u) });
+    Color wash = STORM_OVERLAY_WASH_COLOR;
+    wash.a = (unsigned char)(STORM_OVERLAY_WASH_ALPHA * fadeIn);
+    DrawRectangle(0, 0, GAME_WIDTH, PLAY_HEIGHT, wash);
 
-    // Two rain layers at different speed/spacing/weight read as depth
-    // instead of a flat scroll. Driven by wall-clock time rather than
-    // scrollDistance: UpdateStageScript freezes scrollDistance once
-    // bossLock is set, so a scroll-tied phase would go static for the
-    // whole fight instead of animating.
     float t = (float)GetTime();
-
-    const float backSpacing = 22.0f;
-    const float backSlant = 15.0f;
-    float backPhase = fmodf(t * 90.0f, backSpacing);
-    unsigned char backAlpha = (unsigned char)(75.0f * u);
-    for (int i = -2; i < GAME_WIDTH / (int)backSpacing + 2; i++) {
-        float x = (float)i * backSpacing + backPhase;
-        DrawLineEx((Vector2){ x, 0.0f }, (Vector2){ x - backSlant, (float)PLAY_HEIGHT },
-            1.0f, (Color){ 140, 165, 200, backAlpha });
-    }
-
-    const float frontSpacing = 34.0f;
-    const float frontSlant = 26.0f;
-    float frontPhase = fmodf(t * 170.0f, frontSpacing);
-    unsigned char frontAlpha = (unsigned char)(160.0f * u);
-    for (int i = -2; i < GAME_WIDTH / (int)frontSpacing + 2; i++) {
-        float x = (float)i * frontSpacing + frontPhase;
-        DrawLineEx((Vector2){ x, 0.0f }, (Vector2){ x - frontSlant, (float)PLAY_HEIGHT },
-            2.0f, (Color){ 205, 228, 238, frontAlpha });
-    }
+    DrawStormRainLayer(&STORM_RAIN_BACK_LAYER, t, fadeIn);
+    DrawStormRainLayer(&STORM_RAIN_FRONT_LAYER, t, fadeIn);
 }
 
 static void DrawTerrainHardpoints(const GameState *state, const GameAssets *assets) {
