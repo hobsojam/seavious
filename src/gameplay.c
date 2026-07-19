@@ -230,6 +230,60 @@ bool ResolveRogueWavePlayerHit(const RogueWave waves[], int count, Vector2 playe
     return false;
 }
 
+// Pure layout/timing math behind DrawRogueWaves (game_render.c) - kept
+// here rather than inline in a raylib draw call so it's unit-testable
+// like the rest of this file.
+RogueWaveGapBand ComputeRogueWaveGapBand(float gapCenterY) {
+    RogueWaveGapBand band = {
+        .top = gapCenterY - ROGUE_WAVE_GAP_HALF_HEIGHT,
+        .bottom = gapCenterY + ROGUE_WAVE_GAP_HALF_HEIGHT
+    };
+    if (band.top < 0.0f) band.top = 0.0f;
+    if (band.bottom > (float)PLAY_HEIGHT) band.bottom = (float)PLAY_HEIGHT;
+    return band;
+}
+
+float RogueWaveTelegraphBulge(float t) {
+    float u = t / ROGUE_WAVE_TELEGRAPH_DURATION;
+    return 8.0f + 30.0f * u;
+}
+
+float RogueWaveTelegraphAlpha(float t) {
+    float u = t / ROGUE_WAVE_TELEGRAPH_DURATION;
+    return 50.0f + 100.0f * u;
+}
+
+// The gap reads as a wind-carved trough, not an arbitrary hole: whichever
+// edge the current wind blows toward is the one the crosswind is
+// knocking the crest down at.
+float RogueWaveKnockedEdgeY(float windSign, RogueWaveGapBand gap) {
+    return windSign > 0.0f ? gap.bottom : gap.top;
+}
+
+static float Fraction(float value) {
+    return value - floorf(value);
+}
+
+// Whitecap flecks scattered along the crest, stable per-wave (seed is
+// index-derived, not position-derived - the front moves continuously, so
+// a position seed would jitter the pattern every frame). Biased downwind
+// so the spray visibly answers to the same crosswind pushing the player
+// and torpedoes, instead of sitting in a perfectly vertical band.
+Vector2 RogueWaveWhitecapFleckPos(float seed, int index, float frontX, float windLean) {
+    float variation = Fraction(seed + 0.6180339f * (float)index);
+    float y = variation * (float)PLAY_HEIGHT + windLean;
+    return (Vector2){ frontX + (variation - 0.5f) * 10.0f, y };
+}
+
+// Extra churn right at the wind-knocked gap edge, as if the crosswind is
+// actively holding the crest down there rather than the gap just
+// happening to be clear.
+Vector2 RogueWaveKnockdownFleckPos(float seed, int index, float frontX, float windSign, float knockedEdgeY) {
+    float variation = Fraction(seed + 0.381966f + 0.6180339f * (float)index);
+    float y = knockedEdgeY - windSign * variation * 14.0f;
+    return (Vector2){ frontX + (variation - 0.5f) * 12.0f, y };
+}
+
 void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH,
     Vector2 drift) {
     player->x += inputX * speed * dt + drift.x * dt;

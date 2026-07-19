@@ -657,26 +657,22 @@ static void DrawRogueWaves(const GameState *state) {
         // the front moves continuously, so a position seed would jitter
         // the whitecap pattern every frame instead of holding still).
         float seed = Fraction(0.4137f + 0.6180339f * (float)i);
-        float gapTop = wave->gapCenterY - ROGUE_WAVE_GAP_HALF_HEIGHT;
-        float gapBottom = wave->gapCenterY + ROGUE_WAVE_GAP_HALF_HEIGHT;
-        if (gapTop < 0.0f) gapTop = 0.0f;
-        if (gapBottom > (float)PLAY_HEIGHT) gapBottom = (float)PLAY_HEIGHT;
+        RogueWaveGapBand gap = ComputeRogueWaveGapBand(wave->gapCenterY);
 
         if (!wave->sweeping) {
             // Telegraph: water mounding at the edge, reaching further
             // left as it builds toward the surge - the gap is already
             // where it will be, so reading the lane and moving early is
             // rewarded rather than only reacting once it breaks.
-            float u = wave->t / ROGUE_WAVE_TELEGRAPH_DURATION;
-            float bulge = 8.0f + 30.0f * u;
-            unsigned char alpha = (unsigned char)(50.0f + 100.0f * u);
-            if (gapTop > 0.0f) {
-                DrawRectangle((int)(wave->frontX - bulge), 0, (int)bulge, (int)gapTop,
+            float bulge = RogueWaveTelegraphBulge(wave->t);
+            unsigned char alpha = (unsigned char)RogueWaveTelegraphAlpha(wave->t);
+            if (gap.top > 0.0f) {
+                DrawRectangle((int)(wave->frontX - bulge), 0, (int)bulge, (int)gap.top,
                     (Color){ deepWater.r, deepWater.g, deepWater.b, alpha });
             }
-            if (gapBottom < (float)PLAY_HEIGHT) {
-                DrawRectangle((int)(wave->frontX - bulge), (int)gapBottom, (int)bulge,
-                    (int)((float)PLAY_HEIGHT - gapBottom), (Color){ deepWater.r, deepWater.g, deepWater.b, alpha });
+            if (gap.bottom < (float)PLAY_HEIGHT) {
+                DrawRectangle((int)(wave->frontX - bulge), (int)gap.bottom, (int)bulge,
+                    (int)((float)PLAY_HEIGHT - gap.bottom), (Color){ deepWater.r, deepWater.g, deepWater.b, alpha });
             }
             continue;
         }
@@ -686,8 +682,8 @@ static void DrawRogueWaves(const GameState *state) {
         // back into ordinary water rather than reading as a hard slab.
         const float trailDepth = 34.0f;
         for (int half = 0; half < 2; half++) {
-            float top = half == 0 ? 0.0f : gapBottom;
-            float bottom = half == 0 ? gapTop : (float)PLAY_HEIGHT;
+            float top = half == 0 ? 0.0f : gap.bottom;
+            float bottom = half == 0 ? gap.top : (float)PLAY_HEIGHT;
             if (bottom <= top) continue;
             DrawRectangleGradientH((int)wave->frontX, (int)top, (int)trailDepth, (int)(bottom - top),
                 (Color){ deepWater.r, deepWater.g, deepWater.b, 210 },
@@ -696,29 +692,26 @@ static void DrawRogueWaves(const GameState *state) {
                 (int)(bottom - top), foamCrest);
         }
 
-        // Whitecap flecks scattered along the crest for texture, stable
-        // per-wave so they don't flicker as it sweeps. Biased downwind
-        // (same crosswind pushing the player and torpedoes) so the spray
-        // visibly answers to the current wind instead of sitting in a
-        // perfectly vertical band.
+        // Whitecap flecks scattered along the crest for texture. Biased
+        // downwind (same crosswind pushing the player and torpedoes) so
+        // the spray visibly answers to the current wind instead of
+        // sitting in a perfectly vertical band.
         float windLean = state->windSign * 5.0f;
         for (int f = 0; f < 14; f++) {
-            float variation = Fraction(seed + 0.6180339f * (float)f);
-            float y = variation * (float)PLAY_HEIGHT + windLean;
-            if (y > gapTop && y < gapBottom) continue;
-            Vector2 fleck = { wave->frontX + (variation - 0.5f) * 10.0f, y };
-            DrawCircleV(fleck, variation > 0.5f ? 1.5f : 1.0f, (Color){ 255, 255, 250, 220 });
+            Vector2 fleck = RogueWaveWhitecapFleckPos(seed, f, wave->frontX, windLean);
+            if (fleck.y > gap.top && fleck.y < gap.bottom) continue;
+            DrawCircleV(fleck, Fraction(seed + 0.6180339f * (float)f) > 0.5f ? 1.5f : 1.0f,
+                (Color){ 255, 255, 250, 220 });
         }
 
         // The gap reads as a wind-carved trough, not an arbitrary hole:
         // extra churn right at whichever gap edge the current wind is
         // blowing toward, as if the crosswind is knocking the crest down
         // there.
-        float knockedEdgeY = state->windSign > 0.0f ? gapBottom : gapTop;
+        float knockedEdgeY = RogueWaveKnockedEdgeY(state->windSign, gap);
         for (int f = 0; f < 6; f++) {
+            Vector2 fleck = RogueWaveKnockdownFleckPos(seed, f, wave->frontX, state->windSign, knockedEdgeY);
             float variation = Fraction(seed + 0.381966f + 0.6180339f * (float)f);
-            float y = knockedEdgeY - state->windSign * variation * 14.0f;
-            Vector2 fleck = { wave->frontX + (variation - 0.5f) * 12.0f, y };
             DrawCircleV(fleck, variation > 0.5f ? 1.5f : 1.0f, (Color){ 255, 255, 250, 190 });
         }
     }

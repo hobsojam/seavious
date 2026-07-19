@@ -390,6 +390,14 @@ typedef struct {
     bool active;
 } RogueWave;
 
+// The passable band clamped into the play area - a gap authored near an
+// edge (e.g. lane 0) has nothing above it to clear, not a wall running
+// off past y=0.
+typedef struct {
+    float top;
+    float bottom;
+} RogueWaveGapBand;
+
 typedef enum {
     LAND_TARGET_MORTAR_BATTERY,
     LAND_TARGET_DRONE_BUNKER
@@ -499,6 +507,16 @@ void UpdateRogueWaves(RogueWave waves[], int count, float dt);
 bool ResolveRogueWavePlayerHit(const RogueWave waves[], int count, Vector2 playerPos, float playerRadius);
 bool DetonateMinesInRogueWavePath(const RogueWave waves[], int waveCount, SurfaceTarget targets[], int targetCount,
     GameEventQueue *events);
+
+// Pure layout/timing math behind DrawRogueWaves (game_render.c), split
+// out so it's unit-testable like the rest of gameplay.c rather than
+// living inline in a raylib draw call.
+RogueWaveGapBand ComputeRogueWaveGapBand(float gapCenterY);
+float RogueWaveTelegraphBulge(float t);
+float RogueWaveTelegraphAlpha(float t);
+float RogueWaveKnockedEdgeY(float windSign, RogueWaveGapBand gap);
+Vector2 RogueWaveWhitecapFleckPos(float seed, int index, float frontX, float windLean);
+Vector2 RogueWaveKnockdownFleckPos(float seed, int index, float frontX, float windSign, float knockedEdgeY);
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
 bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset);

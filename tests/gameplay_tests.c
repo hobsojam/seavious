@@ -742,6 +742,55 @@ static void TestRogueWaveDetonatesMines(void) {
     CHECK(wouldBeHit[0].active);
 }
 
+// The pure layout/timing math DrawRogueWaves (game_render.c) calls into -
+// split out specifically so it's unit-testable rather than living inline
+// in a raylib draw call, same reason gameplay.c holds no rendering code.
+static void TestRogueWaveRenderMath(void) {
+    // A gap centered well within the play area needs no clamping.
+    RogueWaveGapBand centered = ComputeRogueWaveGapBand(150.0f);
+    NEAR(centered.top, 150.0f - ROGUE_WAVE_GAP_HALF_HEIGHT);
+    NEAR(centered.bottom, 150.0f + ROGUE_WAVE_GAP_HALF_HEIGHT);
+
+    // A gap authored right at an edge has nothing above/below it to
+    // clear - the band clamps into the play area instead of running
+    // off past it.
+    RogueWaveGapBand atTop = ComputeRogueWaveGapBand(5.0f);
+    NEAR(atTop.top, 0.0f);
+    RogueWaveGapBand atBottom = ComputeRogueWaveGapBand((float)PLAY_HEIGHT - 5.0f);
+    NEAR(atBottom.bottom, (float)PLAY_HEIGHT);
+
+    // Telegraph bulge/alpha ramp from their base values at t=0 to their
+    // full values once the telegraph duration elapses.
+    NEAR(RogueWaveTelegraphBulge(0.0f), 8.0f);
+    NEAR(RogueWaveTelegraphBulge(ROGUE_WAVE_TELEGRAPH_DURATION), 38.0f);
+    NEAR(RogueWaveTelegraphAlpha(0.0f), 50.0f);
+    NEAR(RogueWaveTelegraphAlpha(ROGUE_WAVE_TELEGRAPH_DURATION), 150.0f);
+
+    // The wind-knocked edge is whichever side of the gap the current
+    // wind blows toward.
+    RogueWaveGapBand gap = ComputeRogueWaveGapBand(150.0f);
+    NEAR(RogueWaveKnockedEdgeY(1.0f, gap), gap.bottom);
+    NEAR(RogueWaveKnockedEdgeY(-1.0f, gap), gap.top);
+
+    // Whitecap flecks are stable for repeated calls with the same
+    // inputs (no hidden global/random state), and the wind lean shifts
+    // every fleck's y by exactly the lean amount.
+    Vector2 fleckA = RogueWaveWhitecapFleckPos(0.25f, 3, 200.0f, 0.0f);
+    Vector2 fleckB = RogueWaveWhitecapFleckPos(0.25f, 3, 200.0f, 0.0f);
+    NEAR(fleckA.x, fleckB.x);
+    NEAR(fleckA.y, fleckB.y);
+    Vector2 fleckLeaned = RogueWaveWhitecapFleckPos(0.25f, 3, 200.0f, 5.0f);
+    NEAR(fleckLeaned.y - fleckA.y, 5.0f);
+
+    // Knockdown flecks cluster near the knocked edge, offset toward the
+    // gap's interior (away from the edge, in the direction opposite the
+    // wind push) rather than past it.
+    Vector2 knockPos = RogueWaveKnockdownFleckPos(0.6f, 2, 200.0f, 1.0f, gap.bottom);
+    CHECK(knockPos.y <= gap.bottom);
+    Vector2 knockNeg = RogueWaveKnockdownFleckPos(0.6f, 2, 200.0f, -1.0f, gap.top);
+    CHECK(knockNeg.y >= gap.top);
+}
+
 static void TestMobilePlatform(void) {
     SurfaceTarget targets[2] = { 0 };
     EnemyBullet bullets[8] = { 0 };
@@ -874,6 +923,7 @@ int main(void) {
     TestMine();
     TestRogueWave();
     TestRogueWaveDetonatesMines();
+    TestRogueWaveRenderMath();
     TestMobilePlatform();
     TestEnemyActivationLine();
     TestTurretLeadIsSoft();
