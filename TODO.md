@@ -703,3 +703,21 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       couldn't be exercised through CTest on Windows, but the same
       scripted timeline was run headfully via `SEAVIOUS_SMOKE_FRAMES=510
       ./seavious-dev.exe` with no crash)
+- [x] Playtest fixes (2026-07-19), Stage 3 wind and the ship's wake:
+      wind direction previously never changed for the whole run - one
+      constant push read as broken gravity, not weather. `GameState`
+      gained `windSign`/`windChangeTimer`; every
+      `WIND_DIRECTION_CHANGE_INTERVAL` (30s) `windSign` re-rolls to ±1
+      and `game_update.c` multiplies `StageDescriptor.drift` by it
+      before applying it - magnitude still fixed per stage, only
+      direction now varies over time (not yet a visual telegraph, still
+      open above). Separately, the ship's wake kept trailing left during
+      the boss fight even though the ship isn't moving forward there
+      (`bossLock` freezes `scrollDistance`/`oceanScroll` but
+      `UpdateWakeParticles` was still moving particles by a hardcoded
+      `OCEAN_SCROLL_SPEED * dt` every frame regardless) - it now takes
+      an explicit `scrollDx` parameter instead (0 during boss lock, real
+      scroll speed otherwise), decoupled from the `dt` that still ages
+      particles out on schedule. Verified against a real Windows build:
+      full clean build, all 6 CTest suites pass, `--stage 3` smoke run
+      with no crash

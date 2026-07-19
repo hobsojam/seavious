@@ -25,9 +25,19 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // once up front since MovePlayer below and the torpedo section further
     // down both need its drift.
     const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
+    // The wind reverses on a timer rather than pushing one way the whole
+    // run (playtest: a constant single-direction push read as broken
+    // gravity, not weather). Magnitude still comes from the stage
+    // descriptor; this only owns the sign.
+    state->windChangeTimer += dt;
+    if (state->windChangeTimer >= WIND_DIRECTION_CHANGE_INTERVAL) {
+        state->windChangeTimer -= WIND_DIRECTION_CHANGE_INTERVAL;
+        state->windSign = GetRandomValue(0, 1) == 0 ? 1.0f : -1.0f;
+    }
     // The stabilizer salvage cancels drift outright rather than changing
     // how the shot is aimed (see docs/game-design.md "Stage 3").
-    Vector2 drift = state->hasStabilizer ? (Vector2){ 0.0f, 0.0f } : stage->drift;
+    Vector2 drift = state->hasStabilizer ? (Vector2){ 0.0f, 0.0f }
+        : (Vector2){ stage->drift.x * state->windSign, stage->drift.y * state->windSign };
 
     // From the salvage autopilot on, the boss sequence flies the ship:
     // no input, no weapons, no reticle - the run is already won.
@@ -112,7 +122,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
         state->oceanOverlayScroll, scrollDt * OCEAN_OVERLAY_SPEED_SCALE, (float)assets->oceanOverlayTex.width
     );
 
-    UpdateWakeParticles(state->wake, MAX_WAKE_PARTICLES, dt);
+    UpdateWakeParticles(state->wake, MAX_WAKE_PARTICLES, dt, OCEAN_SCROLL_SPEED * scrollDt);
     if (state->torpedoImpactTimer > 0.0f) state->torpedoImpactTimer -= dt;
     UpdateBullets(state->bullets, MAX_BULLETS, dt);
 

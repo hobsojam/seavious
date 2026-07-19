@@ -11,6 +11,10 @@
 #define WINDOW_SCALE  2
 #define OCEAN_SCROLL_SPEED 40.0f
 #define OCEAN_OVERLAY_SPEED_SCALE 1.15f
+// A stage's wind (StageDescriptor.drift) reverses direction on this cadence
+// rather than pushing one way for the whole run - a constant one-direction
+// push read as broken gravity in playtest, not weather (see game_update.c).
+#define WIND_DIRECTION_CHANGE_INTERVAL 30.0f
 
 #define MAX_BULLETS         32
 #define BULLET_SPEED        280.0f
@@ -452,7 +456,11 @@ bool TryEmitWakeParticle(WakeParticle wake[], int count, Vector2 pos);
 // next position in that spread so callers can retain a continuous pattern.
 int EmitPlayerWake(WakeParticle wake[], int count, Vector2 player, float halfW, float halfH,
     int phase, float jitterX, float jitterY);
-void UpdateWakeParticles(WakeParticle wake[], int count, float dt);
+// dt ages particles (they still fade out on schedule while stationary);
+// scrollDx is the world's actual horizontal scroll this frame, separate
+// from dt so a frozen scroll (boss lock) leaves existing wake in place
+// instead of dragging it off the stern of a ship that isn't moving.
+void UpdateWakeParticles(WakeParticle wake[], int count, float dt, float scrollDx);
 
 bool TrySpawnBullet(Bullet bullets[], int count, Vector2 pos);
 void UpdateBullets(Bullet bullets[], int count, float dt);
