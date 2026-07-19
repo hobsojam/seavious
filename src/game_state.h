@@ -122,6 +122,11 @@ typedef struct {
     Vector2 player;
     float oceanScroll;
     float oceanOverlayScroll;
+    // StageDescriptor.drift's sign: flips on WIND_DIRECTION_CHANGE_INTERVAL
+    // so a stage's wind reverses periodically instead of pushing one way
+    // for the whole run (see game_update.c).
+    float windSign;
+    float windChangeTimer;
     int score;
     int lives;
     bool gameOver;

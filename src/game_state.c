@@ -9,6 +9,7 @@ void ResetRunState(GameState *state) {
     state->player = (Vector2){ PLAYER_START_X, PLAYER_START_Y };
     state->lives = 3;
     state->stageNumber = 1;
+    state->windSign = 1.0f;
 }
 
 void BeginStage(GameState *state, int stageNumber) {

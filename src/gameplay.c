@@ -254,11 +254,11 @@ int EmitPlayerWake(WakeParticle wake[], int count, Vector2 player, float halfW, 
     return (phase + PLAYER_WAKE_PER_TICK) % pointCount;
 }
 
-void UpdateWakeParticles(WakeParticle wake[], int count, float dt) {
+void UpdateWakeParticles(WakeParticle wake[], int count, float dt, float scrollDx) {
     for (int i = 0; i < count; i++) {
         if (!wake[i].active) continue;
         wake[i].age += dt;
-        wake[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
+        wake[i].pos.x -= scrollDx;
         if (wake[i].age >= WAKE_LIFETIME || wake[i].pos.x < 0.0f) wake[i].active = false;
     }
 }

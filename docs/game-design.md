@@ -33,9 +33,12 @@ off target the same way it misses a moving surface target, so the Stage 2
 lead-torpedo solve — already active from Stage 2 onward — is extended to net
 out drift as well. The Stage 3 salvage instead removes drift outright: it does
 not change how the shot is aimed, it removes the current the aim was
-correcting for. Drift direction and strength vary across the stage and are
-telegraphed visually (wind streaks, wave direction) rather than sprung on the
-player blind.
+correcting for. Direction reverses on a timer (currently every ~30 seconds,
+`WIND_DIRECTION_CHANGE_INTERVAL`) rather than pushing one way for the whole
+run — playtest feedback was that a single constant direction read as broken
+gravity, not weather. Magnitude is still fixed per stage, and the reversal
+isn't yet telegraphed visually (still open, see TODO.md) — the player only
+learns the new direction by feel.
 
 ## Threat roster
 
