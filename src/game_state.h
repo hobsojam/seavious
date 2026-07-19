@@ -59,6 +59,15 @@ typedef struct {
 #define BOSS_SAIL_SPEED 36.0f
 #define BOSS_TURN_DURATION 1.2f
 
+// Which boss occupies the shared BossState/BossPartId machinery below -
+// the phase state machine, part HP/fire timers, missiles, and shells are
+// boss-agnostic and carry over as-is; only the geometry, damage rules,
+// and phase behavior that key off this type differ per boss.
+typedef enum {
+    BOSS_TYPE_LEVIATHAN,
+    BOSS_TYPE_FORTRESS_ATOLL
+} BossType;
+
 typedef enum {
     BOSS_PHASE_INACTIVE,
     BOSS_PHASE_ENTERING,
@@ -90,7 +99,7 @@ typedef struct {
     int partHp[BOSS_PART_COUNT];
     float partFireTimer[BOSS_PART_COUNT];
     bool coreExposed;
-    bool fortressAtoll;
+    BossType type;
     bool gatesOpen;
     float gateTimer;
     int fortressGateOpenCount;

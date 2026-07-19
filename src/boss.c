@@ -134,7 +134,7 @@ static Vector2 BossOffsetPosition(const BossState *boss, Vector2 offset) {
 }
 
 Vector2 BossPartPosition(const BossState *boss, BossPartId part) {
-    if (boss->fortressAtoll) {
+    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
         Vector2 offset = FORTRESS_PART_GEOMETRY[part].offset;
         return (Vector2){ boss->hullCenter.x + offset.x,
             boss->hullCenter.y + boss->settleOffset + offset.y };
@@ -143,12 +143,12 @@ Vector2 BossPartPosition(const BossState *boss, BossPartId part) {
 }
 
 static float BossPartRadius(const BossState *boss, BossPartId part) {
-    return boss->fortressAtoll ? FORTRESS_PART_GEOMETRY[part].radius
+    return boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_PART_GEOMETRY[part].radius
         : BOSS_PART_GEOMETRY[part].radius;
 }
 
 Vector2 BossMortarPosition(const BossState *boss) {
-    if (boss->fortressAtoll) {
+    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
         return (Vector2){ boss->hullCenter.x, boss->hullCenter.y + boss->settleOffset };
     }
     return BossOffsetPosition(boss, BOSS_MORTAR_OFFSET);
@@ -174,7 +174,7 @@ int BossHullBlockers(const BossState *boss, Rectangle out[3]) {
     // while the outer defenses still stand), and closed gates always
     // block - what changes at core exposure is only that the core rises
     // into the target list behind them.
-    if (boss->fortressAtoll) {
+    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
         Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
         // The painted atoll is real torpedo-blocking land.  Only its
         // horizontal west channel remains navigable, so the diagonal
@@ -207,21 +207,21 @@ bool BossPartAlive(const BossState *boss, BossPartId part) {
 }
 
 bool BossIsFortressAtoll(const BossState *boss) {
-    return boss->fortressAtoll;
+    return boss->type == BOSS_TYPE_FORTRESS_ATOLL;
 }
 
 int BossRemainingHp(const BossState *boss) {
     // Leviathan hull sections are worth several gun-units per torpedo
     // point; fortress ring batteries count their mortar blasts 1:1, so
     // the health bar tracks real progress on either boss.
-    int hullWorth = boss->fortressAtoll ? 1 : BOSS_HULL_SECTION_TORPEDO_WORTH;
+    int hullWorth = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? 1 : BOSS_HULL_SECTION_TORPEDO_WORTH;
     return boss->partHp[BOSS_PART_POD_FORE] + boss->partHp[BOSS_PART_POD_AFT]
         + hullWorth * (boss->partHp[BOSS_PART_HULL_FORE] + boss->partHp[BOSS_PART_HULL_AFT])
         + boss->partHp[BOSS_PART_CORE];
 }
 
 int BossTotalHp(const BossState *boss) {
-    if (boss->fortressAtoll) {
+    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
         return 2 * FORTRESS_POD_HP + 2 * FORTRESS_RING_BATTERY_HP + FORTRESS_CORE_HP;
     }
     return 2 * BOSS_POD_HP + 2 * BOSS_HULL_SECTION_TORPEDO_WORTH * BOSS_HULL_SECTION_HP + BOSS_CORE_HP;
@@ -247,7 +247,7 @@ static bool DamageBossPart(BossState *boss, BossPartId part, int damage, GameEve
     });
     bool outerDestroyed = !BossPartAlive(boss, BOSS_PART_HULL_FORE)
         && !BossPartAlive(boss, BOSS_PART_HULL_AFT);
-    if (boss->fortressAtoll) {
+    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
         outerDestroyed = outerDestroyed && !BossPartAlive(boss, BOSS_PART_POD_FORE)
             && !BossPartAlive(boss, BOSS_PART_POD_AFT);
     }
@@ -268,11 +268,11 @@ static void StartBossFight(GameState *state) {
     boss->phaseTimer = 0.0f;
     // Sails into view from below the arena, bow up, already on its
     // patrol column.
-    boss->fortressAtoll = state->stageNumber == 2;
+    boss->type = state->stageNumber == 2 ? BOSS_TYPE_FORTRESS_ATOLL : BOSS_TYPE_LEVIATHAN;
     boss->gatesOpen = false;
     boss->gateTimer = 0.0f;
     boss->fortressGateOpenCount = 0;
-    boss->hullCenter = boss->fortressAtoll
+    boss->hullCenter = boss->type == BOSS_TYPE_FORTRESS_ATOLL
         ? (Vector2){ 404.0f, 176.0f }
         : (Vector2){ BOSS_PATROL_X, (float)PLAY_HEIGHT + BOSS_HULL_HALF_LENGTH + 15.0f };
     boss->rotation = 90.0f;
@@ -281,14 +281,16 @@ static void StartBossFight(GameState *state) {
     boss->turnTimer = 0.0f;
     boss->settleOffset = 0.0f;
     boss->coreExposed = false;
-    boss->partHp[BOSS_PART_POD_FORE] = boss->fortressAtoll ? FORTRESS_POD_HP : BOSS_POD_HP;
-    boss->partHp[BOSS_PART_POD_AFT] = boss->fortressAtoll ? FORTRESS_POD_HP : BOSS_POD_HP;
-    boss->partHp[BOSS_PART_HULL_FORE] = boss->fortressAtoll ? FORTRESS_RING_BATTERY_HP : BOSS_HULL_SECTION_HP;
-    boss->partHp[BOSS_PART_HULL_AFT] = boss->fortressAtoll ? FORTRESS_RING_BATTERY_HP : BOSS_HULL_SECTION_HP;
-    boss->partHp[BOSS_PART_CORE] = boss->fortressAtoll ? FORTRESS_CORE_HP : BOSS_CORE_HP;
+    boss->partHp[BOSS_PART_POD_FORE] = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_POD_HP : BOSS_POD_HP;
+    boss->partHp[BOSS_PART_POD_AFT] = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_POD_HP : BOSS_POD_HP;
+    boss->partHp[BOSS_PART_HULL_FORE] =
+        boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_RING_BATTERY_HP : BOSS_HULL_SECTION_HP;
+    boss->partHp[BOSS_PART_HULL_AFT] =
+        boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_RING_BATTERY_HP : BOSS_HULL_SECTION_HP;
+    boss->partHp[BOSS_PART_CORE] = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_CORE_HP : BOSS_CORE_HP;
     for (int part = 0; part < BOSS_PART_COUNT; part++) {
         float interval = part <= BOSS_PART_POD_AFT ? BOSS_POD_FIRE_INTERVAL
-            : (boss->fortressAtoll ? FORTRESS_RING_MORTAR_INTERVAL : BOSS_SAM_INTERVAL);
+            : (boss->type == BOSS_TYPE_FORTRESS_ATOLL ? FORTRESS_RING_MORTAR_INTERVAL : BOSS_SAM_INTERVAL);
         boss->partFireTimer[part] = interval - BOSS_PART_FIRST_SHOT_DELAY[part];
     }
     boss->mortarTimer = BOSS_MORTAR_INTERVAL - BOSS_MORTAR_FIRST_SHOT_DELAY;
@@ -457,7 +459,7 @@ static void FireBossGuns(GameState *state, float dt) {
         // staggered lobs so their shadows interleave with the central
         // atoll's, and silencing each one visibly thins the barrage -
         // the mid-fight pressure the fight-flow rework asked for.
-        if (boss->fortressAtoll && !pod) {
+        if (boss->type == BOSS_TYPE_FORTRESS_ATOLL && !pod) {
             boss->partFireTimer[part] += dt;
             while (boss->partFireTimer[part] >= FORTRESS_RING_MORTAR_INTERVAL) {
                 boss->partFireTimer[part] -= FORTRESS_RING_MORTAR_INTERVAL;
@@ -550,7 +552,7 @@ static void ResolveBulletBossPartCollisions(GameState *state) {
         if (!state->bullets[b].active) continue;
         for (int i = 0; i < 3; i++) {
             BossPartId part = gunTargets[i];
-            if (part == BOSS_PART_CORE && (!boss->coreExposed || boss->fortressAtoll)) continue;
+            if (part == BOSS_PART_CORE && (!boss->coreExposed || boss->type == BOSS_TYPE_FORTRESS_ATOLL)) continue;
             if (!BossPartAlive(boss, part)) continue;
             float hitDist = BULLET_RADIUS + BossPartRadius(boss, part);
             if (DistanceSquared(state->bullets[b].pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
@@ -567,10 +569,11 @@ TorpedoImpact ResolveTorpedoBossPartCollision(Torpedo *torpedo, BossState *boss,
     if (!torpedo->active || boss->phase != BOSS_PHASE_FIGHTING) return none;
 
     const BossPartId torpedoTargets[] = { BOSS_PART_HULL_FORE, BOSS_PART_HULL_AFT, BOSS_PART_CORE };
-    int targetCount = boss->fortressAtoll ? 1 : 3;
+    int targetCount = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? 1 : 3;
     for (int i = 0; i < targetCount; i++) {
-        BossPartId part = boss->fortressAtoll ? BOSS_PART_CORE : torpedoTargets[i];
-        if (part == BOSS_PART_CORE && (!boss->coreExposed || (boss->fortressAtoll && !boss->gatesOpen))) continue;
+        BossPartId part = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? BOSS_PART_CORE : torpedoTargets[i];
+        if (part == BOSS_PART_CORE
+            && (!boss->coreExposed || (boss->type == BOSS_TYPE_FORTRESS_ATOLL && !boss->gatesOpen))) continue;
         if (!BossPartAlive(boss, part)) continue;
         float hitDist = BossPartRadius(boss, part) + TORPEDO_DIRECT_HIT_RADIUS;
         if (DistanceSquared(torpedo->pos, BossPartPosition(boss, part)) <= hitDist * hitDist) {
@@ -589,7 +592,7 @@ TorpedoImpact ResolveTorpedoBossPartCollision(Torpedo *torpedo, BossState *boss,
 
 void ResolveBossSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *events) {
     if (boss->phase != BOSS_PHASE_FIGHTING) return;
-    if (boss->fortressAtoll) {
+    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
         if (!boss->coreExposed || !boss->gatesOpen || !BossPartAlive(boss, BOSS_PART_CORE)) return;
         float hitDist = BossPartRadius(boss, BOSS_PART_CORE) + TORPEDO_SPLASH_RADIUS;
         if (DistanceSquared(pos, BossPartPosition(boss, BOSS_PART_CORE)) <= hitDist * hitDist) {
@@ -613,7 +616,7 @@ void ResolveBossSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *event
 
 void ResolveBossMortarSplashDamage(BossState *boss, Vector2 pos, GameEventQueue *events) {
     if (boss->phase != BOSS_PHASE_FIGHTING) return;
-    if (!boss->fortressAtoll) {
+    if (boss->type != BOSS_TYPE_FORTRESS_ATOLL) {
         ResolveBossSplashDamage(boss, pos, events);
         return;
     }
@@ -633,7 +636,7 @@ bool ResolveBossContactDamage(const BossState *boss, Vector2 playerPos, float pl
     // atoll follows that established rule. Its channel and harbour are
     // visually water, so reusing their torpedo blockers as lethal contact
     // geometry made otherwise safe water look arbitrarily deadly.
-    if (boss->fortressAtoll) return false;
+    if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) return false;
     Rectangle blockers[3];
     int count = BossHullBlockers(boss, blockers);
     for (int i = 0; i < count; i++) {
@@ -668,7 +671,7 @@ void UpdateBossFight(GameState *state, float dt) {
 
     switch (boss->phase) {
         case BOSS_PHASE_ENTERING: {
-            if (boss->fortressAtoll) {
+            if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
                 if (boss->phaseTimer >= BOSS_ENTRANCE_DURATION) {
                     boss->phase = BOSS_PHASE_FIGHTING;
                     boss->phaseTimer = 0.0f;
@@ -688,8 +691,8 @@ void UpdateBossFight(GameState *state, float dt) {
             break;
         }
         case BOSS_PHASE_FIGHTING:
-            if (!boss->fortressAtoll) UpdateBossPatrol(boss, dt);
-            if (boss->fortressAtoll) {
+            if (boss->type != BOSS_TYPE_FORTRESS_ATOLL) UpdateBossPatrol(boss, dt);
+            if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
                 // Gates cycle from the fight's first seconds with an
                 // asymmetric dwell (open runs longer than closed), each
                 // edge announced by an event for the sound and the gate
@@ -773,7 +776,7 @@ void UpdateBossFight(GameState *state, float dt) {
             if (boss->phaseTimer >= BOSS_SALVAGE_DOCK_DURATION) {
                 boss->salvageDomePos = state->player;
                 PushGameEvent(&state->gameEvents, (GameEvent){
-                    .type = boss->fortressAtoll ? GAME_EVENT_TARGETING_COMPUTER_SALVAGED
+                    .type = boss->type == BOSS_TYPE_FORTRESS_ATOLL ? GAME_EVENT_TARGETING_COMPUTER_SALVAGED
                         : GAME_EVENT_MORTAR_SALVAGED,
                     .pos = state->player
                 });

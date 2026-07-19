@@ -406,7 +406,7 @@ static void DrawBossAirborne(const GameState *state, const GameAssets *assets) {
             ? state->player : boss->salvageDomePos;
         Texture2D salvageTex = assets->leviathanMortarTex;
         float rotation = 0.0f;
-        if (boss->fortressAtoll) {
+        if (boss->type == BOSS_TYPE_FORTRESS_ATOLL) {
             salvageTex = assets->fortressCoreTex;
             rotation = 360.0f * u;
             if (boss->phase == BOSS_PHASE_SALVAGE_DOCK) {

@@ -378,14 +378,22 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       descriptor row, extend `gen-stage-table.py`'s hardcoded
       `('stage1', 'stage2')` tuple, and update the stage/asset tests per
       `docs/stage-authoring.md`'s "Adding a stage" section
-- [ ] `BossType` refactor: the Leviathan/Fortress split is currently one
-      `bool fortressAtoll` set from `stageNumber == 2` and threaded
-      through ~15 branch sites in `boss.c`. Replace it with a real enum
-      before adding the Storm Warden as a third variant — a second
-      boolean would make every one of those sites a 3-way conditional.
-      `BossPartId` and the phase machine
+- [x] `BossType` refactor: replaced `bool fortressAtoll` with a real
+      `BossType` enum (`game_state.h`: `BOSS_TYPE_LEVIATHAN`,
+      `BOSS_TYPE_FORTRESS_ATOLL`) and converted all ~24 sites across
+      `boss.c`/`game_render.c`/`main.c`'s hand-built smoke-test
+      `BossState` — a mechanical, behavior-preserving conversion
+      (`fortressAtoll` → `type == BOSS_TYPE_FORTRESS_ATOLL`,
+      `!fortressAtoll` → `type != BOSS_TYPE_FORTRESS_ATOLL`), no logic
+      changes. `BossIsFortressAtoll()`'s signature is unchanged, only
+      its body. `BossPartId` and the phase machine
       (`ENTERING → FIGHTING → DYING → SALVAGE_APPROACH/DOCK → CLEARED`)
-      are boss-agnostic already and carry over as-is
+      were already boss-agnostic and carry over as-is. Adding
+      `BOSS_TYPE_STORM_WARDEN` and its actual behavior is the next item
+      below, not this one. Verified against a real Windows build: full
+      clean build, all 6 CTest suites pass (`boss_tests` covers both
+      existing bosses unchanged), and the game runs end-to-end through
+      `SEAVIOUS_SMOKE_FRAMES=480`
 - [ ] Storm Warden boss: fixed weather-control installation, STORM/CALM
       cycle reusing the fortress gate-cycle timers/telegraph-event
       pattern (`gateTimer`, dwell durations, `PushGameEvent`) with parts
