@@ -1,16 +1,20 @@
 # Seavious
 
 Seavious is a compact horizontal-scrolling pixel-art shooter in C and
-[raylib](https://www.raylib.com/). You fly a small surface craft through two
+[raylib](https://www.raylib.com/). You fly a small surface craft through three
 authored stages: first the open-ocean, dual-weapon tutorial; then an
-archipelago where the salvaged mortar is needed to clear shore installations.
-Each stage ends in a distinct boss and awards a run-carrying upgrade.
+archipelago where the salvaged mortar is needed to clear shore installations;
+then a squall where wind drift and rogue waves turn the sea itself into the
+opponent. Each stage ends in a distinct boss and awards a run-carrying
+upgrade.
 
 ## Play it
 
 The game opens on a title screen. Start a run, clear Stage 1 to salvage the
-mortar, then clear Stage 2's fortress atoll to obtain the targeting computer.
-Stage clear continues the same run; game over starts a fresh Stage 1 run.
+mortar, clear Stage 2's fortress atoll to obtain the targeting computer, then
+clear Stage 3's Storm Warden to obtain the stabilizer. Stage clear continues
+the same run; after Stage 3 the run wraps back to Stage 1. Game over starts a
+fresh Stage 1 run.
 
 | Action | Keys |
 | --- | --- |
