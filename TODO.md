@@ -141,8 +141,15 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       `game_update.c`'s update/contact-damage passes on `scrollDt` (pure
       environment, not a fire-control timer - freezes with the water
       under the boss lock same as terrain and land). Unit-tested in
-      `gameplay_tests.c` (`TestRogueWave`). No map currently places one
-      (Stage 3 isn't registered yet); no SFX (separate Audio item below)
+      `gameplay_tests.c` (`TestRogueWave`). `assets/stages/stage3.txt`
+      places one in every beat. `DrawRogueWaves` (`game_render.c`)
+      renders both phases - a growing cyan swell ring with a last-third
+      inner-ring flash, then the same red/white blast language mines and
+      mortar shells already use once broken - this was missing for a
+      while after the mechanic itself landed (dodge-only hazards are
+      easy to ship functionally complete but invisible; caught before
+      Stage 3 shipped playable, not after). Still no SFX (separate Audio
+      item below)
 - [x] Stabilizer upgrade flag: `hasStabilizer` on `GameState` (mirrors
       `hasMortar`/`hasTargetingComputer`), preserved across `BeginStage`;
       `UPGRADE_AWARD_STABILIZER` case in `ApplyUpgradeAward` (`stage.c`);

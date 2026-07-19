@@ -629,6 +629,38 @@ static void DrawLandMortarShells(const GameState *state) {
     }
 }
 
+// Rogue waves telegraph on the water exactly like they behave: a rising
+// cyan swell while building, then the same red/white blast language every
+// other hazard in the game already uses (mines, mortar shells) once they
+// break - the player already reads "cyan is still safe, red is not" from
+// those, so the swell borrows the safe half of that same vocabulary.
+static void DrawRogueWaves(const GameState *state) {
+    for (int i = 0; i < MAX_ROGUE_WAVES; i++) {
+        const RogueWave *wave = &state->rogueWaves[i];
+        if (!wave->active) continue;
+        if (!wave->broken) {
+            float u = wave->t / ROGUE_WAVE_SWELL_DURATION;
+            float radius = 4.0f + (ROGUE_WAVE_BLAST_RADIUS - 4.0f) * u;
+            unsigned char rimAlpha = (unsigned char)(90.0f + 140.0f * u);
+            DrawCircleV(wave->pos, radius * 0.5f, (Color){ 40, 140, 160, (unsigned char)(60.0f + 60.0f * u) });
+            DrawCircleLines((int)wave->pos.x, (int)wave->pos.y, radius, (Color){ 102, 224, 228, rimAlpha });
+            // A tighter inner ring flashes in over the last third of the
+            // swell - the one-second warning a fixed dwell alone can't give.
+            if (u > 0.7f) {
+                DrawCircleLines((int)wave->pos.x, (int)wave->pos.y, radius * 0.55f,
+                    (Color){ 232, 248, 248, (unsigned char)(180.0f * (u - 0.7f) / 0.3f) });
+            }
+        } else {
+            float p = 1.0f - wave->t / ROGUE_WAVE_BLAST_DURATION;
+            unsigned char fade = (unsigned char)(220.0f * (0.4f + 0.6f * p));
+            DrawCircleV(wave->pos, ROGUE_WAVE_BLAST_RADIUS * (0.5f + 0.5f * p), (Color){ 232, 90, 40, fade });
+            DrawCircleLines((int)wave->pos.x, (int)wave->pos.y, ROGUE_WAVE_BLAST_RADIUS * (0.7f + 0.3f * p),
+                (Color){ 232, 60, 60, (unsigned char)(220.0f * p) });
+            DrawCircleV(wave->pos, 9.0f * p, (Color){ 255, 246, 216, fade });
+        }
+    }
+}
+
 static void DrawTerrainHardpoints(const GameState *state, const GameAssets *assets) {
     const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
     Rectangle source = { 0.0f, 0.0f, (float)assets->terrainHardpointTex.width,
@@ -975,6 +1007,7 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
     // and the docking dome flies over the player: top of the world layer.
     DrawBossAirborne(state, assets);
     DrawLandMortarShells(state);
+    DrawRogueWaves(state);
 
     // The player's shell arcs at the same height as the boss's - same
     // lob-and-blast language, green for player ordnance.
