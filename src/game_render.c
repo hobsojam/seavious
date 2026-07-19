@@ -615,42 +615,6 @@ static void DrawTerrainHardpoints(const GameState *state, const GameAssets *asse
     }
 }
 
-typedef enum {
-    TERRAIN_DETAIL_BRUSH,
-    TERRAIN_DETAIL_ROCKS,
-    TERRAIN_DETAIL_TIDE_POOL,
-} TerrainDetailKind;
-
-typedef struct {
-    int px;
-    int y;
-    TerrainDetailKind kind;
-} StageTerrainDetail;
-
-// Decorative only: these positions are intentionally clear of hardpoints
-// and do not participate in collision or torpedo blocking.
-static void DrawTerrainDetails(const GameState *state, const GameAssets *assets) {
-    static const StageTerrainDetail details[] = {
-        { 452, 14, TERRAIN_DETAIL_BRUSH },
-        { 510, 68, TERRAIN_DETAIL_ROCKS },
-        { 452, 72, TERRAIN_DETAIL_TIDE_POOL },
-        { 4426, 116, TERRAIN_DETAIL_BRUSH },
-        { 4460, 166, TERRAIN_DETAIL_ROCKS },
-        { 4482, 172, TERRAIN_DETAIL_TIDE_POOL },
-    };
-
-    for (int i = 0; i < (int)(sizeof(details) / sizeof(details[0])); i++) {
-        Texture2D texture = assets->terrainBrushTex;
-        if (details[i].kind == TERRAIN_DETAIL_ROCKS) texture = assets->terrainRockTex;
-        if (details[i].kind == TERRAIN_DETAIL_TIDE_POOL) texture = assets->terrainTidePoolTex;
-
-        float x = (float)details[i].px - state->scrollDistance + GAME_WIDTH;
-        if (x > GAME_WIDTH || x + texture.width < 0.0f) continue;
-        DrawTexture(texture, (int)x, details[i].y, WHITE);
-    }
-}
-
-
 void DrawGame(const GameState *state, const GameAssets *assets) {
     const Color bulletColor = (Color){ 76, 224, 232, 255 };
     const Color enemyBulletColor = (Color){ 232, 72, 72, 255 };

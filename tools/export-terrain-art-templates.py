@@ -195,7 +195,7 @@ def write_brief(tile_gen, selected, out_path):
 
 def main(out_dir=None):
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    out_dir = out_dir or os.path.join(repo, 'assets', 'tiles', 'art-templates')
+    out_dir = genlib.resolve_out_dir(out_dir, 'assets', 'tiles', 'art-templates')
     os.makedirs(out_dir, exist_ok=True)
     cells = read_terrain_cells(os.path.join(repo, 'assets', 'stages',
                                             'stage2_terrain.txt'))

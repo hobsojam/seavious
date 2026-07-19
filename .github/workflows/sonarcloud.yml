@@ -73,6 +73,10 @@ jobs:
           python3 -m coverage run -a --include='tools/*' tests/test_sprite_assets.py
           python3 -m coverage run -a --include='tools/*' tests/test_stage_table.py
           python3 -m coverage run -a --include='tools/*' tests/test_icon_asset.py
+          python3 -m coverage run -a --include='tools/*' tests/test_terrain_art_templates.py
+          python3 -m coverage run -a --include='tools/*' tests/test_pngread.py
+          python3 -m coverage run -a --include='tools/*' tests/test_terrain_feature_atlas.py
+          python3 -m coverage run -a --include='tools/*' tests/test_terrain_ground_tile.py
           python3 -m coverage xml -o coverage-python.xml
 
       - name: Scan with SonarCloud
