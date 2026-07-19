@@ -20,6 +20,15 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     }
     if (state->gameOver) return;
 
+    // The current stage's compiled content (terrain for the torpedo lane
+    // checks below; events/length are the stage script's business). Fetched
+    // once up front since MovePlayer below and the torpedo section further
+    // down both need its drift.
+    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
+    // The stabilizer salvage cancels drift outright rather than changing
+    // how the shot is aimed (see docs/game-design.md "Stage 3").
+    Vector2 drift = state->hasStabilizer ? (Vector2){ 0.0f, 0.0f } : stage->drift;
+
     // From the salvage autopilot on, the boss sequence flies the ship:
     // no input, no weapons, no reticle - the run is already won.
     bool bossOwnsPlayer = BossSequenceOwnsPlayer(state);
@@ -48,7 +57,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
             if (InputActionDown(INPUT_MOVE_DOWN))  inputY += 1.0f;
         }
         Vector2 playerBeforeMove = state->player;
-        MovePlayer(&state->player, inputX, inputY, PLAYER_SPEED, dt, halfW, halfH);
+        MovePlayer(&state->player, inputX, inputY, PLAYER_SPEED, dt, halfW, halfH, drift);
         if (dt > 0.0f) {
             playerVelocity = (Vector2){
                 (state->player.x - playerBeforeMove.x) / dt, (state->player.y - playerBeforeMove.y) / dt
@@ -121,10 +130,6 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
         state->bullets, MAX_BULLETS, state->airTargets, MAX_AIR_TARGETS, &state->gameEvents
     );
 
-    // The current stage's compiled content (terrain for the torpedo lane
-    // checks below; events/length are the stage script's business).
-    const StageDescriptor *stage = GetStageDescriptor(state->stageNumber);
-
     // Torpedo: manual second input, gated by both "one in flight at a
     // time" and a reload cooldown so it isn't unlimited-fire like the gun.
     if (state->torpedoCooldown > 0.0f) state->torpedoCooldown -= dt;
@@ -132,7 +137,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     if (!state->playerDestroyed && fireTorpedo && !state->torpedo.active && state->torpedoCooldown <= 0.0f) {
         Vector2 torpedoSpawn = { state->player.x + halfW, state->player.y };
         if (state->hasTargetingComputer) {
-            FireLeadTorpedo(&state->torpedo, torpedoSpawn, state->surfaceTargets, MAX_SURFACE_TARGETS);
+            FireLeadTorpedo(&state->torpedo, torpedoSpawn, state->surfaceTargets, MAX_SURFACE_TARGETS, drift.y);
         } else {
             FireFixedRangeTorpedo(&state->torpedo, torpedoSpawn, stage->terrain, stage->terrainCount,
                 state->scrollDistance);
@@ -146,7 +151,7 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
             .type = GAME_EVENT_TORPEDO_FIRED, .pos = torpedoSpawn
         });
     }
-    TorpedoImpact torpedoImpact = UpdateTorpedo(&state->torpedo, dt);
+    TorpedoImpact torpedoImpact = UpdateTorpedo(&state->torpedo, dt, drift.y);
     // Land blocks torpedoes (checked before target collision, so a target
     // tucked behind a shoreline is genuinely shielded): armed shots
     // detonate at the land edge - the explosion branch below still splashes

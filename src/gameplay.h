@@ -397,7 +397,10 @@ typedef struct {
     int count;
 } GameEventQueue;
 
-void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH);
+// drift is the current stage's constant environmental push (px/s), {0, 0}
+// outside Stage 3 or once the stabilizer is held (see stage_data.h).
+void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH,
+    Vector2 drift);
 float AdvanceOceanScroll(float oceanScroll, float dt, float tileWidth);
 
 bool TryEmitWakeParticle(WakeParticle wake[], int count, Vector2 pos);
@@ -456,8 +459,14 @@ TorpedoImpact ResolveTorpedoRectCollision(Torpedo *torpedo, const Rectangle rect
 Vector2 CalculateLeadTorpedoVelocity(Vector2 spawn, const SurfaceTarget targets[], int targetCount);
 void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn, const StageTerrainFootprint terrain[], int terrainCount,
     float scrollDistance);
-void FireLeadTorpedo(Torpedo *torpedo, Vector2 spawn, const SurfaceTarget targets[], int targetCount);
-TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt);
+// driftY compensates the launch heading so the lead solve still lands on
+// its true intercept point despite the crosswind UpdateTorpedo applies
+// in flight; the reticle (CalculateLeadTorpedoVelocity above) intentionally
+// keeps showing the uncompensated aim - see docs/game-design.md "Stage 3".
+void FireLeadTorpedo(Torpedo *torpedo, Vector2 spawn, const SurfaceTarget targets[], int targetCount, float driftY);
+// A fixed-lane torpedo gets no compensation: driftY here is what makes an
+// unled shot visibly miss its promised lane in a crosswind.
+TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt, float driftY);
 TorpedoImpact ResolveTorpedoTerrainCollision(Torpedo *torpedo, const StageTerrainFootprint terrain[],
     int terrainCount, float scrollDistance);
 

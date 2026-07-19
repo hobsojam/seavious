@@ -109,28 +109,37 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       will actually die against (in-flight land collision still
       applies); decide whether the lead solution should clamp to land
       edges like the fixed-range shot does
-- [ ] Wind drift mechanic (Stage 3, see `docs/game-design.md`): a
-      per-stage drift vector, since no per-stage physics modifier exists
-      yet — add a field to `StageDescriptor` (`stage_data.h`) and read it
-      wherever `MovePlayer` is called and inside `UpdateTorpedo`'s
-      per-frame position update (`gameplay.c`), mirroring how
-      `OCEAN_SCROLL_SPEED` is already threaded through both. Extend
-      `CalculateLeadTorpedoVelocity`'s intercept quadratic with the drift
-      term so lead shots stay accurate in a crosswind. Direction/strength
-      should vary smoothly across the stage (reuse the low-frequency
-      world-space noise approach the terrain-tile prototype used for
-      coherent variation, not per-frame randomness) and be visually
-      telegraphed, not just tuned by feel
+- [x] Wind drift mechanic plumbing (Stage 3, see `docs/game-design.md`):
+      added `Vector2 drift` to `StageDescriptor` ({0,0} for Stage 1/2)
+      and threaded it through `MovePlayer` (an added term, same as
+      input) and `UpdateTorpedo` (added to `vel.y` for the frame's
+      step, so it scales with the same `travelTime` as everything
+      else). Rather than touching `CalculateLeadTorpedoVelocity` itself
+      (target motion keeps no drift term), `FireLeadTorpedo` pre-
+      compensates by subtracting `driftY` from the launch `vel.y`, so
+      it cancels back out during flight and the lead solve still lands
+      on its true intercept point; a fixed-lane shot gets no such
+      compensation, so it visibly misses its promised lane in a
+      crosswind - the documented failure mode. Unit-tested in
+      `gameplay_tests.c` (`TestWindDrift`, plus `MovePlayer` drift
+      cases in `TestMovementAndProjectiles`). Still open: Stage 3 isn't
+      registered yet, so every stage currently gets zero drift; the
+      "direction/strength varies smoothly across the stage" design
+      goal (world-space noise, not a flat constant) is deliberately
+      deferred past this first pass to keep it reviewable - the
+      `StageDescriptor` field works either way once that lands
 - [ ] Rogue wave hazard (Stage 3): dodge-only, no weapon counter — follow
       the Mine proximity-blast pattern (`gameplay.c`'s
       `DetonateNearbyMines`/`MineBlast` pool) for a telegraphed-swell,
       timed-blast hazard decoupled from any `Damage*Target` path; new map
       glyph to place it
-- [ ] Stabilizer upgrade flag: `hasStabilizer` on `GameState` (mirrors
+- [x] Stabilizer upgrade flag: `hasStabilizer` on `GameState` (mirrors
       `hasMortar`/`hasTargetingComputer`), preserved across `BeginStage`;
-      new `UPGRADE_AWARD_STABILIZER` case in `ApplyUpgradeAward`
-      (`stage.c`); once held, zero the drift term wherever it's applied
-      rather than changing the aim math
+      `UPGRADE_AWARD_STABILIZER` case in `ApplyUpgradeAward` (`stage.c`);
+      `game_update.c` zeroes the effective drift for the frame once held,
+      rather than changing the aim math. Unit-tested in `stage_tests.c`.
+      Still open: not yet reachable through a real stage-clear award
+      until Stage 3 is registered (next item)
 
 ## Content
 

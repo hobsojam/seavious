@@ -31,9 +31,18 @@ static void TestDamageAndScore(void) {
 
 static void TestMovementAndProjectiles(void) {
     Vector2 player = { 0, PLAY_HEIGHT + 20 };
-    MovePlayer(&player, -1, 1, 10, 1, 5, 5);
+    MovePlayer(&player, -1, 1, 10, 1, 5, 5, (Vector2){ 0.0f, 0.0f });
     NEAR(player.x, 5); NEAR(player.y, PLAY_HEIGHT - 5);
     NEAR(AdvanceOceanScroll(95, 1, 100), 35);
+
+    // Drift pushes the player like a fourth input axis, still clamped to
+    // the play rect (see docs/game-design.md "Stage 3").
+    Vector2 drifted = { 100, 100 };
+    MovePlayer(&drifted, 0, 0, 10, 1, 5, 5, (Vector2){ 20.0f, -30.0f });
+    NEAR(drifted.x, 120); NEAR(drifted.y, 70);
+    Vector2 driftedToEdge = { 6, 6 };
+    MovePlayer(&driftedToEdge, 0, 0, 10, 1, 5, 5, (Vector2){ -50.0f, -50.0f });
+    NEAR(driftedToEdge.x, 5); NEAR(driftedToEdge.y, 5);
 
     WakeParticle wake[1] = { 0 };
     CHECK(TryEmitWakeParticle(wake, 1, (Vector2){ 10, 4 }));
@@ -194,11 +203,11 @@ static void TestTorpedoes(void) {
     Vector2 spawn = { 10, 20 };
     FireFixedRangeTorpedo(&torpedo, spawn, NULL, 0, 0.0f);
     CHECK(torpedo.active && torpedo.target.x > spawn.x);
-    TorpedoImpact impact = UpdateTorpedo(&torpedo, 1);
+    TorpedoImpact impact = UpdateTorpedo(&torpedo, 1, 0.0f);
     CHECK(!torpedo.active && impact.type == TORPEDO_IMPACT_EXPLOSION);
 
     SurfaceTarget target = { .pos = { 100, 30 }, .active = true };
-    FireLeadTorpedo(&torpedo, spawn, &target, 1);
+    FireLeadTorpedo(&torpedo, spawn, &target, 1, 0.0f);
     CHECK(torpedo.active && torpedo.vel.x > 0);
     torpedo.active = true; torpedo.armed = false; torpedo.pos = target.pos;
     target.hp = 1; target.radius = 10;
@@ -214,7 +223,7 @@ static void TestTorpedoes(void) {
         .target = { 1000, spawn.y },
         .vel = { TORPEDO_SPEED, 0 },
     };
-    impact = UpdateTorpedo(&travelling, 0.1f);
+    impact = UpdateTorpedo(&travelling, 0.1f, 0.0f);
     CHECK(impact.type == TORPEDO_IMPACT_NONE && travelling.active);
     NEAR(travelling.distanceTravelled, 20.0f);
 
@@ -229,7 +238,7 @@ static void TestTorpedoes(void) {
         .vel = { TORPEDO_SPEED, 0 },
         .distanceTravelled = TORPEDO_MAX_RANGE - 1.0f,
     };
-    impact = UpdateTorpedo(&capped, 1.0f);
+    impact = UpdateTorpedo(&capped, 1.0f, 0.0f);
     CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION && !capped.active);
     NEAR(capped.distanceTravelled, TORPEDO_MAX_RANGE);
     NEAR(capped.pos.x, spawn.x + 1.0f);
@@ -239,10 +248,38 @@ static void TestTorpedoes(void) {
     Torpedo exhausted = capped;
     exhausted.active = true;
     exhausted.pos = spawn;
-    impact = UpdateTorpedo(&exhausted, 0.1f);
+    impact = UpdateTorpedo(&exhausted, 0.1f, 0.0f);
     CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION && !exhausted.active);
     NEAR(exhausted.distanceTravelled, TORPEDO_MAX_RANGE);
     NEAR(exhausted.pos.x, spawn.x);
+}
+
+static void TestWindDrift(void) {
+    Vector2 spawn = { 10, 20 };
+
+    // A fixed-lane shot gets no compensation: a crosswind visibly pushes
+    // it off the lane its reticle promised (see docs/game-design.md
+    // "Stage 3" - this is the failure mode the lead solve below corrects).
+    Torpedo fixedShot = { 0 };
+    FireFixedRangeTorpedo(&fixedShot, spawn, NULL, 0, 0.0f);
+    float promisedY = fixedShot.target.y;
+    UpdateTorpedo(&fixedShot, 0.1f, 12.0f);
+    CHECK(fixedShot.pos.y > promisedY);
+    NEAR(fixedShot.pos.y, spawn.y + 12.0f * 0.1f);
+
+    // A lead shot pre-compensates its launch heading below the true
+    // intercept aim so the same crosswind cancels back out during flight -
+    // checked against actual per-frame motion (not just the eventual
+    // snap-to-target, which would land on target.y regardless of whether
+    // the compensation math is right).
+    SurfaceTarget target = { .pos = { 210, 60 }, .active = true };
+    Vector2 trueAim = CalculateLeadTorpedoVelocity(spawn, &target, 1);
+    Torpedo leadShot = { 0 };
+    FireLeadTorpedo(&leadShot, spawn, &target, 1, 12.0f);
+    NEAR(leadShot.vel.y, trueAim.y - 12.0f);
+    UpdateTorpedo(&leadShot, 0.1f, 12.0f);
+    NEAR(leadShot.pos.x, spawn.x + trueAim.x * 0.1f);
+    NEAR(leadShot.pos.y, spawn.y + trueAim.y * 0.1f);
 }
 
 static void TestTerrain(void) {
@@ -300,7 +337,7 @@ static void TestTerrain(void) {
     Torpedo fired = { 0 };
     FireFixedRangeTorpedo(&fired, (Vector2){ 100, 112 }, &land, 1, scroll);
     NEAR(fired.target.x, 200.0f);
-    impact = UpdateTorpedo(&fired, 1.0f);
+    impact = UpdateTorpedo(&fired, 1.0f, 0.0f);
     CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION);
 }
 
@@ -737,6 +774,7 @@ int main(void) {
     TestInterceptor();
     TestGunship();
     TestTorpedoes();
+    TestWindDrift();
     TestTerrain();
     TestPlayerMortar();
     TestMortarBattery();

@@ -165,9 +165,10 @@ bool ResolveMineBlastPlayerHit(const MineBlast blasts[], int count, Vector2 play
     return false;
 }
 
-void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH) {
-    player->x += inputX * speed * dt;
-    player->y += inputY * speed * dt;
+void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH,
+    Vector2 drift) {
+    player->x += inputX * speed * dt + drift.x * dt;
+    player->y += inputY * speed * dt + drift.y * dt;
 
     if (player->x < halfW) player->x = halfW;
     if (player->x > GAME_WIDTH - halfW) player->x = GAME_WIDTH - halfW;
@@ -541,19 +542,26 @@ void FireFixedRangeTorpedo(Torpedo *torpedo, Vector2 spawn, const StageTerrainFo
     torpedo->armed = false;
 }
 
-void FireLeadTorpedo(Torpedo *torpedo, Vector2 spawn, const SurfaceTarget targets[], int targetCount) {
+void FireLeadTorpedo(Torpedo *torpedo, Vector2 spawn, const SurfaceTarget targets[], int targetCount,
+    float driftY) {
     torpedo->active = true;
     torpedo->pos = spawn;
-    torpedo->vel = CalculateLeadTorpedoVelocity(spawn, targets, targetCount);
+    // aim is the true intercept heading (target motion has no drift term -
+    // see docs/game-design.md "Stage 3"); target is derived from aim so the
+    // reticle/endpoint still shows that true point. The launch velocity is
+    // aim pre-compensated by -driftY so UpdateTorpedo's per-frame drift
+    // term exactly cancels back out over the flight.
+    Vector2 aim = CalculateLeadTorpedoVelocity(spawn, targets, targetCount);
     torpedo->target = (Vector2){
-        spawn.x + torpedo->vel.x / TORPEDO_SPEED * TORPEDO_MAX_RANGE,
-        spawn.y + torpedo->vel.y / TORPEDO_SPEED * TORPEDO_MAX_RANGE
+        spawn.x + aim.x / TORPEDO_SPEED * TORPEDO_MAX_RANGE,
+        spawn.y + aim.y / TORPEDO_SPEED * TORPEDO_MAX_RANGE
     };
+    torpedo->vel = (Vector2){ aim.x, aim.y - driftY };
     torpedo->distanceTravelled = 0.0f;
     torpedo->armed = false;
 }
 
-TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt) {
+TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt, float driftY) {
     if (!torpedo->active) return NoTorpedoImpact();
 
     torpedo->target.x -= OCEAN_SCROLL_SPEED * dt;
@@ -583,7 +591,13 @@ TorpedoImpact UpdateTorpedo(Torpedo *torpedo, float dt) {
     float travel = step < rangeLeft ? step : rangeLeft;
     float travelTime = travel / TORPEDO_SPEED;
     torpedo->pos.x += torpedo->vel.x * travelTime;
-    torpedo->pos.y += torpedo->vel.y * travelTime;
+    // driftY rides alongside vel.y rather than as a flat per-dt term, so it
+    // scales with the same travelTime as everything else here (matters on
+    // the frame range runs out mid-step). A fixed-lane torpedo's vel has no
+    // compensation, so this is what makes it miss its promised lane in a
+    // crosswind; FireLeadTorpedo pre-subtracts driftY from vel.y so this
+    // term cancels back out and the lead solve still lands true.
+    torpedo->pos.y += (torpedo->vel.y + driftY) * travelTime;
     torpedo->distanceTravelled += travel;
     if (torpedo->distanceTravelled >= TORPEDO_ARMING_DISTANCE) torpedo->armed = true;
     if (torpedo->distanceTravelled >= TORPEDO_MAX_RANGE) {

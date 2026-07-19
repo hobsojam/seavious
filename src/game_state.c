@@ -18,11 +18,13 @@ void BeginStage(GameState *state, int stageNumber) {
     int lives = state->lives;
     bool hasMortar = state->hasMortar;
     bool hasTargetingComputer = state->hasTargetingComputer;
+    bool hasStabilizer = state->hasStabilizer;
     ResetRunState(state);
     state->score = score;
     state->lives = lives;
     state->hasMortar = hasMortar;
     state->hasTargetingComputer = hasTargetingComputer;
+    state->hasStabilizer = hasStabilizer;
     state->stageNumber = stageNumber;
 }
 

@@ -98,6 +98,7 @@ void ApplyUpgradeAward(GameState *state, UpgradeAward award) {
     switch (award) {
         case UPGRADE_AWARD_MORTAR: state->hasMortar = true; break;
         case UPGRADE_AWARD_TARGETING_COMPUTER: state->hasTargetingComputer = true; break;
+        case UPGRADE_AWARD_STABILIZER: state->hasStabilizer = true; break;
         case UPGRADE_AWARD_NONE: break;
     }
 }

@@ -358,9 +358,13 @@ static void TestStageDescriptor(void) {
     CHECK(stage->hardpoints == STAGE1_TERRAIN_HARDPOINTS
         && stage->hardpointCount == STAGE1_TERRAIN_HARDPOINT_COUNT);
     CHECK(stage->lengthPx == STAGE1_LENGTH_PX);
+    // Stage 1/2 have no environmental drift - only Stage 3 does (see
+    // docs/game-design.md "Stage 3").
+    CHECK(stage->drift.x == 0.0f && stage->drift.y == 0.0f);
     const StageDescriptor *stage2 = GetStageDescriptor(2);
     CHECK(stage2 != NULL && stage2->events == STAGE2_EVENTS
         && stage2->terrain == STAGE2_TERRAIN && stage2->lengthPx == STAGE2_LENGTH_PX);
+    CHECK(stage2->drift.x == 0.0f && stage2->drift.y == 0.0f);
     // Out-of-range numbers clamp to real Stage 1 content rather than
     // failing, so the advance flow's wrap can never dereference nothing.
     const StageDescriptor *below = GetStageDescriptor(0);
@@ -425,6 +429,11 @@ static void TestStageAwardLoadout(void) {
     CHECK(!state.hasMortar && !state.hasTargetingComputer);
     ApplyUpgradeAward(&state, UPGRADE_AWARD_TARGETING_COMPUTER);
     CHECK(state.hasTargetingComputer && !state.hasMortar);
+    // Not yet reachable through a real stage award (Stage 3 isn't
+    // registered), but the primitive itself is ready for it.
+    CHECK(!state.hasStabilizer);
+    ApplyUpgradeAward(&state, UPGRADE_AWARD_STABILIZER);
+    CHECK(state.hasStabilizer);
 }
 
 static void TestSkipToStageEnd(void) {
@@ -520,6 +529,7 @@ static void TestBeginStageCarriesRunProgression(void) {
     state.score = 12345;
     state.lives = 2;
     state.hasMortar = true;
+    state.hasStabilizer = true;
     state.scrollDistance = 500.0f;
     state.stageCursor = 7;
     state.bossLock = true;
@@ -529,7 +539,7 @@ static void TestBeginStageCarriesRunProgression(void) {
     BeginStage(&state, 2);
     CHECK(state.stageNumber == 2);
     // Run progression carries across the stage transition...
-    CHECK(state.score == 12345 && state.lives == 2 && state.hasMortar);
+    CHECK(state.score == 12345 && state.lives == 2 && state.hasMortar && state.hasStabilizer);
     // ...while stage state rewinds like a fresh start.
     CHECK(state.scrollDistance == 0.0f && state.stageCursor == 0);
     CHECK(!state.bossLock && !state.stageClear);
@@ -538,7 +548,7 @@ static void TestBeginStageCarriesRunProgression(void) {
     // A full reset forfeits everything back to a Stage 1 fresh run.
     ResetRunState(&state);
     CHECK(state.stageNumber == 1 && state.score == 0 && state.lives == 3);
-    CHECK(!state.hasMortar);
+    CHECK(!state.hasMortar && !state.hasStabilizer);
 }
 
 int main(void) {

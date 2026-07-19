@@ -162,6 +162,9 @@ typedef struct {
     // Salvaged from the Stage 2 fortress-atoll: upgrades the torpedo from
     // a fixed lane shot to the preserved lead-targeting solution.
     bool hasTargetingComputer;
+    // Salvaged from the Stage 3 Storm Warden: cancels StageDescriptor.drift
+    // outright rather than changing how the shot is aimed.
+    bool hasStabilizer;
     MortarShell mortarShell;
     float mortarCooldown;
 
