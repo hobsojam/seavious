@@ -205,6 +205,22 @@ static void TestTorpedoes(void) {
     GameEventQueue events = { 0 };
     impact = ResolveTorpedoSurfaceTargetCollision(&torpedo, &target, 1, &events);
     CHECK(impact.type == TORPEDO_IMPACT_DIRECT && !target.active && events.count == 1);
+
+    // Lead torpedoes use a moving visual endpoint, but their travel budget
+    // remains the same as a fixed-lane torpedo. A large update must stop at
+    // the final permitted unit rather than following the endpoint farther.
+    Torpedo capped = {
+        .active = true,
+        .armed = true,
+        .pos = spawn,
+        .target = { 1000, spawn.y },
+        .vel = { TORPEDO_SPEED, 0 },
+        .distanceTravelled = TORPEDO_MAX_RANGE - 1.0f,
+    };
+    impact = UpdateTorpedo(&capped, 1.0f);
+    CHECK(impact.type == TORPEDO_IMPACT_EXPLOSION && !capped.active);
+    NEAR(capped.distanceTravelled, TORPEDO_MAX_RANGE);
+    NEAR(capped.pos.x, spawn.x + 1.0f);
 }
 
 static void TestTerrain(void) {
