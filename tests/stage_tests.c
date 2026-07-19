@@ -462,6 +462,42 @@ static void TestSkipToStageEnd(void) {
     CHECK(CountActiveAir(&state) + CountActiveSurface(&state) + CountActiveLand(&state) == 0);
 }
 
+// Every stage-table spawn is authored, never random - the game has full
+// control over how much can ever be concurrently active, so a dropped
+// spawn (TrySpawn* returning false because its pool is already full) is
+// always a pool-sizing bug, not a real gameplay outcome. This replays
+// each stage's actual compiled event table at real time (so pools drain
+// via their own Update* functions exactly as they do in play, not just
+// accumulate) and fails if anything was ever silently dropped - the
+// regression test for the MAX_SURFACE_TARGETS=8 bug that dropped roughly
+// half of Stage 1's mines/casemates/turrets with no visible symptom.
+static void TestSurfaceTargetPoolNeverExhausted(void) {
+    for (int stageNumber = 1; stageNumber <= StageCount(); stageNumber++) {
+        GameState state;
+        ResetRunState(&state);
+        BeginStage(&state, stageNumber);
+        const StageDescriptor *stage = GetStageDescriptor(stageNumber);
+
+        const float dt = 1.0f / 60.0f;
+        // Past the map's own length so every spawned entity's own
+        // dwell/flight time fully drains too, not just the last trigger.
+        const float maxElapsed = (float)stage->lengthPx / OCEAN_SCROLL_SPEED + 20.0f;
+        for (float elapsed = 0.0f; elapsed < maxElapsed; elapsed += dt) {
+            UpdateStageScript(&state, dt);
+            UpdateSurfaceTargets(state.surfaceTargets, MAX_SURFACE_TARGETS, dt);
+            UpdateAirTargets(state.airTargets, MAX_AIR_TARGETS, dt);
+            UpdateLandTargets(state.landTargets, MAX_LAND_TARGETS, dt);
+            UpdateRogueWaves(state.rogueWaves, MAX_ROGUE_WAVES, dt);
+        }
+
+        if (state.droppedSpawnCount != 0) {
+            fprintf(stderr, "stage %d dropped %d spawn(s) - pool too small\n",
+                stageNumber, state.droppedSpawnCount);
+        }
+        CHECK(state.droppedSpawnCount == 0);
+    }
+}
+
 static void TestStageScriptRunsAgainAfterAdvance(void) {
     GameState state;
     ResetRunState(&state);
@@ -587,6 +623,7 @@ int main(void) {
     TestStage1IsletSetPiece();
     TestBossLockFreezesScript();
     TestFormationPatterns();
+    TestSurfaceTargetPoolNeverExhausted();
 
     if (failures > 0) {
         fprintf(stderr, "%d stage test failure(s)\n", failures);

@@ -144,6 +144,12 @@ typedef struct {
     float scrollDistance;
     int stageCursor;
     bool bossLock;
+    // Every stage-table spawn is authored, never random, so a dropped
+    // spawn (its pool was already full) is always an authoring/pool-sizing
+    // problem, not a real gameplay outcome. Counted here rather than
+    // silently discarded so a regression test can catch it
+    // (TestSurfaceTargetPoolNeverExhausted, tests/stage_tests.c).
+    int droppedSpawnCount;
     // Raised by the salvage sequence after the boss falls; gates the
     // stage-clear overlay and the restart input alongside gameOver.
     bool stageClear;

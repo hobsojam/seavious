@@ -1,46 +1,56 @@
 #include "stage.h"
 #include "stage_data.h"
 
+// Every event here is authored (a stage table), never random: a spawn
+// that fails found its pool already full, which is always a pool-sizing
+// bug rather than a real gameplay outcome. Counted rather than silently
+// discarded so it can't regress unnoticed the way it did before
+// (see MAX_SURFACE_TARGETS in gameplay.h and
+// TestSurfaceTargetPoolNeverExhausted in tests/stage_tests.c).
+static void CountIfDropped(GameState *state, bool spawned) {
+    if (!spawned) state->droppedSpawnCount++;
+}
+
 static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
     switch (event->kind) {
         case STAGE_SPAWN_DRONE:
-            TrySpawnSkimmerDrone(state->airTargets, MAX_AIR_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnSkimmerDrone(state->airTargets, MAX_AIR_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_DRONE_LINE3:
-            SpawnSkimmerDroneLine(state->airTargets, MAX_AIR_TARGETS, event->laneY);
+            CountIfDropped(state, SpawnSkimmerDroneLine(state->airTargets, MAX_AIR_TARGETS, event->laneY) == 3);
             break;
         case STAGE_SPAWN_DRONE_V5:
-            SpawnSkimmerDroneV(state->airTargets, MAX_AIR_TARGETS, event->laneY);
+            CountIfDropped(state, SpawnSkimmerDroneV(state->airTargets, MAX_AIR_TARGETS, event->laneY) == 5);
             break;
         case STAGE_SPAWN_INTERCEPTOR:
-            TrySpawnInterceptor(state->airTargets, MAX_AIR_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnInterceptor(state->airTargets, MAX_AIR_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_GUNSHIP:
-            TrySpawnGunship(state->airTargets, MAX_AIR_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnGunship(state->airTargets, MAX_AIR_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_CASEMATE:
-            TrySpawnCasemate(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnCasemate(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_TRACKING_TURRET:
-            TrySpawnTrackingTurret(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnTrackingTurret(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_RELAY_NODE:
-            TrySpawnRelayNode(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnRelayNode(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_MINE:
-            TrySpawnMine(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnMine(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_MOBILE_PLATFORM:
-            TrySpawnMobilePlatform(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnMobilePlatform(state->surfaceTargets, MAX_SURFACE_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_MORTAR_BATTERY:
-            TrySpawnMortarBattery(state->landTargets, MAX_LAND_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnMortarBattery(state->landTargets, MAX_LAND_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_DRONE_BUNKER:
-            TrySpawnDroneBunker(state->landTargets, MAX_LAND_TARGETS, event->laneY);
+            CountIfDropped(state, TrySpawnDroneBunker(state->landTargets, MAX_LAND_TARGETS, event->laneY));
             break;
         case STAGE_SPAWN_ROGUE_WAVE:
-            TrySpawnRogueWave(state->rogueWaves, MAX_ROGUE_WAVES, event->laneY);
+            CountIfDropped(state, TrySpawnRogueWave(state->rogueWaves, MAX_ROGUE_WAVES, event->laneY));
             break;
     }
 }
