@@ -12,6 +12,9 @@ typedef enum {
     STAGE_SPAWN_DRONE,
     STAGE_SPAWN_DRONE_LINE3,
     STAGE_SPAWN_DRONE_V5,
+    // Off the left edge flying right instead of the usual right edge
+    // flying left - an occasional flanker.
+    STAGE_SPAWN_DRONE_BEHIND,
     STAGE_SPAWN_INTERCEPTOR,
     STAGE_SPAWN_GUNSHIP,
     STAGE_SPAWN_CASEMATE,

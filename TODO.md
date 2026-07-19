@@ -226,6 +226,22 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       - the shared enemy shot now draws as the designed red diamond with
         a white-hot center (was a placeholder circle), kept at 160 px/s
         (README roster note)
+- [x] Skimmer Drone flanker (2026-07-19): every other air enemy spawns off
+      the right edge and flies left; the flanker (`b` glyph,
+      `STAGE_SPAWN_DRONE_BEHIND`, `TrySpawnSkimmerDroneFromBehind`) is the
+      mirror image - off the left edge flying right, an occasional watch
+      more than the right edge moment rather than a new pattern to sweat
+      over every beat. `AirTarget.fromBehind` flips `UpdateAirTargets`'
+      movement direction and despawn edge; the sprite is drawn mirrored
+      (`DrawTextureRec` with a negated source width) since every air
+      sprite's nose is baked in facing left. Two placed in Stage 1 (beats
+      5 and 9) as a first taste. Unit-tested
+      (`TestSkimmerDroneFromBehind`); the auto-fire gun only ever shoots
+      rightward (no targeting/homing), so a flanker is genuinely
+      un-shootable while still approaching from the left - only killable
+      once it passes ahead of the player. Fitting for a flanker, but
+      worth knowing about, and worth a Windows playtest to confirm it
+      reads as intended rather than as unfair.
 - [x] Implement remaining ground roster — all three done:
       - Relay Node: spawns from its stage glyph, drifts with the water,
         launches a Skimmer Drone from its own position every 2.5s once

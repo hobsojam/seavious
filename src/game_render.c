@@ -1052,16 +1052,24 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
         Texture2D airTex = assets->droneTex;
         if (state->airTargets[i].type == AIR_TARGET_INTERCEPTOR) airTex = assets->interceptorTex;
         if (state->airTargets[i].type == AIR_TARGET_GUNSHIP) airTex = assets->gunshipTex;
-        DrawTexture(
+        // Every sprite's nose is baked in facing left (the normal flight
+        // direction); a behind-spawned flanker flies right, so its sprite
+        // is mirrored horizontally rather than drawn nose-backward.
+        float facing = state->airTargets[i].fromBehind ? -1.0f : 1.0f;
+        Rectangle airSource = { 0.0f, 0.0f, facing * (float)airTex.width, (float)airTex.height };
+        DrawTextureRec(
             airTex,
-            (int)(state->airTargets[i].pos.x - airTex.width / 2.0f),
-            (int)(state->airTargets[i].pos.y - airTex.height / 2.0f),
+            airSource,
+            (Vector2){
+                state->airTargets[i].pos.x - airTex.width / 2.0f,
+                state->airTargets[i].pos.y - airTex.height / 2.0f
+            },
             WHITE
         );
         if (state->airTargets[i].type != AIR_TARGET_SKIMMER_DRONE) continue;
         unsigned char corePulse = (unsigned char)(120 + 80.0f * sinf(state->airTargets[i].t * 6.0f));
         DrawCircleV(
-            (Vector2){ state->airTargets[i].pos.x - 4.0f, state->airTargets[i].pos.y },
+            (Vector2){ state->airTargets[i].pos.x - 4.0f * facing, state->airTargets[i].pos.y },
             2.5f,
             (Color){ airTargetColor.r, airTargetColor.g, airTargetColor.b, corePulse }
         );

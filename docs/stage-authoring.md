@@ -24,6 +24,7 @@ Lines beginning with `;` are comments; `#` is terrain, not a comment.
 | Glyph | Meaning |
 | --- | --- |
 | `d`, `w`, `W` | Skimmer Drone solo, line of three, V of five |
+| `b` | Skimmer Drone flanker: spawns off the left edge flying right instead of the usual right edge flying left |
 | `i`, `G` | Interceptor, Gunship |
 | `C`, `T`, `R`, `m`, `P` | Casemate, Tracking Turret, Relay Node, Mine, Mobile Platform |
 | `B`, `K` | Mortar Battery, Drone Bunker; each also creates terrain and a hardpoint |
