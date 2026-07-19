@@ -99,10 +99,8 @@ MenuResult UpdatePauseMenu(PauseMenu *menu, GameSettings *settings, bool *settin
     return MENU_RESULT_NONE;
 }
 
-static void DrawMenuPanel(const char *title, int panelY, int panelHeight) {
+static void DrawMenuPanel(const char *title, int panelX, int panelWidth, int panelY, int panelHeight) {
     DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (Color){ 0, 0, 0, 115 });
-    int panelX = 146;
-    int panelWidth = 220;
     DrawRectangle(panelX, panelY, panelWidth, panelHeight, MENU_PANEL);
     DrawRectangleLines(panelX, panelY, panelWidth, panelHeight, MENU_CYAN);
     int titleWidth = MeasureText(title, 18);
@@ -110,7 +108,7 @@ static void DrawMenuPanel(const char *title, int panelY, int panelHeight) {
 }
 
 static void DrawRootMenu(const PauseMenu *menu) {
-    DrawMenuPanel("PAUSED", 108, 128);
+    DrawMenuPanel("PAUSED", 146, 220, 108, 128);
     for (int i = 0; i < ROOT_COUNT; i++) {
         bool selected = menu->cursor == i;
         int y = 140 + 18 * i;
@@ -133,7 +131,7 @@ static void DrawVolumeRow(const char *label, int value, int y, bool selected) {
 }
 
 void DrawOptionsScreen(int cursor, const GameSettings *settings) {
-    DrawMenuPanel("OPTIONS", 110, 126);
+    DrawMenuPanel("OPTIONS", 146, 220, 110, 126);
     DrawVolumeRow("MUSIC", settings->musicVolume, 142, cursor == OPTIONS_MUSIC);
     DrawVolumeRow("SFX", settings->sfxVolume, 160, cursor == OPTIONS_SFX);
     bool fullscreenSelected = cursor == OPTIONS_FULLSCREEN;
@@ -148,7 +146,12 @@ void DrawOptionsScreen(int cursor, const GameSettings *settings) {
 }
 
 void DrawControlsScreen(void) {
+    const int fontSize = 8;
     const int rowHeight = 12;
+    const int margin = 16;
+    const int columnGap = 14;
+    const int detailIndent = 8;
+
     // Rows: the keyless gun line, one per action, plus one extra line per
     // action that carries a detail note.
     int rows = 1 + INPUT_ACTION_COUNT;
@@ -157,33 +160,59 @@ void DrawControlsScreen(void) {
     }
     int panelHeight = 38 + rowHeight * rows + 20;
     int panelY = (GAME_HEIGHT - panelHeight) / 2;
-    DrawMenuPanel("CONTROLS", panelY, panelHeight);
+
+    // Build each action's key string once, then size the two columns from
+    // the actual measured text (rather than fixed offsets) so long entries
+    // like "FIRE TORPEDO" / "PAUSE / MENU" can't collide with their value.
+    char keyLabels[INPUT_ACTION_COUNT][48];
+    int labelWidth = MeasureText("GUN", fontSize);
+    int valueWidth = MeasureText("AUTO-FIRE (AIR TARGETS)", fontSize);
+    for (int action = 0; action < INPUT_ACTION_COUNT; action++) {
+        const InputBinding *binding = GetInputBinding((InputAction)action);
+        int used = 0;
+        keyLabels[action][0] = '\0';
+        for (int k = 0; k < MAX_ACTION_KEYS; k++) {
+            if (binding->keys[k] == 0) continue;
+            used += snprintf(keyLabels[action] + used, sizeof keyLabels[action] - used, "%s%s",
+                used > 0 ? " / " : "", InputKeyName(binding->keys[k]));
+        }
+        int lw = MeasureText(binding->label, fontSize);
+        if (lw > labelWidth) labelWidth = lw;
+        int kw = MeasureText(keyLabels[action], fontSize);
+        if (kw > valueWidth) valueWidth = kw;
+        if (binding->detail[0] != '\0') {
+            int dw = MeasureText(binding->detail, fontSize) + detailIndent;
+            if (dw > valueWidth) valueWidth = dw;
+        }
+    }
+
+    int panelWidth = margin + labelWidth + columnGap + valueWidth + margin;
+    if (panelWidth < 220) panelWidth = 220;
+    int panelX = (GAME_WIDTH - panelWidth) / 2;
+    DrawMenuPanel("CONTROLS", panelX, panelWidth, panelY, panelHeight);
+
+    int labelX = panelX + margin;
+    int valueX = labelX + labelWidth + columnGap;
+    int detailX = valueX + detailIndent;
 
     int y = panelY + 34;
     // The gun has no binding to list, but a controls screen that omits
     // the primary weapon would read as a bug.
-    DrawText("GUN", 162, y, 8, MENU_CYAN);
-    DrawText("AUTO-FIRE (AIR TARGETS)", 240, y, 8, MENU_PALE);
+    DrawText("GUN", labelX, y, fontSize, MENU_CYAN);
+    DrawText("AUTO-FIRE (AIR TARGETS)", valueX, y, fontSize, MENU_PALE);
     y += rowHeight;
 
     for (int action = 0; action < INPUT_ACTION_COUNT; action++) {
         const InputBinding *binding = GetInputBinding((InputAction)action);
-        char keys[48] = "";
-        int used = 0;
-        for (int k = 0; k < MAX_ACTION_KEYS; k++) {
-            if (binding->keys[k] == 0) continue;
-            used += snprintf(keys + used, sizeof keys - used, "%s%s",
-                used > 0 ? " / " : "", InputKeyName(binding->keys[k]));
-        }
-        DrawText(binding->label, 162, y, 8, MENU_CYAN);
-        DrawText(keys, 240, y, 8, MENU_PALE);
+        DrawText(binding->label, labelX, y, fontSize, MENU_CYAN);
+        DrawText(keyLabels[action], valueX, y, fontSize, MENU_PALE);
         y += rowHeight;
         if (binding->detail[0] != '\0') {
-            DrawText(binding->detail, 248, y, 8, MENU_INACTIVE);
+            DrawText(binding->detail, detailX, y, fontSize, MENU_INACTIVE);
             y += rowHeight;
         }
     }
-    DrawText("ENTER/ESC TO RETURN", 162, panelY + panelHeight - 14, 8, MENU_INACTIVE);
+    DrawText("ENTER/ESC TO RETURN", labelX, panelY + panelHeight - 14, fontSize, MENU_INACTIVE);
 }
 
 void DrawPauseMenu(const PauseMenu *menu, const GameSettings *settings) {
