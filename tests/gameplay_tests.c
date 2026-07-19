@@ -106,6 +106,27 @@ static void TestAirTargets(void) {
     CHECK(!ResolvePlayerContactDamage((Vector2){ 100, 100 }, 1, &contact, 1, NULL, 0, NULL));
 }
 
+static void TestSkimmerDroneFromBehind(void) {
+    AirTarget targets[1] = { 0 };
+    CHECK(TrySpawnSkimmerDroneFromBehind(targets, 1, 100.0f));
+    CHECK(targets[0].active && targets[0].fromBehind);
+    NEAR(targets[0].pos.x, -SKIMMER_DRONE_RADIUS);
+
+    // Flies right instead of left, mirroring every other air spawn.
+    float startX = targets[0].pos.x;
+    UpdateAirTargets(targets, 1, 1.0f);
+    NEAR(targets[0].pos.x - startX, SKIMMER_DRONE_SPEED);
+
+    // Despawns off the right edge it's heading toward, not the left one
+    // it started at.
+    targets[0].pos.x = -SKIMMER_DRONE_RADIUS - 1.0f;
+    UpdateAirTargets(targets, 1, 0.001f);
+    CHECK(targets[0].active);
+    targets[0].pos.x = GAME_WIDTH + SKIMMER_DRONE_RADIUS + 1.0f;
+    UpdateAirTargets(targets, 1, 0.001f);
+    CHECK(!targets[0].active);
+}
+
 static void TestInterceptor(void) {
     AirTarget targets[1] = { 0 };
     EnemyBullet bullets[2] = { 0 };
@@ -909,6 +930,7 @@ int main(void) {
     TestDamageAndScore();
     TestMovementAndProjectiles();
     TestAirTargets();
+    TestSkimmerDroneFromBehind();
     TestInterceptor();
     TestGunship();
     TestTorpedoes();

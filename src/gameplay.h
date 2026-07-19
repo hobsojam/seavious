@@ -304,6 +304,11 @@ typedef struct {
     // and the unarmed Skimmer Drone.
     float fireTimer;
     bool hasFired;
+    // Every air enemy but this one spawns off the right edge and flies
+    // left with the current. A behind-spawned drone is the mirror image:
+    // it spawns off the left edge and flies right, so the player has to
+    // watch more than the right edge for once.
+    bool fromBehind;
     bool active;
 } AirTarget;
 
@@ -520,6 +525,10 @@ Vector2 RogueWaveKnockdownFleckPos(float seed, int index, float frontX, float wi
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
 bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset);
+// Spawns off the left edge flying right instead of the usual right edge
+// flying left - an occasional flanker so the right edge isn't the only
+// direction worth watching.
+bool TrySpawnSkimmerDroneFromBehind(AirTarget targets[], int count, float baseY);
 int SpawnSkimmerDroneLine(AirTarget targets[], int count, float baseY);
 int SpawnSkimmerDroneV(AirTarget targets[], int count, float baseY);
 bool TrySpawnInterceptor(AirTarget targets[], int count, float baseY);

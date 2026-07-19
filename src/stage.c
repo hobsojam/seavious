@@ -22,6 +22,9 @@ static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
         case STAGE_SPAWN_DRONE_V5:
             CountIfDropped(state, SpawnSkimmerDroneV(state->airTargets, MAX_AIR_TARGETS, event->laneY) == 5);
             break;
+        case STAGE_SPAWN_DRONE_BEHIND:
+            CountIfDropped(state, TrySpawnSkimmerDroneFromBehind(state->airTargets, MAX_AIR_TARGETS, event->laneY));
+            break;
         case STAGE_SPAWN_INTERCEPTOR:
             CountIfDropped(state, TrySpawnInterceptor(state->airTargets, MAX_AIR_TARGETS, event->laneY));
             break;

@@ -393,7 +393,7 @@ static float ClampDroneBaseY(float baseY) {
 }
 
 static bool TrySpawnAirTargetFrom(AirTarget targets[], int count, AirTargetType type, float radius, int hp,
-    Vector2 pos, int ownerId) {
+    Vector2 pos, int ownerId, bool fromBehind) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) {
             targets[i].type = type;
@@ -405,6 +405,7 @@ static bool TrySpawnAirTargetFrom(AirTarget targets[], int count, AirTargetType 
             targets[i].ownerId = ownerId;
             targets[i].fireTimer = 0.0f;
             targets[i].hasFired = false;
+            targets[i].fromBehind = fromBehind;
             targets[i].pos = pos;
             return true;
         }
@@ -412,29 +413,37 @@ static bool TrySpawnAirTargetFrom(AirTarget targets[], int count, AirTargetType 
     return false;
 }
 
-static bool TrySpawnSkimmerDroneFrom(AirTarget targets[], int count, Vector2 pos, int ownerId) {
+static bool TrySpawnSkimmerDroneFrom(AirTarget targets[], int count, Vector2 pos, int ownerId, bool fromBehind) {
     return TrySpawnAirTargetFrom(targets, count, AIR_TARGET_SKIMMER_DRONE, SKIMMER_DRONE_RADIUS,
-        SKIMMER_DRONE_HP, pos, ownerId);
+        SKIMMER_DRONE_HP, pos, ownerId, fromBehind);
 }
 
 // Straight flyers only need their own radius as lane margin (no sine swing).
 bool TrySpawnInterceptor(AirTarget targets[], int count, float baseY) {
     return TrySpawnAirTargetFrom(targets, count, AIR_TARGET_INTERCEPTOR, INTERCEPTOR_RADIUS, INTERCEPTOR_HP,
-        (Vector2){ GAME_WIDTH + INTERCEPTOR_RADIUS, ClampAirLaneY(baseY, INTERCEPTOR_RADIUS) }, 0);
+        (Vector2){ GAME_WIDTH + INTERCEPTOR_RADIUS, ClampAirLaneY(baseY, INTERCEPTOR_RADIUS) }, 0, false);
 }
 
 bool TrySpawnGunship(AirTarget targets[], int count, float baseY) {
     return TrySpawnAirTargetFrom(targets, count, AIR_TARGET_GUNSHIP, GUNSHIP_RADIUS, GUNSHIP_HP,
-        (Vector2){ GAME_WIDTH + GUNSHIP_RADIUS, ClampAirLaneY(baseY, GUNSHIP_RADIUS) }, 0);
+        (Vector2){ GAME_WIDTH + GUNSHIP_RADIUS, ClampAirLaneY(baseY, GUNSHIP_RADIUS) }, 0, false);
 }
 
 bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset) {
     return TrySpawnSkimmerDroneFrom(targets, count,
-        (Vector2){ GAME_WIDTH + SKIMMER_DRONE_RADIUS + spawnXOffset, baseY }, 0);
+        (Vector2){ GAME_WIDTH + SKIMMER_DRONE_RADIUS + spawnXOffset, baseY }, 0, false);
 }
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY) {
     return TrySpawnSkimmerDroneAt(targets, count, baseY, 0.0f);
+}
+
+// The mirror image of every other air spawn: off the left edge (behind
+// the action, not ahead of it) flying right, so the player has to check
+// more than the right edge for once.
+bool TrySpawnSkimmerDroneFromBehind(AirTarget targets[], int count, float baseY) {
+    return TrySpawnSkimmerDroneFrom(targets, count,
+        (Vector2){ -SKIMMER_DRONE_RADIUS, ClampDroneBaseY(baseY) }, 0, true);
 }
 
 // Wave patterns for the stage script (see README "Stage authoring
@@ -476,13 +485,21 @@ void UpdateAirTargets(AirTarget targets[], int count, float dt) {
     for (int i = 0; i < count; i++) {
         if (!targets[i].active) continue;
         targets[i].t += dt;
-        targets[i].pos.x -= AirTargetSpeed(targets[i].type) * dt;
+        // Every air enemy but a behind-spawned flanker flies left with the
+        // current; that one mirrors the whole approach, off the left edge
+        // flying right, so it despawns off the opposite edge too.
+        float direction = targets[i].fromBehind ? 1.0f : -1.0f;
+        targets[i].pos.x += direction * AirTargetSpeed(targets[i].type) * dt;
         // Only the Skimmer Drone weaves; Interceptor and Gunship hold their
         // spawn lane so their attack runs stay readable.
         targets[i].pos.y = targets[i].type == AIR_TARGET_SKIMMER_DRONE
             ? targets[i].baseY + sinf(targets[i].t * SKIMMER_DRONE_SINE_FREQUENCY) * SKIMMER_DRONE_SINE_AMPLITUDE
             : targets[i].baseY;
-        if (targets[i].pos.x < -targets[i].radius) targets[i].active = false;
+        if (targets[i].fromBehind) {
+            if (targets[i].pos.x > GAME_WIDTH + targets[i].radius) targets[i].active = false;
+        } else if (targets[i].pos.x < -targets[i].radius) {
+            targets[i].active = false;
+        }
     }
 }
 
@@ -848,7 +865,7 @@ void UpdateRelayNodeLaunches(SurfaceTarget targets[], int count, float dt, AirTa
         if (targets[i].pos.x > ENEMY_ACTIVATION_X) continue;
         int ownerId = i + 1;
         if (CountOwnedDrones(airTargets, airCount, ownerId) >= RELAY_NODE_MAX_DRONES) continue;
-        if (TrySpawnSkimmerDroneFrom(airTargets, airCount, targets[i].pos, ownerId)) {
+        if (TrySpawnSkimmerDroneFrom(airTargets, airCount, targets[i].pos, ownerId, false)) {
             targets[i].fireTimer = 0.0f;
             PushGameEvent(events, (GameEvent){
                 .type = GAME_EVENT_DRONE_LAUNCHED, .pos = targets[i].pos
@@ -1259,7 +1276,7 @@ void UpdateDroneBunkerLaunches(LandTarget targets[], int count, float dt, AirTar
         // sit past the surface pool's index range.
         int ownerId = 1 + MAX_SURFACE_TARGETS + i;
         if (CountOwnedDrones(airTargets, airCount, ownerId) >= DRONE_BUNKER_MAX_DRONES) continue;
-        if (TrySpawnSkimmerDroneFrom(airTargets, airCount, targets[i].pos, ownerId)) {
+        if (TrySpawnSkimmerDroneFrom(airTargets, airCount, targets[i].pos, ownerId, false)) {
             targets[i].fireTimer = 0.0f;
             PushGameEvent(events, (GameEvent){
                 .type = GAME_EVENT_DRONE_LAUNCHED, .pos = targets[i].pos
