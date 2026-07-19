@@ -33,7 +33,7 @@
 // deliberate exception.
 #define ENEMY_ACTIVATION_X (0.9f * GAME_WIDTH)
 
-#define MAX_AIR_TARGETS          16
+#define MAX_AIR_TARGETS          32
 #define SKIMMER_DRONE_RADIUS         6.0f
 #define SKIMMER_DRONE_SPEED          60.0f
 #define SKIMMER_DRONE_SINE_AMPLITUDE 24.0f
@@ -82,7 +82,14 @@
 #define PLAYER_MORTAR_BLAST_RADIUS 22.0f
 #define PLAYER_MORTAR_BLAST_DURATION 0.30f
 
-#define MAX_SURFACE_TARGETS            8
+// Every spawn is authored (stage tables), never random, so there is no
+// upper bound to guard against - just the real peak concurrent need.
+// Sized well above the highest currently-authored peak (Stage 1: 17,
+// see TestSurfaceTargetPoolNeverExhausted in stage_tests.c) rather than
+// an arbitrary small guess; the old cap of 8 silently dropped roughly
+// half of Stage 1's mines/casemates/turrets with no visible symptom
+// (TrySpawnSurfaceTarget just returns false on a full pool).
+#define MAX_SURFACE_TARGETS            200
 #define CASEMATE_RADIUS          9.0f
 #define CASEMATE_FIRE_INTERVAL   1.5f
 #define CASEMATE_HP              1
