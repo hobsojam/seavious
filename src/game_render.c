@@ -691,17 +691,33 @@ static void DrawStormOverlay(const GameState *state) {
     if (u < 0.0f) u = 0.0f;
     if (u > 1.0f) u = 1.0f;
 
-    DrawRectangle(0, 0, GAME_WIDTH, PLAY_HEIGHT, (Color){ 30, 40, 58, (unsigned char)(70.0f * u) });
+    DrawRectangle(0, 0, GAME_WIDTH, PLAY_HEIGHT, (Color){ 24, 32, 48, (unsigned char)(85.0f * u) });
 
-    // A handful of drifting diagonal streaks read as weather, not just a
-    // flat color filter, and scroll with the world so they don't feel
-    // stuck to the screen.
-    float phase = fmodf(state->scrollDistance * 0.6f, 40.0f);
-    unsigned char lineAlpha = (unsigned char)(90.0f * u);
-    for (int i = -1; i < GAME_WIDTH / 40 + 1; i++) {
-        float x = (float)i * 40.0f + phase;
-        DrawLineEx((Vector2){ x, 0.0f }, (Vector2){ x - 18.0f, (float)PLAY_HEIGHT },
-            1.0f, (Color){ 150, 175, 205, lineAlpha });
+    // Two rain layers at different speed/spacing/weight read as depth
+    // instead of a flat scroll. Driven by wall-clock time rather than
+    // scrollDistance: UpdateStageScript freezes scrollDistance once
+    // bossLock is set, so a scroll-tied phase would go static for the
+    // whole fight instead of animating.
+    float t = (float)GetTime();
+
+    const float backSpacing = 22.0f;
+    const float backSlant = 15.0f;
+    float backPhase = fmodf(t * 90.0f, backSpacing);
+    unsigned char backAlpha = (unsigned char)(75.0f * u);
+    for (int i = -2; i < GAME_WIDTH / (int)backSpacing + 2; i++) {
+        float x = (float)i * backSpacing + backPhase;
+        DrawLineEx((Vector2){ x, 0.0f }, (Vector2){ x - backSlant, (float)PLAY_HEIGHT },
+            1.0f, (Color){ 140, 165, 200, backAlpha });
+    }
+
+    const float frontSpacing = 34.0f;
+    const float frontSlant = 26.0f;
+    float frontPhase = fmodf(t * 170.0f, frontSpacing);
+    unsigned char frontAlpha = (unsigned char)(160.0f * u);
+    for (int i = -2; i < GAME_WIDTH / (int)frontSpacing + 2; i++) {
+        float x = (float)i * frontSpacing + frontPhase;
+        DrawLineEx((Vector2){ x, 0.0f }, (Vector2){ x - frontSlant, (float)PLAY_HEIGHT },
+            2.0f, (Color){ 205, 228, 238, frontAlpha });
     }
 }
 
