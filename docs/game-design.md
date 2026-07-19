@@ -68,9 +68,7 @@ rather than as new enemy types.
 A run begins with three lives in Stage 1. Enemy contact and hostile shots cost
 a life; the player briefly respawns invulnerable while lives remain. A game
 over forfeits score and upgrades. Clearing a stage preserves them and advances
-to the next stage; after Stage 2, the current two-stage run wraps to Stage 1
-(the wrap point moves to after Stage 3 once it's registered - see
-`docs/stage-authoring.md` "Adding a stage").
+to the next stage; after Stage 3, the run wraps to Stage 1.
 
 ### Stage 1 — open-ocean tutorial
 

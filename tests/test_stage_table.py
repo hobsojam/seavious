@@ -20,6 +20,8 @@ MAP_PATH = os.path.join(REPO, 'assets', 'stages', 'stage1.txt')
 COMMITTED = os.path.join(REPO, 'src', 'stage1_data.c')
 STAGE2_MAP_PATH = os.path.join(REPO, 'assets', 'stages', 'stage2.txt')
 STAGE2_COMMITTED = os.path.join(REPO, 'src', 'stage2_data.c')
+STAGE3_MAP_PATH = os.path.join(REPO, 'assets', 'stages', 'stage3.txt')
+STAGE3_COMMITTED = os.path.join(REPO, 'src', 'stage3_data.c')
 
 failures = []
 
@@ -102,6 +104,8 @@ def main():
             generated = f.read()
         with open(os.path.join(tmp, 'stage2_data.c'), encoding='utf-8') as f:
             generated_stage2 = f.read()
+        with open(os.path.join(tmp, 'stage3_data.c'), encoding='utf-8') as f:
+            generated_stage3 = f.read()
     with open(COMMITTED, encoding='utf-8') as f:
         committed = f.read()
     check(generated == committed,
@@ -111,6 +115,11 @@ def main():
         committed_stage2 = f.read()
     check(generated_stage2 == committed_stage2,
           'committed src/stage2_data.c differs from the compiled map - '
+          'rerun tools/gen-stage-table.py and commit the result')
+    with open(STAGE3_COMMITTED, encoding='utf-8') as f:
+        committed_stage3 = f.read()
+    check(generated_stage3 == committed_stage3,
+          'committed src/stage3_data.c differs from the compiled map - '
           'rerun tools/gen-stage-table.py and commit the result')
 
     # The table must account for every glyph in the map. Land glyphs
@@ -126,6 +135,8 @@ def main():
     stage2_length = int(re.search(r'STAGE2_LENGTH_PX = (\d+);', generated_stage2).group(1))
     check(stage2_length == 8192, f'Stage 2 length {stage2_length} != 8192')
     check_stage2_installations_are_inset()
+    stage3_length = int(re.search(r'STAGE3_LENGTH_PX = (\d+);', generated_stage3).group(1))
+    check(stage3_length == 5760, f'Stage 3 length {stage3_length} != 5760')
 
     # Terrain rects must cover exactly the map's land cell area.
     rects = re.findall(r'\{ (\d+), (\d+), (\d+), (\d+) \},',

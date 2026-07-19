@@ -26,6 +26,7 @@ add_executable(seavious
     src/stage.c
     src/stage1_data.c
     src/stage2_data.c
+    src/stage3_data.c
     src/title.c
     src/wreck_visual.c
 )
@@ -54,6 +55,7 @@ if(BUILD_TESTING)
         src/stage.c
         src/stage1_data.c
         src/stage2_data.c
+        src/stage3_data.c
         src/wreck_visual.c
     )
     target_include_directories(stage_tests PRIVATE src)
@@ -97,6 +99,7 @@ if(BUILD_TESTING)
         src/stage.c
         src/stage1_data.c
         src/stage2_data.c
+        src/stage3_data.c
     )
     target_include_directories(boss_tests PRIVATE src)
     target_link_libraries(boss_tests PRIVATE raylib glfw)

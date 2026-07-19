@@ -149,13 +149,22 @@ def emit(events, terrain, hardpoints, length_px, out_path, source_rel, stage_nam
         '',
         f'const StageTerrainFootprint {symbol}_TERRAIN[] = {{',
     ]
-    for px, row, width, rows in terrain:
-        lines.append(f'    {{ {px}, {row * COLUMN_PX}, {width}, {rows * COLUMN_PX} }},')
+    if terrain:
+        for px, row, width, rows in terrain:
+            lines.append(f'    {{ {px}, {row * COLUMN_PX}, {width}, {rows * COLUMN_PX} }},')
+        terrain_count_expr = (f'sizeof({symbol}_TERRAIN) / '
+                              f'sizeof({symbol}_TERRAIN[0])')
+    else:
+        # An empty initializer list isn't valid C; keep one zeroed row
+        # and pin the count to 0 so nothing ever reads it (same as the
+        # empty-hardpoints case below - a terrain-free stage is legal,
+        # e.g. Stage 3's open water).
+        lines.append('    { 0, 0, 0, 0 }, // placeholder: no terrain authored')
+        terrain_count_expr = '0'
     lines += [
         '};',
         '',
-        f'const int {symbol}_TERRAIN_COUNT = '
-        f'sizeof({symbol}_TERRAIN) / sizeof({symbol}_TERRAIN[0]);',
+        f'const int {symbol}_TERRAIN_COUNT = {terrain_count_expr};',
         '',
         f'const StageTerrainHardpoint {symbol}_TERRAIN_HARDPOINTS[] = {{',
     ]
@@ -185,7 +194,7 @@ def emit(events, terrain, hardpoints, length_px, out_path, source_rel, stage_nam
 
 def main(out_dir=None):
     out_dir = genlib.resolve_out_dir(out_dir, 'src')
-    for stage_name in ('stage1', 'stage2'):
+    for stage_name in ('stage1', 'stage2', 'stage3'):
         map_path = os.path.join(genlib.repo_root(), 'assets', 'stages', stage_name + '.txt')
         if not os.path.exists(map_path):
             continue
