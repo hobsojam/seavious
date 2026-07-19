@@ -352,7 +352,7 @@ int main(int argc, char **argv) {
             };
             state.boss = (BossState){
                 .phase = BOSS_PHASE_FIGHTING,
-                .fortressAtoll = true,
+                .type = BOSS_TYPE_FORTRESS_ATOLL,
                 .coreExposed = true,
                 .hullCenter = { 404.0f, 176.0f },
                 .rotation = 90.0f,

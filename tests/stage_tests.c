@@ -358,9 +358,20 @@ static void TestStageDescriptor(void) {
     CHECK(stage->hardpoints == STAGE1_TERRAIN_HARDPOINTS
         && stage->hardpointCount == STAGE1_TERRAIN_HARDPOINT_COUNT);
     CHECK(stage->lengthPx == STAGE1_LENGTH_PX);
+    // Stage 1/2 have no environmental drift - only Stage 3 does (see
+    // docs/game-design.md "Stage 3").
+    CHECK(stage->drift.x == 0.0f && stage->drift.y == 0.0f);
     const StageDescriptor *stage2 = GetStageDescriptor(2);
     CHECK(stage2 != NULL && stage2->events == STAGE2_EVENTS
         && stage2->terrain == STAGE2_TERRAIN && stage2->lengthPx == STAGE2_LENGTH_PX);
+    CHECK(stage2->drift.x == 0.0f && stage2->drift.y == 0.0f);
+    const StageDescriptor *stage3 = GetStageDescriptor(3);
+    CHECK(stage3 != NULL && stage3->events == STAGE3_EVENTS
+        && stage3->terrain == STAGE3_TERRAIN && stage3->lengthPx == STAGE3_LENGTH_PX);
+    // Stage 3 is the one descriptor with real drift (see
+    // docs/game-design.md "Stage 3") - a nonzero placeholder until the
+    // noise-varied field lands.
+    CHECK(stage3->drift.y != 0.0f);
     // Out-of-range numbers clamp to real Stage 1 content rather than
     // failing, so the advance flow's wrap can never dereference nothing.
     const StageDescriptor *below = GetStageDescriptor(0);
@@ -392,10 +403,12 @@ static void TestTerrainTableFitsRenderCap(void) {
     // MAX_STAGE_TERRAIN_RECTS and skips drawing entirely beyond it.
     // Stage 2 once shipped 43 rects against a silent 32-rect cap: every
     // island went invisible while collision still used them. Every
-    // stage's compiled table must fit the render contract.
+    // stage's compiled table must fit the render contract - zero is
+    // fine (Stage 3 is deliberately terrain-free open water), only
+    // exceeding the cap is the bug this guards against.
     for (int s = 1; s <= StageCount(); s++) {
         const StageDescriptor *stage = GetStageDescriptor(s);
-        CHECK(stage->terrainCount > 0);
+        CHECK(stage->terrainCount >= 0);
         CHECK(stage->terrainCount <= MAX_STAGE_TERRAIN_RECTS);
     }
 }
@@ -405,19 +418,24 @@ static void TestStageAwardLoadout(void) {
     // the boss salvage and the devtools stage-select loadout.
     CHECK(GetStageDescriptor(1)->award == UPGRADE_AWARD_MORTAR);
     CHECK(GetStageDescriptor(2)->award == UPGRADE_AWARD_TARGETING_COMPUTER);
+    CHECK(GetStageDescriptor(3)->award == UPGRADE_AWARD_STABILIZER);
 
     GameState state;
     ResetRunState(&state);
     // Entering Stage 1 grants nothing.
     GrantUpgradesThroughStage(&state, 0);
-    CHECK(!state.hasMortar && !state.hasTargetingComputer);
+    CHECK(!state.hasMortar && !state.hasTargetingComputer && !state.hasStabilizer);
     // Entering Stage 2 holds Stage 1's salvage and nothing further.
     GrantUpgradesThroughStage(&state, 1);
-    CHECK(state.hasMortar && !state.hasTargetingComputer);
+    CHECK(state.hasMortar && !state.hasTargetingComputer && !state.hasStabilizer);
+    // Entering Stage 3 additionally holds Stage 2's salvage.
+    ResetRunState(&state);
+    GrantUpgradesThroughStage(&state, 2);
+    CHECK(state.hasMortar && state.hasTargetingComputer && !state.hasStabilizer);
     // A request past the table clamps instead of reading off the end.
     ResetRunState(&state);
     GrantUpgradesThroughStage(&state, 99);
-    CHECK(state.hasMortar && state.hasTargetingComputer);
+    CHECK(state.hasMortar && state.hasTargetingComputer && state.hasStabilizer);
 
     // The shared primitive the salvage dock calls.
     ResetRunState(&state);
@@ -425,6 +443,11 @@ static void TestStageAwardLoadout(void) {
     CHECK(!state.hasMortar && !state.hasTargetingComputer);
     ApplyUpgradeAward(&state, UPGRADE_AWARD_TARGETING_COMPUTER);
     CHECK(state.hasTargetingComputer && !state.hasMortar);
+    // Not yet reachable through a real stage award (Stage 3 isn't
+    // registered), but the primitive itself is ready for it.
+    CHECK(!state.hasStabilizer);
+    ApplyUpgradeAward(&state, UPGRADE_AWARD_STABILIZER);
+    CHECK(state.hasStabilizer);
 }
 
 static void TestSkipToStageEnd(void) {
@@ -520,6 +543,7 @@ static void TestBeginStageCarriesRunProgression(void) {
     state.score = 12345;
     state.lives = 2;
     state.hasMortar = true;
+    state.hasStabilizer = true;
     state.scrollDistance = 500.0f;
     state.stageCursor = 7;
     state.bossLock = true;
@@ -529,7 +553,7 @@ static void TestBeginStageCarriesRunProgression(void) {
     BeginStage(&state, 2);
     CHECK(state.stageNumber == 2);
     // Run progression carries across the stage transition...
-    CHECK(state.score == 12345 && state.lives == 2 && state.hasMortar);
+    CHECK(state.score == 12345 && state.lives == 2 && state.hasMortar && state.hasStabilizer);
     // ...while stage state rewinds like a fresh start.
     CHECK(state.scrollDistance == 0.0f && state.stageCursor == 0);
     CHECK(!state.bossLock && !state.stageClear);
@@ -538,7 +562,7 @@ static void TestBeginStageCarriesRunProgression(void) {
     // A full reset forfeits everything back to a Stage 1 fresh run.
     ResetRunState(&state);
     CHECK(state.stageNumber == 1 && state.score == 0 && state.lives == 3);
-    CHECK(!state.hasMortar);
+    CHECK(!state.hasMortar && !state.hasStabilizer);
 }
 
 int main(void) {

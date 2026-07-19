@@ -39,11 +39,14 @@ static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
         case STAGE_SPAWN_DRONE_BUNKER:
             TrySpawnDroneBunker(state->landTargets, MAX_LAND_TARGETS, event->laneY);
             break;
+        case STAGE_SPAWN_ROGUE_WAVE:
+            TrySpawnRogueWave(state->rogueWaves, MAX_ROGUE_WAVES, event->laneY);
+            break;
     }
 }
 
 int StageCount(void) {
-    return 2;
+    return 3;
 }
 
 int NextStageNumber(int stageNumber) {
@@ -69,7 +72,7 @@ void ContinueRun(GameState *state) {
 const StageDescriptor *GetStageDescriptor(int stageNumber) {
     // Rebuilt on each call: the generated counts are const ints, not
     // constant expressions, so a static initializer can't hold them.
-    static StageDescriptor stages[2];
+    static StageDescriptor stages[3];
     stages[0] = (StageDescriptor){
         .events = STAGE1_EVENTS,
         .eventCount = STAGE1_EVENT_COUNT,
@@ -90,7 +93,22 @@ const StageDescriptor *GetStageDescriptor(int stageNumber) {
         .lengthPx = STAGE2_LENGTH_PX,
         .award = UPGRADE_AWARD_TARGETING_COMPUTER,
     };
-    if (stageNumber < 1 || stageNumber > 2) stageNumber = 1;
+    stages[2] = (StageDescriptor){
+        .events = STAGE3_EVENTS,
+        .eventCount = STAGE3_EVENT_COUNT,
+        .terrain = STAGE3_TERRAIN,
+        .terrainCount = STAGE3_TERRAIN_COUNT,
+        .hardpoints = STAGE3_TERRAIN_HARDPOINTS,
+        .hardpointCount = STAGE3_TERRAIN_HARDPOINT_COUNT,
+        .lengthPx = STAGE3_LENGTH_PX,
+        .award = UPGRADE_AWARD_STABILIZER,
+        // First-pass tuning value (~35% of PLAYER_SPEED): noticeable,
+        // still correctable at full player speed. Not yet the
+        // noise-varied field docs/game-design.md describes - needs the
+        // real Windows playtest this stage exists for.
+        .drift = { 0.0f, 42.0f },
+    };
+    if (stageNumber < 1 || stageNumber > 3) stageNumber = 1;
     return &stages[stageNumber - 1];
 }
 
@@ -98,6 +116,7 @@ void ApplyUpgradeAward(GameState *state, UpgradeAward award) {
     switch (award) {
         case UPGRADE_AWARD_MORTAR: state->hasMortar = true; break;
         case UPGRADE_AWARD_TARGETING_COMPUTER: state->hasTargetingComputer = true; break;
+        case UPGRADE_AWARD_STABILIZER: state->hasStabilizer = true; break;
         case UPGRADE_AWARD_NONE: break;
     }
 }

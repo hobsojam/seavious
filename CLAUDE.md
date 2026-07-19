@@ -19,8 +19,20 @@ cmake --build build --config Release
 ```
 
 Requires `VCPKG_ROOT` set and Visual Studio 2022 (or Build Tools) installed.
-No compiler is available in the WSL dev environment — code changes here
-can't be built or run locally; verification happens on the Windows side.
+
+A real Windows toolchain (MSVC via VS Build Tools, plus a portable `cmake.exe`)
+is reachable from this WSL session, but only against a checkout on an actual
+Windows drive path (e.g. under `/mnt/c/...`) — Windows tools reject a WSL
+native-filesystem path (`\\wsl.localhost\...`) as a working directory. Copy
+or work from such a path, then run the same steps as above using the Windows
+`cmake.exe` and an explicit `VCPKG_ROOT` (Windows-style path), e.g.:
+`VCPKG_ROOT=C:/Users/ch8jw/dev/vcpkg cmake.exe -S . -B build --preset default`
+then `cmake.exe --build build --config Debug --target <targets>`. Unit test
+`.exe`s under `build/Debug` run directly and are real verification. The full
+game (`seavious-dev.exe`) also runs this way, GPU and all — it opens a real,
+visible window on the Windows desktop (not headless), so
+`SEAVIOUS_SMOKE_FRAMES=480 ./seavious-dev.exe` is genuine end-to-end
+verification, not just a build check.
 
 ## Structure
 

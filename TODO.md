@@ -109,6 +109,47 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       will actually die against (in-flight land collision still
       applies); decide whether the lead solution should clamp to land
       edges like the fixed-range shot does
+- [x] Wind drift mechanic plumbing (Stage 3, see `docs/game-design.md`):
+      added `Vector2 drift` to `StageDescriptor` ({0,0} for Stage 1/2)
+      and threaded it through `MovePlayer` (an added term, same as
+      input) and `UpdateTorpedo` (added to `vel.y` for the frame's
+      step, so it scales with the same `travelTime` as everything
+      else). Rather than touching `CalculateLeadTorpedoVelocity` itself
+      (target motion keeps no drift term), `FireLeadTorpedo` pre-
+      compensates by subtracting `driftY` from the launch `vel.y`, so
+      it cancels back out during flight and the lead solve still lands
+      on its true intercept point; a fixed-lane shot gets no such
+      compensation, so it visibly misses its promised lane in a
+      crosswind - the documented failure mode. Unit-tested in
+      `gameplay_tests.c` (`TestWindDrift`, plus `MovePlayer` drift
+      cases in `TestMovementAndProjectiles`). Still open: Stage 3 isn't
+      registered yet, so every stage currently gets zero drift; the
+      "direction/strength varies smoothly across the stage" design
+      goal (world-space noise, not a flat constant) is deliberately
+      deferred past this first pass to keep it reviewable - the
+      `StageDescriptor` field works either way once that lands
+- [x] Rogue wave hazard (Stage 3): new `RogueWave` pool (`gameplay.h`/
+      `.c`) - dodge-only, no HP, no score, no weapon interaction at all,
+      the one deliberate exception to the weapon-class rule. Drifts
+      anchored to the water like a surface target while telegraphing
+      (`ROGUE_WAVE_SWELL_DURATION`), then breaks and holds position as a
+      hit hazard for `ROGUE_WAVE_BLAST_DURATION` - the swell/break-then-
+      hold shape follows the Mine's proximity-blast pattern
+      (`MineBlast`) without the entity it detonates. New `~` map glyph
+      (`STAGE_SPAWN_ROGUE_WAVE`, `gen-stage-table.py`, documented in
+      `docs/stage-authoring.md`); wired into `stage.c`'s dispatch and
+      `game_update.c`'s update/contact-damage passes on `scrollDt` (pure
+      environment, not a fire-control timer - freezes with the water
+      under the boss lock same as terrain and land). Unit-tested in
+      `gameplay_tests.c` (`TestRogueWave`). No map currently places one
+      (Stage 3 isn't registered yet); no SFX (separate Audio item below)
+- [x] Stabilizer upgrade flag: `hasStabilizer` on `GameState` (mirrors
+      `hasMortar`/`hasTargetingComputer`), preserved across `BeginStage`;
+      `UPGRADE_AWARD_STABILIZER` case in `ApplyUpgradeAward` (`stage.c`);
+      `game_update.c` zeroes the effective drift for the frame once held,
+      rather than changing the aim math. Unit-tested in `stage_tests.c`.
+      Still open: not yet reachable through a real stage-clear award
+      until Stage 3 is registered (next item)
 
 ## Content
 
@@ -321,7 +362,68 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       explicitly instead of reusing the Stage 1 mortar art and message.
 - [x] Compose Stage 2 stage and boss themes over the shared drum/bass
       foundation
-- [ ] Plan remaining levels beyond Stage 2 (Stage 3 pencilled: storm)
+- [x] Design Stage 3 (see `docs/game-design.md`, agreed in full): wind
+      drift as the new systemic mechanic (pushes player and in-flight
+      torpedoes, Stage 2 lead-torpedo solve extended to net it out);
+      rogue waves as a dodge-only hazard (Mine-proximity-blast pattern,
+      not a new target class); existing air/surface/land roster returns
+      under harder conditions rather than new enemy types; Storm Warden
+      boss reuses the fortress atoll's gate-cycle pattern as a
+      STORM/CALM weather cycle instead of a physical gate; stabilizer
+      salvage cancels drift and steadies the lead solve for the rest of
+      the run. `StageCount()` becomes 3 and the run wrap point moves to
+      Stage 3 → Stage 1
+- [x] Stage descriptor plumbing for Stage 3: `StageCount()` returns 3
+      (`stage.c`), `STAGE3_*` externs (`stage_data.h`) and descriptor
+      row added (`.award = UPGRADE_AWARD_STABILIZER`, `.drift = { 0,
+      42 }` — a first-pass tuning value, ~35% of `PLAYER_SPEED`,
+      pending the real playtest), `gen-stage-table.py`'s hardcoded
+      stage tuple extended to include `'stage3'`, and `src/stage3_data.c`
+      + `CMakeLists.txt` (all three targets that list `stageN_data.c`)
+      wired in. Fixed a latent generator bug found along the way: an
+      empty terrain table emitted an invalid `{}` C initializer -
+      Stage 3 is the first stage with none (open water) - now matches
+      the existing empty-hardpoints placeholder pattern. Stage/asset
+      tests updated: `TestTerrainTableFitsRenderCap` no longer requires
+      `terrainCount > 0` (that was never a real invariant, just
+      incidentally true until now), `TestStageDescriptor` and
+      `TestStageAwardLoadout` cover Stage 3, and
+      `docs/game-design.md`'s run-structure wrap point is now genuinely
+      accurate (Stage 3 → Stage 1). Verified against a real Windows
+      build: reconfigured, full clean build, all 6 CTest suites pass,
+      and `--stage 3` boots and runs the real map end-to-end
+- [x] `BossType` refactor: replaced `bool fortressAtoll` with a real
+      `BossType` enum (`game_state.h`: `BOSS_TYPE_LEVIATHAN`,
+      `BOSS_TYPE_FORTRESS_ATOLL`) and converted all ~24 sites across
+      `boss.c`/`game_render.c`/`main.c`'s hand-built smoke-test
+      `BossState` — a mechanical, behavior-preserving conversion
+      (`fortressAtoll` → `type == BOSS_TYPE_FORTRESS_ATOLL`,
+      `!fortressAtoll` → `type != BOSS_TYPE_FORTRESS_ATOLL`), no logic
+      changes. `BossIsFortressAtoll()`'s signature is unchanged, only
+      its body. `BossPartId` and the phase machine
+      (`ENTERING → FIGHTING → DYING → SALVAGE_APPROACH/DOCK → CLEARED`)
+      were already boss-agnostic and carry over as-is. Adding
+      `BOSS_TYPE_STORM_WARDEN` and its actual behavior is the next item
+      below, not this one. Verified against a real Windows build: full
+      clean build, all 6 CTest suites pass (`boss_tests` covers both
+      existing bosses unchanged), and the game runs end-to-end through
+      `SEAVIOUS_SMOKE_FRAMES=480`
+- [ ] Storm Warden boss: fixed weather-control installation, STORM/CALM
+      cycle reusing the fortress gate-cycle timers/telegraph-event
+      pattern (`gateTimer`, dwell durations, `PushGameEvent`) with parts
+      vulnerable only in CALM; core salvage grants the stabilizer
+      (`GAME_EVENT_STABILIZER_SALVAGED` alongside the existing mortar/
+      targeting-computer salvage events)
+- [x] Author `assets/stages/stage3.txt` and compile it: 8 beats, 5760px,
+      open water (no terrain - the drift/rogue-wave mechanics are the
+      point, not islands), escalating pressure over the existing
+      air/surface/land roster with a rogue wave threaded through every
+      beat. Drift itself is a flat per-stage constant, not escalating
+      within the map (that needs the noise-varied field, still
+      deferred - see the wind-drift mechanic item above). Reaching the
+      boss lock currently starts a Leviathan-type fight, not the Storm
+      Warden (next item, still open) - the map is real and playable for
+      the drift/rogue-wave content up to that point
 - [x] Ground target sprites (alien platforms/installations) — Relay Node,
       Mine, Casemate, Tracking Turret, and Mobile Platform first passes
       all done (see Art below). Land-based emplacement variants
@@ -422,6 +524,15 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       from the player sprite, embedded via `src/seavious.rc` on Windows;
       the running window sets the same art with `SetWindowIcon`
       (`window_icon.png`); drift-tested by `tests/test_icon_asset.py`
+- [ ] Storm Warden boss sprite(s) and rogue-wave visual (telegraphed
+      swell + blast ring, following the mine-blast art language). Wind
+      drift's own telegraph (streaks/wave direction) needs a first pass
+      too — establish it early since the mechanic depends on being
+      readable, not just tuned
+- [ ] Stabilizer HUD icon (mirrors the existing torpedo/mortar HUD
+      slots) and salvage-sequence art, following the Stage 1/2 precedent
+      of a distinct extraction animation rather than reusing another
+      stage's salvage art
 
 ## Audio
 
@@ -505,6 +616,12 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       refinement done: player death regenerated explosion-first (hard
       burst + rolling noise + deep sub, faint power-down dive) after
       the playtest heard the original square-dive as a beep
+- [ ] Stage 3 and Storm Warden boss themes, composed over the shared
+      drum/bass foundation like Stage 2's (`docs/assets-and-audio.md`)
+- [ ] New SFX: rogue-wave telegraph/break, stabilizer salvage jingle
+      (distinct from the mortar/targeting-computer salvage cues, per
+      the "name the salvage explicitly" precedent from Stage 2), and a
+      wind-gust cue if drift strength changes are audio-telegraphed
 
 ## Infra
 
@@ -528,3 +645,9 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       built on vcpkg's raylib 6.0 shows a permanently blank window at
       uncapped fps. Worked around locally via `vcpkg-overlays/raylib`
       (forces the flag OFF); affects raylib upstream and the vcpkg port
+- [ ] Extend the `SEAVIOUS_SMOKE_FRAMES` headless sequence (`main.c`) to
+      cover Stage 3: it's hand-scripted per frame number, not
+      table-driven, so this means another `ContinueRun` call plus a
+      hand-built Storm Warden `BossState` snapshot and forced
+      stage-clear trigger, following the existing Stage 2/fortress block
+      (~frames 474-479) as the template

@@ -3,14 +3,14 @@
 [Back to the README](../README.md) · [Game design](game-design.md) ·
 [Assets and terrain guidance](assets-and-audio.md)
 
-The editable maps are [Stage 1](../assets/stages/stage1.txt) and
-[Stage 2](../assets/stages/stage2.txt). `tools/gen-stage-table.py` compiles
-them into `src/stage1_data.c` and `src/stage2_data.c`; commit both the source
-map and its generated table together.
+The editable maps are [Stage 1](../assets/stages/stage1.txt),
+[Stage 2](../assets/stages/stage2.txt), and
+[Stage 3](../assets/stages/stage3.txt). `tools/gen-stage-table.py` compiles
+each `assets/stages/stageN.txt` it finds into `src/stageN_data.c`; commit
+both the source map and its generated table together.
 
 ```bash
-python3 tools/gen-stage-table.py assets/stages/stage1.txt src/stage1_data.c
-python3 tools/gen-stage-table.py assets/stages/stage2.txt src/stage2_data.c
+python3 tools/gen-stage-table.py src
 python3 tests/test_stage_table.py
 ```
 
@@ -29,6 +29,7 @@ Lines beginning with `;` are comments; `#` is terrain, not a comment.
 | `B`, `K` | Mortar Battery, Drone Bunker; each also creates terrain and a hardpoint |
 | `#` | Terrain footprint |
 | `H` | Explicit terrain hardpoint; use only where something actually mounts |
+| `~` | Rogue Wave (Stage 3): dodge-only hazard, no target of any kind |
 
 Events are sorted by scroll distance and played once by `src/stage.c`. Terrain
 rectangles are grouped and rendered from that same compiled data, so map
