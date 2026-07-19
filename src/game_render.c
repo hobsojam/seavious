@@ -188,15 +188,19 @@ static void DrawHud(const GameState *state) {
 
 // Boss sprites rotate with the ship's heading (the hull sails vertical
 // legs with 180-degree turns between them).
-static void DrawTextureRotatedAt(Texture2D tex, Vector2 center, float rotation) {
+static void DrawTextureRotatedAtTinted(Texture2D tex, Vector2 center, float rotation, Color tint) {
     DrawTexturePro(
         tex,
         (Rectangle){ 0, 0, (float)tex.width, (float)tex.height },
         (Rectangle){ center.x, center.y, (float)tex.width, (float)tex.height },
         (Vector2){ tex.width / 2.0f, tex.height / 2.0f },
         rotation,
-        WHITE
+        tint
     );
+}
+
+static void DrawTextureRotatedAt(Texture2D tex, Vector2 center, float rotation) {
+    DrawTextureRotatedAtTinted(tex, center, rotation, WHITE);
 }
 
 // Torpedo impacts sit above boss/terrain art.  A gate or core impact is
@@ -231,15 +235,20 @@ static void DrawBoss(const GameState *state, const GameAssets *assets) {
     // The Storm Warden has no art of its own yet (see TODO.md): it
     // borrows the fortress's static-installation rendering wholesale
     // rather than the Leviathan's rotating-hull one, which would be a
-    // worse mismatch for a fixed boss. The gate sprite's open/closed
-    // read still lines up semantically with gatesOpen (the Storm
-    // Warden's CALM window), even though the art itself will need
+    // worse mismatch for a fixed boss. A cold slate tint (bodyTint) is
+    // the cheapest real differentiator available without new art - the
+    // fortress's warm stone reads distinctly from this at a glance
+    // instead of looking like a straight reskin. The gate sprite's
+    // open/closed read still lines up semantically with gatesOpen (the
+    // Storm Warden's CALM window), even though the art itself will need
     // replacing.
     if (boss->type != BOSS_TYPE_LEVIATHAN) {
+        Color bodyTint = boss->type == BOSS_TYPE_STORM_WARDEN
+            ? (Color){ 150, 175, 205, 255 } : WHITE;
         Vector2 c = boss->hullCenter;
         DrawTexture(assets->fortressAtollTex,
             (int)(c.x - assets->fortressAtollTex.width / 2.0f),
-            (int)(c.y - assets->fortressAtollTex.height / 2.0f), WHITE);
+            (int)(c.y - assets->fortressAtollTex.height / 2.0f), bodyTint);
         for (int part = BOSS_PART_POD_FORE; part <= BOSS_PART_HULL_AFT; part++) {
             Vector2 pos = BossPartPosition(boss, (BossPartId)part);
             bool pod = part <= BOSS_PART_POD_AFT;
@@ -249,20 +258,20 @@ static void DrawBoss(const GameState *state, const GameAssets *assets) {
                     (Color){ 8, 14, 14, 235 });
                 continue;
             }
-            DrawTextureRotatedAt(pod ? assets->fortressGunTex : assets->fortressMortarTex,
-                pos, 0.0f);
+            DrawTextureRotatedAtTinted(pod ? assets->fortressGunTex : assets->fortressMortarTex,
+                pos, 0.0f, bodyTint);
         }
         if (BossPartAlive(boss, BOSS_PART_CORE)) {
             Vector2 core = BossPartPosition(boss, BOSS_PART_CORE);
             // The core rises into view only once the outer defenses fall.
             if (boss->coreExposed) {
-                DrawTextureRotatedAt(assets->fortressCoreTex, core, 0.0f);
+                DrawTextureRotatedAtTinted(assets->fortressCoreTex, core, 0.0f, bodyTint);
             }
             // The sea gate cycles for the whole fight; its art retracts
             // into two cap pieces when open, leaving the water lane clear.
             bool justToggled = boss->phase == BOSS_PHASE_FIGHTING && boss->gateTimer < 0.2f;
             Color gateTint = justToggled
-                ? (Color){ 232, 248, 248, 255 } : WHITE;
+                ? (Color){ 232, 248, 248, 255 } : bodyTint;
             int gateX = (int)core.x - assets->fortressGateTex.width / 2 - 26;
             int gateY = (int)core.y - assets->fortressGateTex.height / 2;
             if (boss->gatesOpen) {
@@ -658,6 +667,41 @@ static void DrawRogueWaves(const GameState *state) {
                 (Color){ 232, 60, 60, (unsigned char)(220.0f * p) });
             DrawCircleV(wave->pos, 9.0f * p, (Color){ 255, 246, 216, fade });
         }
+    }
+}
+
+// Screen-wide wash during the Storm Warden's STORM window: parts are
+// invulnerable behind it, so the whole play field visibly closing off
+// is the readable cue, not just the boss's own tint. Fades in/out at the
+// edges of the window so it doesn't hard-cut against CALM, and clears
+// entirely once gatesOpen flips true.
+static void DrawStormOverlay(const GameState *state) {
+    const BossState *boss = &state->boss;
+    if (boss->type != BOSS_TYPE_STORM_WARDEN) return;
+    if (boss->phase != BOSS_PHASE_FIGHTING) return;
+    if (boss->gatesOpen) return;
+
+    const float fadeTime = 0.4f;
+    float u = 1.0f;
+    if (boss->gateTimer < fadeTime) {
+        u = boss->gateTimer / fadeTime;
+    } else if (boss->gateTimer > STORM_WARDEN_STORM_DURATION - fadeTime) {
+        u = (STORM_WARDEN_STORM_DURATION - boss->gateTimer) / fadeTime;
+    }
+    if (u < 0.0f) u = 0.0f;
+    if (u > 1.0f) u = 1.0f;
+
+    DrawRectangle(0, 0, GAME_WIDTH, PLAY_HEIGHT, (Color){ 30, 40, 58, (unsigned char)(70.0f * u) });
+
+    // A handful of drifting diagonal streaks read as weather, not just a
+    // flat color filter, and scroll with the world so they don't feel
+    // stuck to the screen.
+    float phase = fmodf(state->scrollDistance * 0.6f, 40.0f);
+    unsigned char lineAlpha = (unsigned char)(90.0f * u);
+    for (int i = -1; i < GAME_WIDTH / 40 + 1; i++) {
+        float x = (float)i * 40.0f + phase;
+        DrawLineEx((Vector2){ x, 0.0f }, (Vector2){ x - 18.0f, (float)PLAY_HEIGHT },
+            1.0f, (Color){ 150, 175, 205, lineAlpha });
     }
 }
 
@@ -1068,6 +1112,8 @@ void DrawGame(const GameState *state, const GameAssets *assets) {
 
         rlPopMatrix();
     }
+
+    DrawStormOverlay(state);
 
     if (state->gameOver) {
         DrawRectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, (Color){ 0, 0, 0, 140 });

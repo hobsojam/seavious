@@ -441,12 +441,22 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       `TestStormWardenCycleRhythmAndSalvage`). Verified against a real
       Windows build: full clean build, all 6 CTest suites pass, and
       `--stage 3 --boss` runs the actual fight end-to-end.
-      Placeholder/still open: no art at all yet (borrows the fortress's
-      textures wholesale for its full body, part icons, and salvage
-      module - a closer stand-in than the Leviathan's rotating-hull
-      rendering would be, but still not its own look); the STORM/CALM
-      cycle borrows the fortress's gate-creak SFX rather than a
-      dedicated weather cue; the `SEAVIOUS_SMOKE_FRAMES` headless
+      Playtest feedback (2026-07-19): reused fortress art alone read as
+      "almost identical to stage 2 boss" - fixed with a cold slate-blue
+      `bodyTint` applied to every reused texture draw (base hull, pod/hull
+      part icons, core, gate caps) so the silhouette reads distinctly from
+      the fortress's warm stone at a glance, plus a screen-wide storm
+      wash (`DrawStormOverlay` in `game_render.c`) that darkens the whole
+      play field and scrolls faint rain streaks across it during the
+      STORM window only, fading clear for CALM - reinforces the
+      invincible-during-STORM mechanic instead of leaving it a pure color
+      swap. Verified against a real Windows build: full clean build, all
+      6 CTest suites pass, `--stage 3 --boss` runs end-to-end with no
+      crashes.
+      Placeholder/still open: still no bespoke Storm Warden art (tint +
+      overlay are a cheap code-only mitigation, not a real sprite); the
+      STORM/CALM cycle borrows the fortress's gate-creak SFX rather than
+      a dedicated weather cue; the `SEAVIOUS_SMOKE_FRAMES` headless
       sequence still only scripts through Stage 1/2 (separate item below)
 - [x] Author `assets/stages/stage3.txt` and compile it: 8 beats, 5760px,
       open water (no terrain - the drift/rogue-wave mechanics are the
