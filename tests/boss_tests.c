@@ -232,7 +232,7 @@ static void TestSolidHullShieldsFarSection(void) {
     CHECK(BossSectionFacesPlayer(&state.boss, BOSS_PART_HULL_FORE));
     CHECK(!BossSectionFacesPlayer(&state.boss, BOSS_PART_HULL_AFT));
 
-    Rectangle blockers[2];
+    Rectangle blockers[3];
     CHECK(BossHullBlockers(&state.boss, blockers) == 1);
     NEAR(blockers[0].x, BOSS_PATROL_X - 36.0f);
 
@@ -513,6 +513,7 @@ static void TestFortressRingBarrageAndGateRhythm(void) {
     // after exposure; open gates clear it (core targeting stays gated on
     // exposure separately).
     Rectangle blockers[3];
+    state.boss.gatesOpen = false;
     CHECK(BossHullBlockers(&state.boss, blockers) == 3);
     state.boss.gatesOpen = true;
     CHECK(BossHullBlockers(&state.boss, blockers) == 2);
