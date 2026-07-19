@@ -132,24 +132,42 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       `.c`) - dodge-only, no HP, no score, no weapon interaction at all,
       the one deliberate exception to the weapon-class rule. Drifts
       anchored to the water like a surface target while telegraphing
-      (`ROGUE_WAVE_SWELL_DURATION`), then breaks and holds position as a
-      hit hazard for `ROGUE_WAVE_BLAST_DURATION` - the swell/break-then-
-      hold shape follows the Mine's proximity-blast pattern
-      (`MineBlast`) without the entity it detonates. New `~` map glyph
-      (`STAGE_SPAWN_ROGUE_WAVE`, `gen-stage-table.py`, documented in
-      `docs/stage-authoring.md`); wired into `stage.c`'s dispatch and
-      `game_update.c`'s update/contact-damage passes on `scrollDt` (pure
-      environment, not a fire-control timer - freezes with the water
-      under the boss lock same as terrain and land). Unit-tested in
-      `gameplay_tests.c` (`TestRogueWave`). `assets/stages/stage3.txt`
-      places one in every beat. `DrawRogueWaves` (`game_render.c`)
-      renders both phases - a growing cyan swell ring with a last-third
-      inner-ring flash, then the same red/white blast language mines and
-      mortar shells already use once broken - this was missing for a
-      while after the mechanic itself landed (dodge-only hazards are
-      easy to ship functionally complete but invisible; caught before
-      Stage 3 shipped playable, not after). Still no SFX (separate Audio
-      item below)
+      (`ROGUE_WAVE_TELEGRAPH_DURATION`), then surges into a wall
+      (`frontX`) sweeping the entire play width at
+      `ROGUE_WAVE_SWEEP_SPEED`, with one passable lane-band
+      (`gapCenterY` ± `ROGUE_WAVE_GAP_HALF_HEIGHT`) around the spawn
+      lane. New `~` map glyph (`STAGE_SPAWN_ROGUE_WAVE`,
+      `gen-stage-table.py`, documented in `docs/stage-authoring.md`);
+      wired into `stage.c`'s dispatch and `game_update.c`'s
+      update/contact-damage passes on `scrollDt` (pure environment, not
+      a fire-control timer - freezes with the water under the boss lock
+      same as terrain and land). Unit-tested in `gameplay_tests.c`
+      (`TestRogueWave`). `assets/stages/stage3.txt` places one in every
+      beat. `DrawRogueWaves` (`game_render.c`) renders a foam-crested
+      wall trailing turbulent water, not a glowing ring. Still no SFX
+      (separate Audio item below).
+      Reworked (2026-07-19, playtest feedback): the original shape was a
+      small circular swell that broke into a fixed-position blast near
+      the mine-blast/mortar-blast visual language - playtest found it
+      read as a sci-fi energy anomaly rather than water, spawned and
+      died within the rightmost ~50px of the screen (never actually
+      reaching where the player maneuvers), and was gone in 1.6s total -
+      not a real obstacle. Reworked into the sweeping-wall shape above:
+      genuinely crosses the whole play width over several seconds,
+      rendered with plain water/foam colors instead of the
+      cyan-glow/orange-blast hazard language used elsewhere.
+- [x] Rogue waves detonate mines in their sweep path (2026-07-19): a wave
+      is a physical surge, not a targeted weapon, so `DetonateMinesInRogueWavePath`
+      (`gameplay.c`) sets off any mine its front reaches outside the gap
+      via the same `GAME_EVENT_MINE_DETONATED` path the player's own
+      proximity fuse uses (`SpawnMineBlastsFromEvents` already listens
+      for it) - no score, same as walking into one. Unit-tested in
+      `gameplay_tests.c` (`TestRogueWaveDetonatesMines`).
+      Found in passing, not fixed here: `MineBlast` (the damaging
+      aftermath radius, distinct from the mine's own explosion sprite)
+      has no rendering anywhere in `game_render.c` - it can still hit the
+      player, it just never draws. Pre-existing, but this new
+      wave-triggered path makes it more likely to actually be seen mid-run.
 - [x] Stabilizer upgrade flag: `hasStabilizer` on `GameState` (mirrors
       `hasMortar`/`hasTargetingComputer`), preserved across `BeginStage`;
       `UPGRADE_AWARD_STABILIZER` case in `ApplyUpgradeAward` (`stage.c`);

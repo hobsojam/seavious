@@ -641,34 +641,78 @@ static void DrawLandMortarShells(const GameState *state) {
     }
 }
 
-// Rogue waves telegraph on the water exactly like they behave: a rising
-// cyan swell while building, then the same red/white blast language every
-// other hazard in the game already uses (mines, mortar shells) once they
-// break - the player already reads "cyan is still safe, red is not" from
-// those, so the swell borrows the safe half of that same vocabulary.
+// Rogue waves read as water, not a shield/energy effect: a low mound
+// piling up at the edge while telegraphing (the gap already visible so
+// the player can start moving early), then a genuine wall - foam crest
+// leading a trailing body of turbulent water - that sweeps the entire
+// play width. Only the gap around gapCenterY stays passable.
 static void DrawRogueWaves(const GameState *state) {
+    const Color deepWater = { 40, 110, 122, 255 };
+    const Color foamCrest = { 226, 248, 244, 255 };
+
     for (int i = 0; i < MAX_ROGUE_WAVES; i++) {
         const RogueWave *wave = &state->rogueWaves[i];
         if (!wave->active) continue;
-        if (!wave->broken) {
-            float u = wave->t / ROGUE_WAVE_SWELL_DURATION;
-            float radius = 4.0f + (ROGUE_WAVE_BLAST_RADIUS - 4.0f) * u;
-            unsigned char rimAlpha = (unsigned char)(90.0f + 140.0f * u);
-            DrawCircleV(wave->pos, radius * 0.5f, (Color){ 40, 140, 160, (unsigned char)(60.0f + 60.0f * u) });
-            DrawCircleLines((int)wave->pos.x, (int)wave->pos.y, radius, (Color){ 102, 224, 228, rimAlpha });
-            // A tighter inner ring flashes in over the last third of the
-            // swell - the one-second warning a fixed dwell alone can't give.
-            if (u > 0.7f) {
-                DrawCircleLines((int)wave->pos.x, (int)wave->pos.y, radius * 0.55f,
-                    (Color){ 232, 248, 248, (unsigned char)(180.0f * (u - 0.7f) / 0.3f) });
+        // Stable per-wave variation (index-derived, not position-derived:
+        // the front moves continuously, so a position seed would jitter
+        // the whitecap pattern every frame instead of holding still).
+        float seed = Fraction(0.4137f + 0.6180339f * (float)i);
+        RogueWaveGapBand gap = ComputeRogueWaveGapBand(wave->gapCenterY);
+
+        if (!wave->sweeping) {
+            // Telegraph: water mounding at the edge, reaching further
+            // left as it builds toward the surge - the gap is already
+            // where it will be, so reading the lane and moving early is
+            // rewarded rather than only reacting once it breaks.
+            float bulge = RogueWaveTelegraphBulge(wave->t);
+            unsigned char alpha = (unsigned char)RogueWaveTelegraphAlpha(wave->t);
+            if (gap.top > 0.0f) {
+                DrawRectangle((int)(wave->frontX - bulge), 0, (int)bulge, (int)gap.top,
+                    (Color){ deepWater.r, deepWater.g, deepWater.b, alpha });
             }
-        } else {
-            float p = 1.0f - wave->t / ROGUE_WAVE_BLAST_DURATION;
-            unsigned char fade = (unsigned char)(220.0f * (0.4f + 0.6f * p));
-            DrawCircleV(wave->pos, ROGUE_WAVE_BLAST_RADIUS * (0.5f + 0.5f * p), (Color){ 232, 90, 40, fade });
-            DrawCircleLines((int)wave->pos.x, (int)wave->pos.y, ROGUE_WAVE_BLAST_RADIUS * (0.7f + 0.3f * p),
-                (Color){ 232, 60, 60, (unsigned char)(220.0f * p) });
-            DrawCircleV(wave->pos, 9.0f * p, (Color){ 255, 246, 216, fade });
+            if (gap.bottom < (float)PLAY_HEIGHT) {
+                DrawRectangle((int)(wave->frontX - bulge), (int)gap.bottom, (int)bulge,
+                    (int)((float)PLAY_HEIGHT - gap.bottom), (Color){ deepWater.r, deepWater.g, deepWater.b, alpha });
+            }
+            continue;
+        }
+
+        // Sweeping: a full wall with one passable gap. The crest (bright
+        // foam) leads at frontX; a trailing body fades from the crest
+        // back into ordinary water rather than reading as a hard slab.
+        const float trailDepth = 34.0f;
+        for (int half = 0; half < 2; half++) {
+            float top = half == 0 ? 0.0f : gap.bottom;
+            float bottom = half == 0 ? gap.top : (float)PLAY_HEIGHT;
+            if (bottom <= top) continue;
+            DrawRectangleGradientH((int)wave->frontX, (int)top, (int)trailDepth, (int)(bottom - top),
+                (Color){ deepWater.r, deepWater.g, deepWater.b, 210 },
+                (Color){ deepWater.r, deepWater.g, deepWater.b, 30 });
+            DrawRectangle((int)(wave->frontX - 3.0f), (int)top, (int)(ROGUE_WAVE_FRONT_THICKNESS * 0.5f),
+                (int)(bottom - top), foamCrest);
+        }
+
+        // Whitecap flecks scattered along the crest for texture. Biased
+        // downwind (same crosswind pushing the player and torpedoes) so
+        // the spray visibly answers to the current wind instead of
+        // sitting in a perfectly vertical band.
+        float windLean = state->windSign * 5.0f;
+        for (int f = 0; f < 14; f++) {
+            Vector2 fleck = RogueWaveWhitecapFleckPos(seed, f, wave->frontX, windLean);
+            if (fleck.y > gap.top && fleck.y < gap.bottom) continue;
+            DrawCircleV(fleck, Fraction(seed + 0.6180339f * (float)f) > 0.5f ? 1.5f : 1.0f,
+                (Color){ 255, 255, 250, 220 });
+        }
+
+        // The gap reads as a wind-carved trough, not an arbitrary hole:
+        // extra churn right at whichever gap edge the current wind is
+        // blowing toward, as if the crosswind is knocking the crest down
+        // there.
+        float knockedEdgeY = RogueWaveKnockedEdgeY(state->windSign, gap);
+        for (int f = 0; f < 6; f++) {
+            Vector2 fleck = RogueWaveKnockdownFleckPos(seed, f, wave->frontX, state->windSign, knockedEdgeY);
+            float variation = Fraction(seed + 0.381966f + 0.6180339f * (float)f);
+            DrawCircleV(fleck, variation > 0.5f ? 1.5f : 1.0f, (Color){ 255, 255, 250, 190 });
         }
     }
 }

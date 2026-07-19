@@ -657,38 +657,138 @@ static void TestRogueWave(void) {
     RogueWave waves[2] = { 0 };
 
     CHECK(TrySpawnRogueWave(waves, 2, 120.0f));
-    NEAR(waves[0].pos.x, GAME_WIDTH + ROGUE_WAVE_BLAST_RADIUS);
-    NEAR(waves[0].pos.y, 120.0f);
-    CHECK(!waves[0].broken);
+    NEAR(waves[0].frontX, GAME_WIDTH + ROGUE_WAVE_FRONT_THICKNESS);
+    NEAR(waves[0].gapCenterY, 120.0f);
+    CHECK(!waves[0].sweeping);
 
-    // Telegraphed while building: drifts anchored like a surface target,
-    // no weapon path and no hit while it's still just a swell.
-    float startX = waves[0].pos.x;
+    // Telegraphed while building: drifts anchored like a surface target
+    // at the ordinary scroll speed, no weapon path and no hit yet - it
+    // isn't a wall until it surges.
+    float startX = waves[0].frontX;
     UpdateRogueWaves(waves, 2, 1.0f);
-    NEAR(startX - waves[0].pos.x, OCEAN_SCROLL_SPEED);
-    CHECK(!ResolveRogueWavePlayerHit(waves, 2, waves[0].pos, 2.0f));
-
-    // Breaks once the swell duration elapses and holds position from
-    // there - the frame that crosses the threshold doesn't also drift.
-    float atBreakX = waves[0].pos.x;
-    UpdateRogueWaves(waves, 2, ROGUE_WAVE_SWELL_DURATION);
-    CHECK(waves[0].broken);
-    NEAR(waves[0].pos.x, atBreakX);
-    CHECK(ResolveRogueWavePlayerHit(waves, 2, waves[0].pos, 2.0f));
+    NEAR(startX - waves[0].frontX, OCEAN_SCROLL_SPEED);
     CHECK(!ResolveRogueWavePlayerHit(waves, 2,
-        (Vector2){ waves[0].pos.x + ROGUE_WAVE_BLAST_RADIUS + 3.0f, waves[0].pos.y }, 2.0f));
+        (Vector2){ waves[0].frontX, waves[0].gapCenterY + 60.0f }, 2.0f));
 
-    // The blast itself expires on its own timer, independent of drift.
-    UpdateRogueWaves(waves, 2, ROGUE_WAVE_BLAST_DURATION);
+    // Surges once the telegraph duration elapses, and from then on
+    // outruns the ordinary current - a real, sustained wall crossing
+    // the whole play width rather than a point hazard.
+    UpdateRogueWaves(waves, 2, ROGUE_WAVE_TELEGRAPH_DURATION - 1.0f);
+    CHECK(waves[0].sweeping);
+    float atSurgeX = waves[0].frontX;
+    UpdateRogueWaves(waves, 2, 1.0f);
+    NEAR(atSurgeX - waves[0].frontX, ROGUE_WAVE_SWEEP_SPEED);
+
+    // Outside the gap and near the front: a hit. Inside the gap, safe
+    // even with the front directly overhead. Far from the front in x:
+    // safe regardless of y - the front is a moving wall, not a zone.
+    Vector2 outsideGap = { waves[0].frontX, waves[0].gapCenterY + ROGUE_WAVE_GAP_HALF_HEIGHT + 5.0f };
+    Vector2 insideGap = { waves[0].frontX, waves[0].gapCenterY };
+    Vector2 farAway = { waves[0].frontX + 200.0f, waves[0].gapCenterY + ROGUE_WAVE_GAP_HALF_HEIGHT + 5.0f };
+    CHECK(ResolveRogueWavePlayerHit(waves, 2, outsideGap, 2.0f));
+    CHECK(!ResolveRogueWavePlayerHit(waves, 2, insideGap, 2.0f));
+    CHECK(!ResolveRogueWavePlayerHit(waves, 2, farAway, 2.0f));
+
+    // Despawns once the front sweeps fully off the left edge.
+    waves[0].frontX = -ROGUE_WAVE_FRONT_THICKNESS - 1.0f;
+    UpdateRogueWaves(waves, 2, 0.001f);
     CHECK(!waves[0].active);
+}
 
-    // A wave that never breaks eventually drifts off and despawns quietly.
-    RogueWave passing[1] = { 0 };
-    CHECK(TrySpawnRogueWave(passing, 1, 80.0f));
-    passing[0].t = ROGUE_WAVE_SWELL_DURATION - 0.5f;
-    passing[0].pos.x = -ROGUE_WAVE_BLAST_RADIUS + 1.0f;
-    UpdateRogueWaves(passing, 1, 0.1f);
-    CHECK(!passing[0].active);
+static void TestRogueWaveDetonatesMines(void) {
+    RogueWave sweeping[1] = {
+        (RogueWave){ .frontX = 200.0f, .gapCenterY = 120.0f, .sweeping = true, .active = true }
+    };
+
+    // Outside the gap and in the front's path: a physical surge, not a
+    // targeted weapon, so it sets off the fuse the same way the player's
+    // own proximity does - no score for an environmental trigger.
+    SurfaceTarget outsideGap[1] = { 0 };
+    GameEventQueue events = { 0 };
+    CHECK(TrySpawnMine(outsideGap, 1, sweeping[0].gapCenterY + ROGUE_WAVE_GAP_HALF_HEIGHT + 5.0f));
+    outsideGap[0].pos.x = sweeping[0].frontX;
+    CHECK(DetonateMinesInRogueWavePath(sweeping, 1, outsideGap, 1, &events));
+    CHECK(!outsideGap[0].active);
+    CHECK(events.count == 1 && events.items[0].type == GAME_EVENT_MINE_DETONATED);
+    CHECK(ScoreGameEvents(&events) == 0);
+
+    // Inside the gap: the passable lane stays a passable lane for mines
+    // too, not just the player.
+    SurfaceTarget insideGap[1] = { 0 };
+    GameEventQueue safeEvents = { 0 };
+    CHECK(TrySpawnMine(insideGap, 1, sweeping[0].gapCenterY));
+    insideGap[0].pos.x = sweeping[0].frontX;
+    CHECK(!DetonateMinesInRogueWavePath(sweeping, 1, insideGap, 1, &safeEvents));
+    CHECK(insideGap[0].active);
+
+    // Far from the front in x: not reached yet.
+    SurfaceTarget farAway[1] = { 0 };
+    GameEventQueue farEvents = { 0 };
+    CHECK(TrySpawnMine(farAway, 1, sweeping[0].gapCenterY + ROGUE_WAVE_GAP_HALF_HEIGHT + 5.0f));
+    farAway[0].pos.x = sweeping[0].frontX + 200.0f;
+    CHECK(!DetonateMinesInRogueWavePath(sweeping, 1, farAway, 1, &farEvents));
+    CHECK(farAway[0].active);
+
+    // Still telegraphing (not sweeping yet): no physical wall to trigger
+    // anything with.
+    RogueWave telegraphing[1] = {
+        (RogueWave){ .frontX = 200.0f, .gapCenterY = 120.0f, .sweeping = false, .active = true }
+    };
+    SurfaceTarget wouldBeHit[1] = { 0 };
+    GameEventQueue telegraphEvents = { 0 };
+    CHECK(TrySpawnMine(wouldBeHit, 1, telegraphing[0].gapCenterY + ROGUE_WAVE_GAP_HALF_HEIGHT + 5.0f));
+    wouldBeHit[0].pos.x = telegraphing[0].frontX;
+    CHECK(!DetonateMinesInRogueWavePath(telegraphing, 1, wouldBeHit, 1, &telegraphEvents));
+    CHECK(wouldBeHit[0].active);
+}
+
+// The pure layout/timing math DrawRogueWaves (game_render.c) calls into -
+// split out specifically so it's unit-testable rather than living inline
+// in a raylib draw call, same reason gameplay.c holds no rendering code.
+static void TestRogueWaveRenderMath(void) {
+    // A gap centered well within the play area needs no clamping.
+    RogueWaveGapBand centered = ComputeRogueWaveGapBand(150.0f);
+    NEAR(centered.top, 150.0f - ROGUE_WAVE_GAP_HALF_HEIGHT);
+    NEAR(centered.bottom, 150.0f + ROGUE_WAVE_GAP_HALF_HEIGHT);
+
+    // A gap authored right at an edge has nothing above/below it to
+    // clear - the band clamps into the play area instead of running
+    // off past it.
+    RogueWaveGapBand atTop = ComputeRogueWaveGapBand(5.0f);
+    NEAR(atTop.top, 0.0f);
+    RogueWaveGapBand atBottom = ComputeRogueWaveGapBand((float)PLAY_HEIGHT - 5.0f);
+    NEAR(atBottom.bottom, (float)PLAY_HEIGHT);
+
+    // Telegraph bulge/alpha ramp from their base values at t=0 to their
+    // full values once the telegraph duration elapses.
+    NEAR(RogueWaveTelegraphBulge(0.0f), 8.0f);
+    NEAR(RogueWaveTelegraphBulge(ROGUE_WAVE_TELEGRAPH_DURATION), 38.0f);
+    NEAR(RogueWaveTelegraphAlpha(0.0f), 50.0f);
+    NEAR(RogueWaveTelegraphAlpha(ROGUE_WAVE_TELEGRAPH_DURATION), 150.0f);
+
+    // The wind-knocked edge is whichever side of the gap the current
+    // wind blows toward.
+    RogueWaveGapBand gap = ComputeRogueWaveGapBand(150.0f);
+    NEAR(RogueWaveKnockedEdgeY(1.0f, gap), gap.bottom);
+    NEAR(RogueWaveKnockedEdgeY(-1.0f, gap), gap.top);
+
+    // Whitecap flecks are stable for repeated calls with the same
+    // inputs (no hidden global/random state), and the wind lean shifts
+    // every fleck's y by exactly the lean amount.
+    Vector2 fleckA = RogueWaveWhitecapFleckPos(0.25f, 3, 200.0f, 0.0f);
+    Vector2 fleckB = RogueWaveWhitecapFleckPos(0.25f, 3, 200.0f, 0.0f);
+    NEAR(fleckA.x, fleckB.x);
+    NEAR(fleckA.y, fleckB.y);
+    Vector2 fleckLeaned = RogueWaveWhitecapFleckPos(0.25f, 3, 200.0f, 5.0f);
+    NEAR(fleckLeaned.y - fleckA.y, 5.0f);
+
+    // Knockdown flecks cluster near the knocked edge, offset toward the
+    // gap's interior (away from the edge, in the direction opposite the
+    // wind push) rather than past it.
+    Vector2 knockPos = RogueWaveKnockdownFleckPos(0.6f, 2, 200.0f, 1.0f, gap.bottom);
+    CHECK(knockPos.y <= gap.bottom);
+    Vector2 knockNeg = RogueWaveKnockdownFleckPos(0.6f, 2, 200.0f, -1.0f, gap.top);
+    CHECK(knockNeg.y >= gap.top);
 }
 
 static void TestMobilePlatform(void) {
@@ -822,6 +922,8 @@ int main(void) {
     TestRelayNode();
     TestMine();
     TestRogueWave();
+    TestRogueWaveDetonatesMines();
+    TestRogueWaveRenderMath();
     TestMobilePlatform();
     TestEnemyActivationLine();
     TestTurretLeadIsSoft();

@@ -162,13 +162,17 @@
 // Rogue Wave (Stage 3): the deliberate exception to "every threat maps to
 // one weapon" (see docs/game-design.md "Stage 3") - a dodge-only hazard,
 // no HP, no score, no weapon interaction at all. Drifts in anchored to the
-// water like a surface target while telegraphing, then breaks into a
-// fixed-position blast for a short duration, mirroring the Mine's
-// proximity-blast shape (MineBlast below) without the entity it detonates.
+// water like a surface target while telegraphing, then surges into a
+// wall that sweeps the *entire* play width at ROGUE_WAVE_SWEEP_SPEED -
+// a real, sustained obstacle rather than a point hazard that lives and
+// dies in the rightmost sliver of the screen. Only
+// ROGUE_WAVE_GAP_HALF_HEIGHT of play height around the spawn lane stays
+// passable; everywhere else the front reaches is a hit.
 #define MAX_ROGUE_WAVES 4
-#define ROGUE_WAVE_SWELL_DURATION 1.2f
-#define ROGUE_WAVE_BLAST_RADIUS 26.0f
-#define ROGUE_WAVE_BLAST_DURATION 0.40f
+#define ROGUE_WAVE_TELEGRAPH_DURATION 1.2f
+#define ROGUE_WAVE_SWEEP_SPEED 120.0f
+#define ROGUE_WAVE_FRONT_THICKNESS 18.0f
+#define ROGUE_WAVE_GAP_HALF_HEIGHT 30.0f
 
 // Stage 1 boss (Leviathan) parts: the dual-targeting rule made literal.
 // Pods are gun-weak (magenta, air-class), hull sections are torpedo-weak
@@ -373,15 +377,26 @@ typedef struct {
     bool active;
 } MineBlast;
 
-// broken=false is the telegraphed swell (still drifting, harmless); once
-// t reaches ROGUE_WAVE_SWELL_DURATION it breaks and holds position as a
-// hit hazard for ROGUE_WAVE_BLAST_DURATION.
+// sweeping=false is the telegraphed swell (still drifting, harmless);
+// once t reaches ROGUE_WAVE_TELEGRAPH_DURATION it surges, and frontX
+// sweeps leftward across the whole play width at ROGUE_WAVE_SWEEP_SPEED.
+// gapCenterY is the one lane-band (see ROGUE_WAVE_GAP_HALF_HEIGHT) that
+// stays passable as the front reaches the player's x position.
 typedef struct {
-    Vector2 pos;
+    float frontX;
+    float gapCenterY;
     float t;
-    bool broken;
+    bool sweeping;
     bool active;
 } RogueWave;
+
+// The passable band clamped into the play area - a gap authored near an
+// edge (e.g. lane 0) has nothing above it to clear, not a wall running
+// off past y=0.
+typedef struct {
+    float top;
+    float bottom;
+} RogueWaveGapBand;
 
 typedef enum {
     LAND_TARGET_MORTAR_BATTERY,
@@ -490,6 +505,18 @@ bool ResolveMineBlastPlayerHit(const MineBlast blasts[], int count, Vector2 play
 bool TrySpawnRogueWave(RogueWave waves[], int count, float y);
 void UpdateRogueWaves(RogueWave waves[], int count, float dt);
 bool ResolveRogueWavePlayerHit(const RogueWave waves[], int count, Vector2 playerPos, float playerRadius);
+bool DetonateMinesInRogueWavePath(const RogueWave waves[], int waveCount, SurfaceTarget targets[], int targetCount,
+    GameEventQueue *events);
+
+// Pure layout/timing math behind DrawRogueWaves (game_render.c), split
+// out so it's unit-testable like the rest of gameplay.c rather than
+// living inline in a raylib draw call.
+RogueWaveGapBand ComputeRogueWaveGapBand(float gapCenterY);
+float RogueWaveTelegraphBulge(float t);
+float RogueWaveTelegraphAlpha(float t);
+float RogueWaveKnockedEdgeY(float windSign, RogueWaveGapBand gap);
+Vector2 RogueWaveWhitecapFleckPos(float seed, int index, float frontX, float windLean);
+Vector2 RogueWaveKnockdownFleckPos(float seed, int index, float frontX, float windSign, float knockedEdgeY);
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
 bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset);
