@@ -146,6 +146,21 @@ GameAssets LoadGameAssets(void) {
     assets.leviathanCoreTex = LoadTexture("assets/sprites/leviathan_core.png");
     SetTextureFilter(assets.leviathanCoreTex, TEXTURE_FILTER_POINT);
 
+    assets.fortressAtollTex = LoadTexture("assets/sprites/fortress_atoll.png");
+    SetTextureFilter(assets.fortressAtollTex, TEXTURE_FILTER_POINT);
+
+    assets.fortressGunTex = LoadTexture("assets/sprites/fortress_gun.png");
+    SetTextureFilter(assets.fortressGunTex, TEXTURE_FILTER_POINT);
+
+    assets.fortressMortarTex = LoadTexture("assets/sprites/fortress_mortar.png");
+    SetTextureFilter(assets.fortressMortarTex, TEXTURE_FILTER_POINT);
+
+    assets.fortressCoreTex = LoadTexture("assets/sprites/fortress_core.png");
+    SetTextureFilter(assets.fortressCoreTex, TEXTURE_FILTER_POINT);
+
+    assets.fortressGateTex = LoadTexture("assets/sprites/fortress_gate.png");
+    SetTextureFilter(assets.fortressGateTex, TEXTURE_FILTER_POINT);
+
     // Each authored silhouette is cropped and downsampled once so its pixel
     // clusters stay readable at the small Stage 1 terrain scale.
     static const char *isletPaths[STAGE1_ISLET_VARIANT_COUNT] = {
@@ -199,6 +214,11 @@ void UnloadGameAssets(GameAssets *assets) {
     UnloadTexture(assets->terrainBrushTex);
     UnloadTexture(assets->terrainShoreTex);
     UnloadTexture(assets->terrainGroundTex);
+    UnloadTexture(assets->fortressAtollTex);
+    UnloadTexture(assets->fortressMortarTex);
+    UnloadTexture(assets->fortressGunTex);
+    UnloadTexture(assets->fortressCoreTex);
+    UnloadTexture(assets->fortressGateTex);
     UnloadTexture(assets->leviathanCoreTex);
     UnloadTexture(assets->leviathanMortarTex);
     UnloadTexture(assets->leviathanHullSectionTex);

@@ -232,7 +232,7 @@ static void TestSolidHullShieldsFarSection(void) {
     CHECK(BossSectionFacesPlayer(&state.boss, BOSS_PART_HULL_FORE));
     CHECK(!BossSectionFacesPlayer(&state.boss, BOSS_PART_HULL_AFT));
 
-    Rectangle blockers[2];
+    Rectangle blockers[3];
     CHECK(BossHullBlockers(&state.boss, blockers) == 1);
     NEAR(blockers[0].x, BOSS_PATROL_X - 36.0f);
 
@@ -477,22 +477,54 @@ static void TestFortressRingBarrageAndGateRhythm(void) {
     CHECK(!state.boss.gatesOpen);
     UpdateBossFight(&state, 0.1f);
     CHECK(state.boss.gatesOpen);
+    int sorties = 0;
+    int sortieIndex = -1;
+    for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
+        if (state.surfaceTargets[i].active && state.surfaceTargets[i].fortressSortie) {
+            sorties++;
+            sortieIndex = i;
+        }
+    }
+    CHECK(sorties == 1);
+    CHECK(state.surfaceTargets[sortieIndex].type == SURFACE_TARGET_MOBILE_PLATFORM);
+    NEAR(state.surfaceTargets[sortieIndex].pos.x, state.boss.hullCenter.x - 38.0f);
+    UpdateBossFight(&state, 0.5f);
+    NEAR(state.surfaceTargets[sortieIndex].pos.x,
+        state.boss.hullCenter.x - 38.0f - MOBILE_PLATFORM_SPEED * 0.5f);
     UpdateBossFight(&state, FORTRESS_GATE_OPEN_DURATION);
     CHECK(!state.boss.gatesOpen);
+    // The next opening keeps the full core window but deliberately has no
+    // second boat: fortress sorties run at half the gate frequency.
+    UpdateBossFight(&state, FORTRESS_GATE_CLOSED_DURATION);
+    CHECK(state.boss.gatesOpen);
+    int secondCycleSorties = 0;
+    for (int i = 0; i < MAX_SURFACE_TARGETS; i++) {
+        if (state.surfaceTargets[i].active && state.surfaceTargets[i].fortressSortie) secondCycleSorties++;
+    }
+    CHECK(secondCycleSorties == 1);
     int opened = 0, closed = 0;
     for (int i = 0; i < state.gameEvents.count; i++) {
         if (state.gameEvents.items[i].type == GAME_EVENT_BOSS_GATES_OPENED) opened++;
         if (state.gameEvents.items[i].type == GAME_EVENT_BOSS_GATES_CLOSED) closed++;
     }
-    CHECK(opened == 1 && closed == 1);
+    CHECK(opened == 2 && closed == 1);
 
     // Closed gates block the torpedo route for the whole fight, not just
     // after exposure; open gates clear it (core targeting stays gated on
     // exposure separately).
-    Rectangle blockers[2];
-    CHECK(BossHullBlockers(&state.boss, blockers) == 1);
+    Rectangle blockers[3];
+    state.boss.gatesOpen = false;
+    CHECK(BossHullBlockers(&state.boss, blockers) == 3);
     state.boss.gatesOpen = true;
-    CHECK(BossHullBlockers(&state.boss, blockers) == 0);
+    CHECK(BossHullBlockers(&state.boss, blockers) == 2);
+    // The central water channel remains the sole clear level-torpedo lane.
+    Torpedo lane = { .pos = { state.boss.hullCenter.x - 70.0f, state.boss.hullCenter.y },
+        .active = true };
+    CHECK(ResolveTorpedoRectCollision(&lane, blockers, 2).type == TORPEDO_IMPACT_NONE);
+    // A diagonal pad lane is solid island, forcing the mortar-only route.
+    Torpedo bank = { .pos = { state.boss.hullCenter.x - 70.0f, state.boss.hullCenter.y - 27.0f },
+        .active = true };
+    CHECK(ResolveTorpedoRectCollision(&bank, blockers, 2).type == TORPEDO_IMPACT_DIRECT);
 }
 
 static void TestFortressAtollWeaponGatesAndSalvage(void) {
@@ -502,6 +534,18 @@ static void TestFortressAtollWeaponGatesAndSalvage(void) {
     CHECK(state.boss.phase == BOSS_PHASE_FIGHTING);
     NEAR(state.boss.hullCenter.x, 404.0f);
     NEAR(state.boss.hullCenter.y, 176.0f);
+    Vector2 northEastGun = BossPartPosition(&state.boss, BOSS_PART_POD_FORE);
+    Vector2 southWestGun = BossPartPosition(&state.boss, BOSS_PART_POD_AFT);
+    Vector2 northWestBattery = BossPartPosition(&state.boss, BOSS_PART_HULL_FORE);
+    Vector2 southEastBattery = BossPartPosition(&state.boss, BOSS_PART_HULL_AFT);
+    NEAR(northEastGun.x, state.boss.hullCenter.x + 26.0f);
+    NEAR(northEastGun.y, state.boss.hullCenter.y - 27.0f);
+    NEAR(southWestGun.x, state.boss.hullCenter.x - 27.0f);
+    NEAR(southWestGun.y, state.boss.hullCenter.y + 26.0f);
+    NEAR(northWestBattery.x, state.boss.hullCenter.x - 27.0f);
+    NEAR(northWestBattery.y, state.boss.hullCenter.y - 27.0f);
+    NEAR(southEastBattery.x, state.boss.hullCenter.x + 26.0f);
+    NEAR(southEastBattery.y, state.boss.hullCenter.y + 26.0f);
 
     // AA pods are gun-only.
     Vector2 pod = BossPartPosition(&state.boss, BOSS_PART_POD_FORE);
@@ -536,9 +580,11 @@ static void TestFortressAtollWeaponGatesAndSalvage(void) {
     state.torpedo = (Torpedo){ .pos = core, .armed = false, .active = true };
     CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
         == TORPEDO_IMPACT_NONE);
-    Rectangle gate[2];
-    CHECK(BossHullBlockers(&state.boss, gate) == 1);
-    CHECK(ResolveBossContactDamage(&state.boss, core, PLAYER_HIT_RADIUS));
+    Rectangle gate[3];
+    CHECK(BossHullBlockers(&state.boss, gate) == 3);
+    CHECK(gate[2].x + gate[2].width < core.x);
+    CHECK(!ResolveBossContactDamage(&state.boss,
+        (Vector2){ gate[2].x + gate[2].width / 2.0f, core.y }, PLAYER_HIT_RADIUS));
 
     // The sea gate keeps cycling on its asymmetric dwell; realigned here
     // so the edge lands exactly on the closed-duration boundary.
@@ -550,6 +596,9 @@ static void TestFortressAtollWeaponGatesAndSalvage(void) {
     CHECK(state.boss.gatesOpen);
     state.boss.gatesOpen = true;
     int coreHp = state.boss.partHp[BOSS_PART_CORE];
+    // The harbour aperture is deliberately forgiving: a torpedo through
+    // the open gate need not land on the core's exact centre pixel.
+    state.torpedo.pos = (Vector2){ core.x, core.y + 20.0f };
     CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
         == TORPEDO_IMPACT_DIRECT);
     CHECK(state.boss.partHp[BOSS_PART_CORE] == coreHp - BOSS_CORE_TORPEDO_DAMAGE);

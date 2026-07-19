@@ -641,6 +641,7 @@ static bool TrySpawnSurfaceTarget(SurfaceTarget targets[], int count, SurfaceTar
             targets[i].fireTimer = 0.0f;
             targets[i].wakeTimer = 0.0f;
             targets[i].aimDirection = aimDirection;
+            targets[i].fortressSortie = false;
             targets[i].pos = (Vector2){ GAME_WIDTH + radius, y };
             return true;
         }

@@ -16,10 +16,11 @@
 // interaction at all, and the settled wreck is inert like every wreck.
 void UpdateBossFight(GameState *state, float dt);
 
-// The armored hull's screen-space torpedo blockers: one rect while the
-// armor holds, two (split at the breach gap) once the core is exposed,
-// none once the boss is a wreck. Also the contact-damage shape.
-int BossHullBlockers(const BossState *boss, Rectangle out[2]);
+// Screen-space torpedo blockers. The Leviathan uses one/two armor rects;
+// the Fortress Atoll uses upper/lower land banks plus its optional channel
+// gate. The Leviathan also uses its armor blockers for contact damage;
+// the fortress is terrain-like and is deliberately non-contact-lethal.
+int BossHullBlockers(const BossState *boss, Rectangle out[3]);
 
 // True while the broadside section is on the player's side of the ship
 // (torpedo-reachable, and allowed to fire).

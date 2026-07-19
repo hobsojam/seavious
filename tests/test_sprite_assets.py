@@ -33,6 +33,13 @@ GREEN = (108, 224, 96)      # land family (Stage 2 installations)
 # A fifth tuple element names the assets/ subdirectory (default 'sprites').
 GENERATORS = {
     'gen-casemate.py': [('casemate.png', 24, 24, AMBER)],
+    'gen-fortress-atoll.py': [('fortress_atoll.png', 192, 192, None)],
+    'gen-fortress-core.py': [('fortress_core.png', 32, 32, None)],
+    'gen-fortress-gate.py': [('fortress_gate.png', 10, 28, None)],
+    'gen-fortress-weapons.py': [
+        ('fortress_gun.png', 30, 30, None),
+        ('fortress_mortar.png', 30, 30, None),
+    ],
     'gen-islet-ridge.py': [('stage1_islet_ridge.png', 595, 276, None)],
     'gen-terrain-hardpoint.py': [
         ('terrain_island_hardpoint.png', 32, 32, GREEN, 'tiles')],

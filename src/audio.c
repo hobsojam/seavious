@@ -7,12 +7,17 @@
 // (CI smoke test) just plays nothing instead of crashing.
 #include "audio.h"
 
+// Whole-game output trim. The individual music/SFX settings below retain
+// their relative authored mix; this simply gives the game a less aggressive
+// default level against the desktop and other applications.
+#define MASTER_VOLUME 0.75f
+
 // Whole-music level under the SFX: even after the in-file mix was
 // rebalanced (lead vs bass), the third playtest still found the music
 // too loud overall against the game.
 #define MUSIC_VOLUME 0.5f
 
-#define SFX_DEF_MAX 16
+#define SFX_DEF_MAX 18
 
 typedef struct {
     Sound *sound;
@@ -44,10 +49,15 @@ static int CollectSfxDefs(GameAudio *audio, SfxDef defs[SFX_DEF_MAX]) {
     defs[n++] = (SfxDef){ &audio->enemyShot, "assets/audio/sfx/enemy_shot.wav", 0.30f };
     defs[n++] = (SfxDef){ &audio->samLaunch, "assets/audio/sfx/sam_launch.wav", 0.45f };
     defs[n++] = (SfxDef){ &audio->mortarBlast, "assets/audio/sfx/mortar_blast.wav", 0.65f };
+    // The fortress gate is a mechanical state change, not another weapon:
+    // its paired voices make the torpedo window readable by ear.
+    defs[n++] = (SfxDef){ &audio->fortressGateOpen, "assets/audio/sfx/fortress_gate_open.wav", 0.48f };
+    defs[n++] = (SfxDef){ &audio->fortressGateClose, "assets/audio/sfx/fortress_gate_close.wav", 0.52f };
     return n;
 }
 
 void ApplyAudioSettings(GameAudio *audio, const GameSettings *settings) {
+    SetMasterVolume(MASTER_VOLUME);
     float musicLevel = MUSIC_VOLUME * (float)settings->musicVolume / (float)SETTINGS_VOLUME_MAX;
     if (IsMusicValid(audio->stage)) SetMusicVolume(audio->stage, musicLevel);
     if (IsMusicValid(audio->boss)) SetMusicVolume(audio->boss, musicLevel);
@@ -188,10 +198,10 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
                 PlayIfValid(audio->mortarFire);
                 break;
             case GAME_EVENT_BOSS_GATES_OPENED:
+                PlayIfValid(audio->fortressGateOpen);
+                break;
             case GAME_EVENT_BOSS_GATES_CLOSED:
-                // The gates borrow the mortar's mechanical thump until a
-                // dedicated gate voice lands in an SFX pass (see TODO).
-                PlayIfValid(audio->mortarFire);
+                PlayIfValid(audio->fortressGateClose);
                 break;
             case GAME_EVENT_MORTAR_SALVAGED:
             case GAME_EVENT_TARGETING_COMPUTER_SALVAGED:
@@ -202,6 +212,8 @@ void PlayGameSfx(GameAudio *audio, const GameEventQueue *events) {
 }
 
 void UnloadGameAudio(GameAudio *audio) {
+    UnloadSound(audio->fortressGateClose);
+    UnloadSound(audio->fortressGateOpen);
     UnloadSound(audio->mortarBlast);
     UnloadSound(audio->samLaunch);
     UnloadSound(audio->enemyShot);

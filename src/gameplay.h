@@ -317,6 +317,9 @@ typedef struct {
     // Cadence for the Mobile Platform's stern trail; unused by anchored types.
     float wakeTimer;
     Vector2 aimDirection;
+    // Boss-launched boats move under the boss lock; ordinary stage water
+    // targets remain frozen with the map at that point.
+    bool fortressSortie;
     bool active;
 } SurfaceTarget;
 

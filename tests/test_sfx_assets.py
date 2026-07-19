@@ -34,6 +34,8 @@ FILES = {
     'enemy_shot.wav': (0.07, 0.12),
     'sam_launch.wav': (0.30, 0.40),
     'mortar_blast.wav': (0.38, 0.46),
+    'fortress_gate_open.wav': (0.30, 0.38),
+    'fortress_gate_close.wav': (0.30, 0.38),
 }
 
 failures = []

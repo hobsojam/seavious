@@ -26,6 +26,9 @@ music: refine in ChipTone later if a sound needs more character.
                       noise swell
   mortar_blast.wav    mortar area blast: deep compact crump, heavier and
                       shorter than the rolling torpedo explosion
+  fortress_gate_open.wav  rising mechanical shutter for the Fortress Atoll's
+                          torpedo channel opening
+  fortress_gate_close.wav falling gate slam for that channel closing
 
 Run from anywhere:  python3 tools/gen-sfx.py [out_dir]
 """
@@ -266,6 +269,43 @@ def gen_mortar_blast():
     return out
 
 
+def gen_fortress_gate(opening):
+    """A compact motor/ratchet cue for the fortress's sluice gate.
+
+    Opening rises through three toothed steps; closing descends and ends in
+    a low latch. They share a family without sounding like another mortar
+    shot, so the playable torpedo window can be learned by ear.
+    """
+    duration = 0.34
+    n = int(SR * duration)
+    rnd = random.Random(20 if opening else 21)
+    out = [0.0] * n
+    previous = 0.0
+    for i in range(n):
+        t = i / SR
+        step = min(int(t / 0.085), 3)
+        freq = (105.0 + 42.0 * step) if opening else (231.0 - 42.0 * step)
+        tooth = square(t * freq, duty=0.28)
+        previous += 0.19 * (rnd.uniform(-1.0, 1.0) - previous)
+        motor = 0.36 * math.sin(2.0 * math.pi * 73.0 * t)
+        grit = 0.48 * previous
+        attack = min(t / 0.012, 1.0)
+        latch = 0.0
+        if not opening and t > 0.275:
+            latch = (0.65 * math.sin(2.0 * math.pi * 58.0 * (t - 0.275))
+                     * math.exp(-(t - 0.275) * 42.0))
+        out[i] = attack * envelope(t, duration, 5.0) * (0.55 * tooth + motor + grit) + latch
+    return out
+
+
+def gen_fortress_gate_open():
+    return gen_fortress_gate(True)
+
+
+def gen_fortress_gate_close():
+    return gen_fortress_gate(False)
+
+
 SOUNDS = {
     'gun_shot.wav': gen_gun_shot,
     'torpedo_launch.wav': gen_torpedo_launch,
@@ -281,6 +321,8 @@ SOUNDS = {
     'enemy_shot.wav': gen_enemy_shot,
     'sam_launch.wav': gen_sam_launch,
     'mortar_blast.wav': gen_mortar_blast,
+    'fortress_gate_open.wav': gen_fortress_gate_open,
+    'fortress_gate_close.wav': gen_fortress_gate_close,
 }
 
 
