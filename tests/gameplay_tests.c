@@ -653,6 +653,44 @@ static void TestMine(void) {
     CHECK(blasts[0].active);
 }
 
+static void TestRogueWave(void) {
+    RogueWave waves[2] = { 0 };
+
+    CHECK(TrySpawnRogueWave(waves, 2, 120.0f));
+    NEAR(waves[0].pos.x, GAME_WIDTH + ROGUE_WAVE_BLAST_RADIUS);
+    NEAR(waves[0].pos.y, 120.0f);
+    CHECK(!waves[0].broken);
+
+    // Telegraphed while building: drifts anchored like a surface target,
+    // no weapon path and no hit while it's still just a swell.
+    float startX = waves[0].pos.x;
+    UpdateRogueWaves(waves, 2, 1.0f);
+    NEAR(startX - waves[0].pos.x, OCEAN_SCROLL_SPEED);
+    CHECK(!ResolveRogueWavePlayerHit(waves, 2, waves[0].pos, 2.0f));
+
+    // Breaks once the swell duration elapses and holds position from
+    // there - the frame that crosses the threshold doesn't also drift.
+    float atBreakX = waves[0].pos.x;
+    UpdateRogueWaves(waves, 2, ROGUE_WAVE_SWELL_DURATION);
+    CHECK(waves[0].broken);
+    NEAR(waves[0].pos.x, atBreakX);
+    CHECK(ResolveRogueWavePlayerHit(waves, 2, waves[0].pos, 2.0f));
+    CHECK(!ResolveRogueWavePlayerHit(waves, 2,
+        (Vector2){ waves[0].pos.x + ROGUE_WAVE_BLAST_RADIUS + 3.0f, waves[0].pos.y }, 2.0f));
+
+    // The blast itself expires on its own timer, independent of drift.
+    UpdateRogueWaves(waves, 2, ROGUE_WAVE_BLAST_DURATION);
+    CHECK(!waves[0].active);
+
+    // A wave that never breaks eventually drifts off and despawns quietly.
+    RogueWave passing[1] = { 0 };
+    CHECK(TrySpawnRogueWave(passing, 1, 80.0f));
+    passing[0].t = ROGUE_WAVE_SWELL_DURATION - 0.5f;
+    passing[0].pos.x = -ROGUE_WAVE_BLAST_RADIUS + 1.0f;
+    UpdateRogueWaves(passing, 1, 0.1f);
+    CHECK(!passing[0].active);
+}
+
 static void TestMobilePlatform(void) {
     SurfaceTarget targets[2] = { 0 };
     EnemyBullet bullets[8] = { 0 };
@@ -783,6 +821,7 @@ int main(void) {
     TestSurfaceTargets();
     TestRelayNode();
     TestMine();
+    TestRogueWave();
     TestMobilePlatform();
     TestEnemyActivationLine();
     TestTurretLeadIsSoft();

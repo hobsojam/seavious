@@ -39,6 +39,9 @@ static void FireSpawnEvent(GameState *state, const StageSpawnEvent *event) {
         case STAGE_SPAWN_DRONE_BUNKER:
             TrySpawnDroneBunker(state->landTargets, MAX_LAND_TARGETS, event->laneY);
             break;
+        case STAGE_SPAWN_ROGUE_WAVE:
+            TrySpawnRogueWave(state->rogueWaves, MAX_ROGUE_WAVES, event->laneY);
+            break;
     }
 }
 

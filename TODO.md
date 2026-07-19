@@ -128,11 +128,21 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       goal (world-space noise, not a flat constant) is deliberately
       deferred past this first pass to keep it reviewable - the
       `StageDescriptor` field works either way once that lands
-- [ ] Rogue wave hazard (Stage 3): dodge-only, no weapon counter — follow
-      the Mine proximity-blast pattern (`gameplay.c`'s
-      `DetonateNearbyMines`/`MineBlast` pool) for a telegraphed-swell,
-      timed-blast hazard decoupled from any `Damage*Target` path; new map
-      glyph to place it
+- [x] Rogue wave hazard (Stage 3): new `RogueWave` pool (`gameplay.h`/
+      `.c`) - dodge-only, no HP, no score, no weapon interaction at all,
+      the one deliberate exception to the weapon-class rule. Drifts
+      anchored to the water like a surface target while telegraphing
+      (`ROGUE_WAVE_SWELL_DURATION`), then breaks and holds position as a
+      hit hazard for `ROGUE_WAVE_BLAST_DURATION` - the swell/break-then-
+      hold shape follows the Mine's proximity-blast pattern
+      (`MineBlast`) without the entity it detonates. New `~` map glyph
+      (`STAGE_SPAWN_ROGUE_WAVE`, `gen-stage-table.py`, documented in
+      `docs/stage-authoring.md`); wired into `stage.c`'s dispatch and
+      `game_update.c`'s update/contact-damage passes on `scrollDt` (pure
+      environment, not a fire-control timer - freezes with the water
+      under the boss lock same as terrain and land). Unit-tested in
+      `gameplay_tests.c` (`TestRogueWave`). No map currently places one
+      (Stage 3 isn't registered yet); no SFX (separate Audio item below)
 - [x] Stabilizer upgrade flag: `hasStabilizer` on `GameState` (mirrors
       `hasMortar`/`hasTargetingComputer`), preserved across `BeginStage`;
       `UPGRADE_AWARD_STABILIZER` case in `ApplyUpgradeAward` (`stage.c`);

@@ -185,6 +185,10 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
         state->landTargets, MAX_LAND_TARGETS, dt, state->airTargets, MAX_AIR_TARGETS,
         &state->gameEvents
     );
+    // Rogue waves are pure environment, not a fire-control timer: both
+    // their drift and their swell/blast phase freeze under the boss lock,
+    // same as the water and land they share scrollDt with.
+    UpdateRogueWaves(state->rogueWaves, MAX_ROGUE_WAVES, scrollDt);
     UpdateEnemyBullets(state->enemyBullets, MAX_ENEMY_BULLETS, dt);
 
     // The fortress atoll's painted land banks are real torpedo blockers,
@@ -298,7 +302,12 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
     // themselves never contact-kill (flying over land is always safe).
     bool landBlastHit = playerVulnerable
         && ResolveLandMortarBlastPlayerHit(state->landTargets, MAX_LAND_TARGETS, state->player, playerRadius);
-    if (playerVulnerable && (enemyBulletHit || missileHit || mineBlastHit || contactHit || bossHit || landBlastHit)) {
+    // Rogue waves are the one hazard with no weapon path at all: dodge or
+    // die, nothing to shoot.
+    bool rogueWaveHit = playerVulnerable
+        && ResolveRogueWavePlayerHit(state->rogueWaves, MAX_ROGUE_WAVES, state->player, playerRadius);
+    if (playerVulnerable && (enemyBulletHit || missileHit || mineBlastHit || contactHit || bossHit || landBlastHit
+        || rogueWaveHit)) {
         TrySpawnExplosion(state->explosions, state->player, EXPLOSION_PLAYER, 20.0f, PLAYER_DEATH_DURATION);
         BeginPlayerDeath(state);
     }

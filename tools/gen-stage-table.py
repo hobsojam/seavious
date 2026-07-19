@@ -44,6 +44,7 @@ GLYPH_KINDS = {
     'P': 'STAGE_SPAWN_MOBILE_PLATFORM',
     'B': 'STAGE_SPAWN_MORTAR_BATTERY',
     'K': 'STAGE_SPAWN_DRONE_BUNKER',
+    '~': 'STAGE_SPAWN_ROGUE_WAVE',
 }
 
 # Land installations bring their mounting pad with them: the glyph's cell

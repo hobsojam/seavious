@@ -165,6 +165,49 @@ bool ResolveMineBlastPlayerHit(const MineBlast blasts[], int count, Vector2 play
     return false;
 }
 
+bool TrySpawnRogueWave(RogueWave waves[], int count, float y) {
+    for (int i = 0; i < count; i++) {
+        if (waves[i].active) continue;
+        waves[i] = (RogueWave){
+            .pos = { GAME_WIDTH + ROGUE_WAVE_BLAST_RADIUS, y }, .t = 0.0f, .broken = false, .active = true
+        };
+        return true;
+    }
+    return false;
+}
+
+void UpdateRogueWaves(RogueWave waves[], int count, float dt) {
+    for (int i = 0; i < count; i++) {
+        if (!waves[i].active) continue;
+        waves[i].t += dt;
+        if (!waves[i].broken && waves[i].t >= ROGUE_WAVE_SWELL_DURATION) {
+            waves[i].broken = true;
+            waves[i].t = 0.0f;
+        }
+        if (!waves[i].broken) {
+            // Anchored to the water like a surface target while building,
+            // so its approach reads the same way as everything else in
+            // the lane before it breaks into a fixed hazard. The frame
+            // that crosses the swell threshold above already holds
+            // position rather than taking one more step past it.
+            waves[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
+            if (waves[i].pos.x < -ROGUE_WAVE_BLAST_RADIUS) waves[i].active = false;
+        } else if (waves[i].t >= ROGUE_WAVE_BLAST_DURATION) {
+            waves[i].active = false;
+        }
+    }
+}
+
+bool ResolveRogueWavePlayerHit(const RogueWave waves[], int count, Vector2 playerPos, float playerRadius) {
+    for (int i = 0; i < count; i++) {
+        if (waves[i].active && waves[i].broken
+            && CirclesOverlap(playerPos, playerRadius, waves[i].pos, ROGUE_WAVE_BLAST_RADIUS)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void MovePlayer(Vector2 *player, float inputX, float inputY, float speed, float dt, float halfW, float halfH,
     Vector2 drift) {
     player->x += inputX * speed * dt + drift.x * dt;

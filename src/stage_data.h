@@ -22,7 +22,9 @@ typedef enum {
     // Land glyphs also compile their cell as terrain + hardpoint pad
     // (the installation brings its mounting pad with it).
     STAGE_SPAWN_MORTAR_BATTERY,
-    STAGE_SPAWN_DRONE_BUNKER
+    STAGE_SPAWN_DRONE_BUNKER,
+    // Dodge-only environmental hazard, no target/hardpoint of any kind.
+    STAGE_SPAWN_ROGUE_WAVE
 } StageSpawnKind;
 
 typedef struct {

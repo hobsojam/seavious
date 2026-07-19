@@ -141,6 +141,7 @@ typedef struct {
     ExplosionEffect explosions[MAX_EXPLOSION_EFFECTS];
     SurfaceWreck wrecks[MAX_SURFACE_WRECKS];
     MineBlast mineBlasts[MAX_MINE_BLASTS];
+    RogueWave rogueWaves[MAX_ROGUE_WAVES];
 
     AirTarget airTargets[MAX_AIR_TARGETS];
 

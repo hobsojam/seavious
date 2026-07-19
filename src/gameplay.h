@@ -148,6 +148,17 @@
 #define DRONE_BUNKER_HP 1
 #define SCORE_DRONE_BUNKER 500
 
+// Rogue Wave (Stage 3): the deliberate exception to "every threat maps to
+// one weapon" (see docs/game-design.md "Stage 3") - a dodge-only hazard,
+// no HP, no score, no weapon interaction at all. Drifts in anchored to the
+// water like a surface target while telegraphing, then breaks into a
+// fixed-position blast for a short duration, mirroring the Mine's
+// proximity-blast shape (MineBlast below) without the entity it detonates.
+#define MAX_ROGUE_WAVES 4
+#define ROGUE_WAVE_SWELL_DURATION 1.2f
+#define ROGUE_WAVE_BLAST_RADIUS 26.0f
+#define ROGUE_WAVE_BLAST_DURATION 0.40f
+
 // Stage 1 boss (Leviathan) parts: the dual-targeting rule made literal.
 // Pods are gun-weak (magenta, air-class), hull sections are torpedo-weak
 // (amber, surface-class), and the core - revealed once both hull
@@ -332,6 +343,16 @@ typedef struct {
     bool active;
 } MineBlast;
 
+// broken=false is the telegraphed swell (still drifting, harmless); once
+// t reaches ROGUE_WAVE_SWELL_DURATION it breaks and holds position as a
+// hit hazard for ROGUE_WAVE_BLAST_DURATION.
+typedef struct {
+    Vector2 pos;
+    float t;
+    bool broken;
+    bool active;
+} RogueWave;
+
 typedef enum {
     LAND_TARGET_MORTAR_BATTERY,
     LAND_TARGET_DRONE_BUNKER
@@ -428,6 +449,10 @@ bool DetonateNearbyMines(SurfaceTarget targets[], int count, Vector2 playerPos, 
 void SpawnMineBlastsFromEvents(MineBlast blasts[], int blastCount, const GameEventQueue *events);
 void UpdateMineBlasts(MineBlast blasts[], int count, float dt);
 bool ResolveMineBlastPlayerHit(const MineBlast blasts[], int count, Vector2 playerPos, float playerRadius);
+
+bool TrySpawnRogueWave(RogueWave waves[], int count, float y);
+void UpdateRogueWaves(RogueWave waves[], int count, float dt);
+bool ResolveRogueWavePlayerHit(const RogueWave waves[], int count, Vector2 playerPos, float playerRadius);
 
 bool TrySpawnSkimmerDrone(AirTarget targets[], int count, float baseY);
 bool TrySpawnSkimmerDroneAt(AirTarget targets[], int count, float baseY, float spawnXOffset);

@@ -29,6 +29,7 @@ Lines beginning with `;` are comments; `#` is terrain, not a comment.
 | `B`, `K` | Mortar Battery, Drone Bunker; each also creates terrain and a hardpoint |
 | `#` | Terrain footprint |
 | `H` | Explicit terrain hardpoint; use only where something actually mounts |
+| `~` | Rogue Wave (Stage 3): dodge-only hazard, no target of any kind |
 
 Events are sorted by scroll distance and played once by `src/stage.c`. Terrain
 rectangles are grouped and rendered from that same compiled data, so map
