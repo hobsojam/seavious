@@ -65,6 +65,8 @@ TERRAIN_COMPONENTS = {
     'stage1_islet_crescent.png': (1774, 887),
     'stage1_islet_atoll.png': (1448, 1086),
     'stage1_islet_long.png': (1774, 887),
+    'stage1_islet_shelf.png': (1774, 887),
+    'stage1_islet_tall.png': (887, 1774),
 }
 
 failures = []

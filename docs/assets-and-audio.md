@@ -20,7 +20,10 @@ broad gradients, sparse or mostly sandy interiors, oversized shore bands,
 symmetry, and narrow joins that make one island look glued from two sprites.
 Review it at game scale beside at least two existing islets, both alone and in
 a joined terrain group. The current set contains compact, crag, crescent,
-atoll, ridge, and double-length variants.
+atoll, ridge, double-length, native-wide shelf, and native-tall variants.
+The renderer chooses the closest native aspect before applying any mild
+stretching; add authored aspect-specific source art rather than stretching a
+round island into a large footprint.
 
 Hardpoint pads are functional markers, not generic decoration: they belong
 only below an actual land installation. Keep their stonework, shadow, and

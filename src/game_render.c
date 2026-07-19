@@ -448,7 +448,10 @@ static bool TerrainFootprintsTouch(StageTerrainFootprint first, StageTerrainFoot
 // within tolerance of the best score is a candidate and the seed picks
 // among them, so adjacent chain segments and neighboring islands vary
 // instead of stamping one winner (the "two identical islands next to
-// each other" playtest note).
+// each other" playtest note). Keep that band narrow: the former 0.30
+// log tolerance admitted sources that needed up to 35% more stretching
+// than the best match, which made a deliberately varied selection look
+// visibly distorted on Stage 2's 1.75:1 and long-bank groups.
 static int PickIsletVariant(const GameAssets *assets, float destAspect,
     unsigned int seed) {
     float score[STAGE1_ISLET_VARIANT_COUNT];
@@ -463,7 +466,7 @@ static int PickIsletVariant(const GameAssets *assets, float destAspect,
     int candidates[STAGE1_ISLET_VARIANT_COUNT];
     int count = 0;
     for (int i = 0; i < STAGE1_ISLET_VARIANT_COUNT; i++) {
-        if (score[i] <= best + 0.30f) candidates[count++] = i;
+        if (score[i] <= best + 0.10f) candidates[count++] = i;
     }
     return candidates[seed % (unsigned int)count];
 }
