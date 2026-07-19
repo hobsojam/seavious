@@ -703,17 +703,6 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       couldn't be exercised through CTest on Windows, but the same
       scripted timeline was run headfully via `SEAVIOUS_SMOKE_FRAMES=510
       ./seavious-dev.exe` with no crash)
-- [ ] Bug: ocean background renders as `terrain_ground.png` tiled
-      full-screen instead of `ocean.png`, at least a few seconds into a
-      fresh Stage 1 run (reproduced via the built-in screenshot
-      mechanism, `SEAVIOUS_SMOKE_FRAMES` frame 220, real Windows build —
-      both textures load correctly per the raylib log, so this is a
-      render-order/scroll-math bug, not a missing/corrupt asset; prime
-      suspects are `TerrainScreenRect`/`DrawStandaloneTerrain` in
-      `game_render.c` stacking terrain footprints at the wrong screen
-      position instead of the ocean draw call itself). Not yet confirmed
-      whether this reproduces in normal manual play or only through the
-      smoke harness's scripted state.
 - [x] Playtest fixes (2026-07-19), Stage 3 wind and the ship's wake:
       wind direction previously never changed for the whole run - one
       constant push read as broken gravity, not weather. `GameState`
