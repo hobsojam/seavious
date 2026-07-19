@@ -225,6 +225,25 @@ typedef enum {
 #define SCORE_BOSS_HULL_SECTION 1000
 #define SCORE_BOSS_CORE 2000
 
+// Storm Warden (Stage 3 boss): a fixed weather-control installation, same
+// static shape as the fortress atoll, but the STORM/CALM cycle it reuses
+// the fortress's gate-cycle timers for gates *every* part, not just the
+// core - shielded in STORM, vulnerable to its normal weapon class only in
+// CALM (see docs/game-design.md "Stage 3": "the skill the stage spent
+// teaching becomes the boss's own mechanic"). Pods stay gun-weak; hull
+// parts are torpedo-weak like the Leviathan's, not mortar-weak like the
+// fortress's ring batteries. There is no physical torpedo blocker - the
+// gate here is temporal, not spatial, so an unlucky shot during STORM
+// simply passes through rather than being blocked like land.
+#define STORM_WARDEN_POD_HP 8
+#define STORM_WARDEN_HULL_HP 4
+#define STORM_WARDEN_CORE_HP 16
+// CALM is deliberately brief relative to STORM (see docs/game-design.md
+// "Stage 3": "a brief CALM phase") - a real but tight damage window,
+// mirroring why the fortress gate's open/closed dwell are asymmetric.
+#define STORM_WARDEN_STORM_DURATION 3.5f
+#define STORM_WARDEN_CALM_DURATION 1.8f
+
 #define MAX_GAME_EVENTS 64
 
 #define MAX_WAKE_PARTICLES   96
@@ -385,14 +404,17 @@ typedef enum {
     GAME_EVENT_BOSS_PART_DESTROYED,
     GAME_EVENT_BOSS_MISSILE_DOWNED,
     GAME_EVENT_BOSS_DEFEATED,
-    // The fortress's sea gates announce every cycle edge (sound + the
-    // gate visual) so the torpedo window reads as a learnable rhythm.
+    // Shared by every boss with a timed vulnerability cycle: the
+    // fortress's sea gates and the Storm Warden's STORM/CALM weather both
+    // announce every cycle edge (sound + visual) so the damage window
+    // reads as a learnable rhythm.
     GAME_EVENT_BOSS_GATES_OPENED,
     GAME_EVENT_BOSS_GATES_CLOSED,
     GAME_EVENT_MORTAR_FIRED,
     GAME_EVENT_MORTAR_BLAST,
     GAME_EVENT_MORTAR_SALVAGED,
     GAME_EVENT_TARGETING_COMPUTER_SALVAGED,
+    GAME_EVENT_STABILIZER_SALVAGED,
     // One per shot/volley (a Gunship fan is one event, matching how the
     // volley reads), shared by every bullet-firing enemy - the audible
     // counterpart of the universal red-diamond projectile.

@@ -141,8 +141,15 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       `game_update.c`'s update/contact-damage passes on `scrollDt` (pure
       environment, not a fire-control timer - freezes with the water
       under the boss lock same as terrain and land). Unit-tested in
-      `gameplay_tests.c` (`TestRogueWave`). No map currently places one
-      (Stage 3 isn't registered yet); no SFX (separate Audio item below)
+      `gameplay_tests.c` (`TestRogueWave`). `assets/stages/stage3.txt`
+      places one in every beat. `DrawRogueWaves` (`game_render.c`)
+      renders both phases - a growing cyan swell ring with a last-third
+      inner-ring flash, then the same red/white blast language mines and
+      mortar shells already use once broken - this was missing for a
+      while after the mechanic itself landed (dodge-only hazards are
+      easy to ship functionally complete but invisible; caught before
+      Stage 3 shipped playable, not after). Still no SFX (separate Audio
+      item below)
 - [x] Stabilizer upgrade flag: `hasStabilizer` on `GameState` (mirrors
       `hasMortar`/`hasTargetingComputer`), preserved across `BeginStage`;
       `UPGRADE_AWARD_STABILIZER` case in `ApplyUpgradeAward` (`stage.c`);
@@ -408,12 +415,49 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       clean build, all 6 CTest suites pass (`boss_tests` covers both
       existing bosses unchanged), and the game runs end-to-end through
       `SEAVIOUS_SMOKE_FRAMES=480`
-- [ ] Storm Warden boss: fixed weather-control installation, STORM/CALM
-      cycle reusing the fortress gate-cycle timers/telegraph-event
-      pattern (`gateTimer`, dwell durations, `PushGameEvent`) with parts
-      vulnerable only in CALM; core salvage grants the stabilizer
-      (`GAME_EVENT_STABILIZER_SALVAGED` alongside the existing mortar/
-      targeting-computer salvage events)
+- [x] Storm Warden boss (`BOSS_TYPE_STORM_WARDEN`): fixed weather-control
+      installation on a cardinal-cross placeholder layout (own
+      `STORM_WARDEN_PART_GEOMETRY`). Reuses the fortress's `gatesOpen`/
+      `gateTimer`/`PushGameEvent` cycle machinery for STORM/CALM, but
+      unlike the fortress (core-only gate) every part is damage-immune
+      in STORM and vulnerable to its normal weapon class only in CALM -
+      pods stay gun-weak, hull parts are torpedo-weak (Leviathan-style,
+      not the fortress's mortar-only ring batteries), the deep core is
+      torpedo-only once exposed (both fixed installations share that
+      rule; only the mobile Leviathan's core is dual-weapon). Exposing
+      the core requires all 4 outer parts down, like the fortress, not
+      the Leviathan's narrower 2-part rule. No physical torpedo blocker
+      - the gate is temporal, not spatial, so `BossHullBlockers` returns
+      0 and a torpedo during STORM just finds nothing to hit rather than
+      being blocked like land; non-contact-lethal like the fortress.
+      Hull-slot parts fire SAM missiles (Leviathan's mechanic) rather
+      than mortar lobs, continuously since there's no patrol/facing to
+      gate them. Core salvage pushes `GAME_EVENT_STABILIZER_SALVAGED`
+      (wired into `audio.c`'s switch, reusing the shared salvage cue -
+      no dedicated jingle yet). Unit-tested in `boss_tests.c`
+      (`TestStormWardenCalmGatesEveryPart`,
+      `TestStormWardenCoreNeedsAllFourOuterParts`,
+      `TestStormWardenNotContactLethalNoBlockers`,
+      `TestStormWardenCycleRhythmAndSalvage`). Verified against a real
+      Windows build: full clean build, all 6 CTest suites pass, and
+      `--stage 3 --boss` runs the actual fight end-to-end.
+      Playtest feedback (2026-07-19): reused fortress art alone read as
+      "almost identical to stage 2 boss" - fixed with a cold slate-blue
+      `bodyTint` applied to every reused texture draw (base hull, pod/hull
+      part icons, core, gate caps) so the silhouette reads distinctly from
+      the fortress's warm stone at a glance, plus a screen-wide storm
+      wash (`DrawStormOverlay` in `game_render.c`) that darkens the whole
+      play field and scrolls faint rain streaks across it during the
+      STORM window only, fading clear for CALM - reinforces the
+      invincible-during-STORM mechanic instead of leaving it a pure color
+      swap. Verified against a real Windows build: full clean build, all
+      6 CTest suites pass, `--stage 3 --boss` runs end-to-end with no
+      crashes.
+      Placeholder/still open: still no bespoke Storm Warden art (tint +
+      overlay are a cheap code-only mitigation, not a real sprite); the
+      STORM/CALM cycle borrows the fortress's gate-creak SFX rather than
+      a dedicated weather cue; the `SEAVIOUS_SMOKE_FRAMES` headless
+      sequence still only scripts through Stage 1/2 (separate item below)
 - [x] Author `assets/stages/stage3.txt` and compile it: 8 beats, 5760px,
       open water (no terrain - the drift/rogue-wave mechanics are the
       point, not islands), escalating pressure over the existing
@@ -645,9 +689,17 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       built on vcpkg's raylib 6.0 shows a permanently blank window at
       uncapped fps. Worked around locally via `vcpkg-overlays/raylib`
       (forces the flag OFF); affects raylib upstream and the vcpkg port
-- [ ] Extend the `SEAVIOUS_SMOKE_FRAMES` headless sequence (`main.c`) to
-      cover Stage 3: it's hand-scripted per frame number, not
-      table-driven, so this means another `ContinueRun` call plus a
-      hand-built Storm Warden `BossState` snapshot and forced
-      stage-clear trigger, following the existing Stage 2/fortress block
-      (~frames 474-479) as the template
+- [x] Extend the `SEAVIOUS_SMOKE_FRAMES` headless sequence (`main.c`) to
+      cover Stage 3: another `ContinueRun` off the Stage 2 clear, a
+      hand-built live Storm Warden `BossState` snapshot (one dead pod
+      and one dead hull part cover the scorch-render branch too), a live
+      rogue wave mid-swell, and a `gatesOpen` STORM→CALM flip so the new
+      `DrawStormOverlay` wash/clear paths both get exercised - then the
+      same forced salvage-dock/cleared jump as the Stage 2/fortress block
+      (frames 500-507, following the existing ~474-479 template).
+      `game_smoke`'s CTest budget raised from 480 to 510 frames to fit
+      it. Verified against a real Windows build: full clean build, all 6
+      CTest suites pass (`game_smoke` itself is Linux/xvfb-only so this
+      couldn't be exercised through CTest on Windows, but the same
+      scripted timeline was run headfully via `SEAVIOUS_SMOKE_FRAMES=510
+      ./seavious-dev.exe` with no crash)

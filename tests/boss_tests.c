@@ -631,6 +631,170 @@ static void TestFortressAtollWeaponGatesAndSalvage(void) {
     CHECK(state.hasTargetingComputer);
 }
 
+static void SetUpFightingStormWarden(GameState *state) {
+    ResetRunState(state);
+    BeginStage(state, 3);
+    state->scrollDistance = (float)STAGE3_LENGTH_PX;
+    state->stageCursor = STAGE3_EVENT_COUNT;
+    UpdateStageScript(state, 0.001f);
+    UpdateBossFight(state, 0.001f);
+    for (int i = 0; i < 400 && state->boss.phase == BOSS_PHASE_ENTERING; i++) {
+        UpdateBossFight(state, 0.05f);
+    }
+    state->gameEvents.count = 0;
+}
+
+static void TestStormWardenCalmGatesEveryPart(void) {
+    GameState state;
+    SetUpFightingStormWarden(&state);
+    CHECK(state.boss.type == BOSS_TYPE_STORM_WARDEN);
+    CHECK(state.boss.phase == BOSS_PHASE_FIGHTING);
+    NEAR(state.boss.hullCenter.x, 404.0f);
+    NEAR(state.boss.hullCenter.y, 176.0f);
+    // Static like the fortress: no patrol drift.
+    NEAR(BossPartPosition(&state.boss, BOSS_PART_POD_FORE).x, state.boss.hullCenter.x);
+    NEAR(BossPartPosition(&state.boss, BOSS_PART_POD_FORE).y, state.boss.hullCenter.y - 34.0f);
+
+    // Unlike the fortress (core-only gate), STORM shields every part -
+    // pods included, not just the core.
+    state.boss.gateTimer = 0.0f;
+    state.boss.gatesOpen = false;
+    Vector2 pod = BossPartPosition(&state.boss, BOSS_PART_POD_FORE);
+    int podHp = state.boss.partHp[BOSS_PART_POD_FORE];
+    state.bullets[0] = (Bullet){ .pos = pod, .active = true };
+    UpdateBossFight(&state, 0.0001f);
+    CHECK(state.bullets[0].active && state.boss.partHp[BOSS_PART_POD_FORE] == podHp);
+
+    Vector2 hull = BossPartPosition(&state.boss, BOSS_PART_HULL_FORE);
+    int hullHp = state.boss.partHp[BOSS_PART_HULL_FORE];
+    state.torpedo = (Torpedo){ .pos = hull, .armed = false, .active = true };
+    CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
+        == TORPEDO_IMPACT_NONE);
+    CHECK(state.boss.partHp[BOSS_PART_HULL_FORE] == hullHp);
+
+    // CALM opens the same weapon-class rules every other boss already
+    // uses: pods to the gun, hull sections to the torpedo (Leviathan-
+    // style, not the fortress's mortar-only ring batteries).
+    state.boss.gateTimer = 0.0f;
+    state.boss.gatesOpen = true;
+    state.bullets[0] = (Bullet){ .pos = pod, .active = true };
+    UpdateBossFight(&state, 0.0001f);
+    CHECK(!state.bullets[0].active && state.boss.partHp[BOSS_PART_POD_FORE] == podHp - 1);
+    state.torpedo = (Torpedo){ .pos = hull, .armed = false, .active = true };
+    CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
+        == TORPEDO_IMPACT_DIRECT);
+    CHECK(state.boss.partHp[BOSS_PART_HULL_FORE] == hullHp - 1);
+
+    // The deep core is torpedo-only here too, like the fortress - only
+    // the mobile Leviathan's core takes gun damage.
+    state.boss.partHp[BOSS_PART_POD_FORE] = 0;
+    state.boss.partHp[BOSS_PART_POD_AFT] = 0;
+    state.boss.partHp[BOSS_PART_HULL_AFT] = 0;
+    state.boss.coreExposed = true;
+    Vector2 core = BossPartPosition(&state.boss, BOSS_PART_CORE);
+    state.bullets[0] = (Bullet){ .pos = core, .active = true };
+    UpdateBossFight(&state, 0.0001f);
+    CHECK(state.bullets[0].active);
+}
+
+static void TestStormWardenCoreNeedsAllFourOuterParts(void) {
+    GameState state;
+    SetUpFightingStormWarden(&state);
+
+    // The Leviathan's narrower two-part rule (hull sections alone) does
+    // not apply here - both fixed installations require every outer
+    // part down first.
+    state.boss.partHp[BOSS_PART_HULL_FORE] = 0;
+    state.boss.partHp[BOSS_PART_HULL_AFT] = 0;
+    CHECK(!state.boss.coreExposed);
+
+    state.boss.partHp[BOSS_PART_POD_FORE] = 1;
+    state.bullets[0] = (Bullet){ .pos = BossPartPosition(&state.boss, BOSS_PART_POD_FORE), .active = true };
+    state.boss.gateTimer = 0.0f;
+    state.boss.gatesOpen = true;
+    UpdateBossFight(&state, 0.0001f);
+    CHECK(state.boss.partHp[BOSS_PART_POD_FORE] == 0);
+    CHECK(!state.boss.coreExposed);
+
+    state.boss.partHp[BOSS_PART_POD_AFT] = 1;
+    state.bullets[0] = (Bullet){ .pos = BossPartPosition(&state.boss, BOSS_PART_POD_AFT), .active = true };
+    state.boss.gateTimer = 0.0f;
+    state.boss.gatesOpen = true;
+    UpdateBossFight(&state, 0.0001f);
+    CHECK(state.boss.partHp[BOSS_PART_POD_AFT] == 0);
+    CHECK(state.boss.coreExposed);
+}
+
+static void TestStormWardenNotContactLethalNoBlockers(void) {
+    GameState state;
+    SetUpFightingStormWarden(&state);
+
+    Rectangle blockers[3];
+    CHECK(BossHullBlockers(&state.boss, blockers) == 0);
+    CHECK(!ResolveBossContactDamage(&state.boss, state.boss.hullCenter, PLAYER_HIT_RADIUS));
+
+    // With no physical blocker, an armed torpedo through the hullCenter
+    // during STORM finds nothing to hit at all, not even a fizzle.
+    state.boss.gateTimer = 0.0f;
+    state.boss.gatesOpen = false;
+    state.torpedo = (Torpedo){ .pos = state.boss.hullCenter, .armed = true, .active = true };
+    CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
+        == TORPEDO_IMPACT_NONE);
+}
+
+static void TestStormWardenCycleRhythmAndSalvage(void) {
+    GameState state;
+    SetUpFightingStormWarden(&state);
+
+    // The cycle runs from the fight's start, STORM/CALM asymmetric like
+    // the fortress's gates, each edge announced.
+    state.boss.gateTimer = 0.0f;
+    state.boss.gatesOpen = false;
+    state.gameEvents.count = 0;
+    UpdateBossFight(&state, STORM_WARDEN_STORM_DURATION - 0.05f);
+    CHECK(!state.boss.gatesOpen);
+    UpdateBossFight(&state, 0.1f);
+    CHECK(state.boss.gatesOpen);
+    UpdateBossFight(&state, STORM_WARDEN_CALM_DURATION);
+    CHECK(!state.boss.gatesOpen);
+    int opened = 0, closed = 0;
+    for (int i = 0; i < state.gameEvents.count; i++) {
+        if (state.gameEvents.items[i].type == GAME_EVENT_BOSS_GATES_OPENED) opened++;
+        if (state.gameEvents.items[i].type == GAME_EVENT_BOSS_GATES_CLOSED) closed++;
+    }
+    CHECK(opened == 1 && closed == 1);
+
+    // Kill the core through to the salvage: the stabilizer event fires
+    // and the stage table's own award (not a hardcoded one) grants it,
+    // same as every other boss's clear.
+    state.boss.partHp[BOSS_PART_POD_FORE] = 0;
+    state.boss.partHp[BOSS_PART_POD_AFT] = 0;
+    state.boss.partHp[BOSS_PART_HULL_FORE] = 0;
+    state.boss.partHp[BOSS_PART_HULL_AFT] = 0;
+    state.boss.coreExposed = true;
+    state.boss.partHp[BOSS_PART_CORE] = 1;
+    state.boss.gateTimer = 0.0f;
+    state.boss.gatesOpen = true;
+    // The core is torpedo-only here too (see the weapon-class test
+    // above) - an unarmed direct hit, like the fortress's own salvage test.
+    state.torpedo = (Torpedo){ .pos = state.boss.hullCenter, .armed = false, .active = true };
+    CHECK(ResolveTorpedoBossPartCollision(&state.torpedo, &state.boss, &state.gameEvents).type
+        == TORPEDO_IMPACT_DIRECT);
+    CHECK(state.boss.phase == BOSS_PHASE_DYING);
+
+    for (int i = 0; i < 400 && state.boss.phase != BOSS_PHASE_CLEARED; i++) {
+        UpdateBossFight(&state, 0.05f);
+    }
+    CHECK(state.boss.phase == BOSS_PHASE_CLEARED);
+    CHECK(state.stageClear);
+    CHECK(state.hasStabilizer);
+    bool sawStabilizer = false;
+    for (int i = 0; i < state.gameEvents.count; i++) {
+        if (state.gameEvents.items[i].type == GAME_EVENT_STABILIZER_SALVAGED) sawStabilizer = true;
+    }
+    CHECK(sawStabilizer);
+}
+
 int main(void) {
     TestBossStartsOnLockAndParks();
     TestPodDiesToGunOnly();
@@ -645,6 +809,10 @@ int main(void) {
     TestDefeatAndSalvageFlow();
     TestFortressAtollWeaponGatesAndSalvage();
     TestFortressRingBarrageAndGateRhythm();
+    TestStormWardenCalmGatesEveryPart();
+    TestStormWardenCoreNeedsAllFourOuterParts();
+    TestStormWardenNotContactLethalNoBlockers();
+    TestStormWardenCycleRhythmAndSalvage();
 
     if (failures > 0) {
         fprintf(stderr, "%d boss test failure(s)\n", failures);
