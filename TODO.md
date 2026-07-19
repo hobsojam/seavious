@@ -109,6 +109,28 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       will actually die against (in-flight land collision still
       applies); decide whether the lead solution should clamp to land
       edges like the fixed-range shot does
+- [ ] Wind drift mechanic (Stage 3, see `docs/game-design.md`): a
+      per-stage drift vector, since no per-stage physics modifier exists
+      yet — add a field to `StageDescriptor` (`stage_data.h`) and read it
+      wherever `MovePlayer` is called and inside `UpdateTorpedo`'s
+      per-frame position update (`gameplay.c`), mirroring how
+      `OCEAN_SCROLL_SPEED` is already threaded through both. Extend
+      `CalculateLeadTorpedoVelocity`'s intercept quadratic with the drift
+      term so lead shots stay accurate in a crosswind. Direction/strength
+      should vary smoothly across the stage (reuse the low-frequency
+      world-space noise approach the terrain-tile prototype used for
+      coherent variation, not per-frame randomness) and be visually
+      telegraphed, not just tuned by feel
+- [ ] Rogue wave hazard (Stage 3): dodge-only, no weapon counter — follow
+      the Mine proximity-blast pattern (`gameplay.c`'s
+      `DetonateNearbyMines`/`MineBlast` pool) for a telegraphed-swell,
+      timed-blast hazard decoupled from any `Damage*Target` path; new map
+      glyph to place it
+- [ ] Stabilizer upgrade flag: `hasStabilizer` on `GameState` (mirrors
+      `hasMortar`/`hasTargetingComputer`), preserved across `BeginStage`;
+      new `UPGRADE_AWARD_STABILIZER` case in `ApplyUpgradeAward`
+      (`stage.c`); once held, zero the drift term wherever it's applied
+      rather than changing the aim math
 
 ## Content
 
@@ -321,7 +343,39 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       explicitly instead of reusing the Stage 1 mortar art and message.
 - [x] Compose Stage 2 stage and boss themes over the shared drum/bass
       foundation
-- [ ] Plan remaining levels beyond Stage 2 (Stage 3 pencilled: storm)
+- [x] Design Stage 3 (see `docs/game-design.md`, agreed in full): wind
+      drift as the new systemic mechanic (pushes player and in-flight
+      torpedoes, Stage 2 lead-torpedo solve extended to net it out);
+      rogue waves as a dodge-only hazard (Mine-proximity-blast pattern,
+      not a new target class); existing air/surface/land roster returns
+      under harder conditions rather than new enemy types; Storm Warden
+      boss reuses the fortress atoll's gate-cycle pattern as a
+      STORM/CALM weather cycle instead of a physical gate; stabilizer
+      salvage cancels drift and steadies the lead solve for the rest of
+      the run. `StageCount()` becomes 3 and the run wrap point moves to
+      Stage 3 → Stage 1
+- [ ] Stage descriptor plumbing for Stage 3: bump `StageCount()` to 3
+      (`stage.c`), add the `STAGE3_*` externs (`stage_data.h`) and
+      descriptor row, extend `gen-stage-table.py`'s hardcoded
+      `('stage1', 'stage2')` tuple, and update the stage/asset tests per
+      `docs/stage-authoring.md`'s "Adding a stage" section
+- [ ] `BossType` refactor: the Leviathan/Fortress split is currently one
+      `bool fortressAtoll` set from `stageNumber == 2` and threaded
+      through ~15 branch sites in `boss.c`. Replace it with a real enum
+      before adding the Storm Warden as a third variant — a second
+      boolean would make every one of those sites a 3-way conditional.
+      `BossPartId` and the phase machine
+      (`ENTERING → FIGHTING → DYING → SALVAGE_APPROACH/DOCK → CLEARED`)
+      are boss-agnostic already and carry over as-is
+- [ ] Storm Warden boss: fixed weather-control installation, STORM/CALM
+      cycle reusing the fortress gate-cycle timers/telegraph-event
+      pattern (`gateTimer`, dwell durations, `PushGameEvent`) with parts
+      vulnerable only in CALM; core salvage grants the stabilizer
+      (`GAME_EVENT_STABILIZER_SALVAGED` alongside the existing mortar/
+      targeting-computer salvage events)
+- [ ] Author `assets/stages/stage3.txt` and compile it: escalating drift
+      strength/rogue-wave pressure over the existing air/surface/land
+      roster, ending at the Storm Warden lock
 - [x] Ground target sprites (alien platforms/installations) — Relay Node,
       Mine, Casemate, Tracking Turret, and Mobile Platform first passes
       all done (see Art below). Land-based emplacement variants
@@ -422,6 +476,15 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       from the player sprite, embedded via `src/seavious.rc` on Windows;
       the running window sets the same art with `SetWindowIcon`
       (`window_icon.png`); drift-tested by `tests/test_icon_asset.py`
+- [ ] Storm Warden boss sprite(s) and rogue-wave visual (telegraphed
+      swell + blast ring, following the mine-blast art language). Wind
+      drift's own telegraph (streaks/wave direction) needs a first pass
+      too — establish it early since the mechanic depends on being
+      readable, not just tuned
+- [ ] Stabilizer HUD icon (mirrors the existing torpedo/mortar HUD
+      slots) and salvage-sequence art, following the Stage 1/2 precedent
+      of a distinct extraction animation rather than reusing another
+      stage's salvage art
 
 ## Audio
 
@@ -505,6 +568,12 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       refinement done: player death regenerated explosion-first (hard
       burst + rolling noise + deep sub, faint power-down dive) after
       the playtest heard the original square-dive as a beep
+- [ ] Stage 3 and Storm Warden boss themes, composed over the shared
+      drum/bass foundation like Stage 2's (`docs/assets-and-audio.md`)
+- [ ] New SFX: rogue-wave telegraph/break, stabilizer salvage jingle
+      (distinct from the mortar/targeting-computer salvage cues, per
+      the "name the salvage explicitly" precedent from Stage 2), and a
+      wind-gust cue if drift strength changes are audio-telegraphed
 
 ## Infra
 
@@ -528,3 +597,9 @@ Milestone — scrolling background + player sprite + 4-directional controls:
       built on vcpkg's raylib 6.0 shows a permanently blank window at
       uncapped fps. Worked around locally via `vcpkg-overlays/raylib`
       (forces the flag OFF); affects raylib upstream and the vcpkg port
+- [ ] Extend the `SEAVIOUS_SMOKE_FRAMES` headless sequence (`main.c`) to
+      cover Stage 3: it's hand-scripted per frame number, not
+      table-driven, so this means another `ContinueRun` call plus a
+      hand-built Storm Warden `BossState` snapshot and forced
+      stage-clear trigger, following the existing Stage 2/fortress block
+      (~frames 474-479) as the template
