@@ -294,6 +294,11 @@ void UpdateGame(GameState *state, const GameAssets *assets, float dt,
         DetonateNearbyMines(state->surfaceTargets, MAX_SURFACE_TARGETS,
             state->player, playerRadius, &state->gameEvents);
     }
+    // A rogue wave is a physical surge, not a targeted weapon: it can set
+    // off mines in its path regardless of the player's own invulnerability
+    // window - the sea doesn't care that the player is briefly untouchable.
+    DetonateMinesInRogueWavePath(state->rogueWaves, MAX_ROGUE_WAVES,
+        state->surfaceTargets, MAX_SURFACE_TARGETS, &state->gameEvents);
     SpawnMineBlastsFromEvents(state->mineBlasts, MAX_MINE_BLASTS, &state->gameEvents);
     bool mineBlastHit = playerVulnerable && ResolveMineBlastPlayerHit(
         state->mineBlasts, MAX_MINE_BLASTS, state->player, playerRadius

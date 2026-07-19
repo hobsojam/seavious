@@ -128,6 +128,32 @@ bool DetonateNearbyMines(SurfaceTarget targets[], int count, Vector2 playerPos, 
     return detonated;
 }
 
+// A rogue wave is a physical surge, not a targeted weapon: it sets off
+// any mine its front reaches outside the gap, same proximity-fuse event
+// a player triggers (GAME_EVENT_MINE_DETONATED -> SpawnMineBlastsFromEvents),
+// so a wave can clear - or arm - a lane of mines as it sweeps through.
+bool DetonateMinesInRogueWavePath(const RogueWave waves[], int waveCount, SurfaceTarget targets[], int targetCount,
+    GameEventQueue *events) {
+    bool detonated = false;
+    for (int i = 0; i < targetCount; i++) {
+        if (!targets[i].active || targets[i].type != SURFACE_TARGET_MINE) continue;
+        for (int w = 0; w < waveCount; w++) {
+            if (!waves[w].active || !waves[w].sweeping) continue;
+            if (fabsf(targets[i].pos.x - waves[w].frontX) > ROGUE_WAVE_FRONT_THICKNESS / 2.0f + targets[i].radius) {
+                continue;
+            }
+            if (fabsf(targets[i].pos.y - waves[w].gapCenterY) <= ROGUE_WAVE_GAP_HALF_HEIGHT) continue;
+            targets[i].active = false;
+            PushGameEvent(events, (GameEvent){
+                .type = GAME_EVENT_MINE_DETONATED, .pos = targets[i].pos
+            });
+            detonated = true;
+            break;
+        }
+    }
+    return detonated;
+}
+
 static bool TrySpawnMineBlast(MineBlast blasts[], int count, Vector2 pos) {
     for (int i = 0; i < count; i++) {
         if (blasts[i].active) continue;
@@ -169,7 +195,8 @@ bool TrySpawnRogueWave(RogueWave waves[], int count, float y) {
     for (int i = 0; i < count; i++) {
         if (waves[i].active) continue;
         waves[i] = (RogueWave){
-            .pos = { GAME_WIDTH + ROGUE_WAVE_BLAST_RADIUS, y }, .t = 0.0f, .broken = false, .active = true
+            .frontX = GAME_WIDTH + ROGUE_WAVE_FRONT_THICKNESS, .gapCenterY = y, .t = 0.0f,
+            .sweeping = false, .active = true
         };
         return true;
     }
@@ -180,30 +207,25 @@ void UpdateRogueWaves(RogueWave waves[], int count, float dt) {
     for (int i = 0; i < count; i++) {
         if (!waves[i].active) continue;
         waves[i].t += dt;
-        if (!waves[i].broken && waves[i].t >= ROGUE_WAVE_SWELL_DURATION) {
-            waves[i].broken = true;
-            waves[i].t = 0.0f;
+        if (!waves[i].sweeping && waves[i].t >= ROGUE_WAVE_TELEGRAPH_DURATION) {
+            waves[i].sweeping = true;
         }
-        if (!waves[i].broken) {
-            // Anchored to the water like a surface target while building,
-            // so its approach reads the same way as everything else in
-            // the lane before it breaks into a fixed hazard. The frame
-            // that crosses the swell threshold above already holds
-            // position rather than taking one more step past it.
-            waves[i].pos.x -= OCEAN_SCROLL_SPEED * dt;
-            if (waves[i].pos.x < -ROGUE_WAVE_BLAST_RADIUS) waves[i].active = false;
-        } else if (waves[i].t >= ROGUE_WAVE_BLAST_DURATION) {
-            waves[i].active = false;
-        }
+        // Anchored to the water like a surface target while still
+        // telegraphing; once it surges it outruns the ordinary current -
+        // a wall crossing the whole play width, not a point hazard that
+        // lives and dies in a corner of the screen.
+        float speed = waves[i].sweeping ? ROGUE_WAVE_SWEEP_SPEED : OCEAN_SCROLL_SPEED;
+        waves[i].frontX -= speed * dt;
+        if (waves[i].frontX < -ROGUE_WAVE_FRONT_THICKNESS) waves[i].active = false;
     }
 }
 
 bool ResolveRogueWavePlayerHit(const RogueWave waves[], int count, Vector2 playerPos, float playerRadius) {
     for (int i = 0; i < count; i++) {
-        if (waves[i].active && waves[i].broken
-            && CirclesOverlap(playerPos, playerRadius, waves[i].pos, ROGUE_WAVE_BLAST_RADIUS)) {
-            return true;
-        }
+        if (!waves[i].active || !waves[i].sweeping) continue;
+        if (fabsf(playerPos.x - waves[i].frontX) > ROGUE_WAVE_FRONT_THICKNESS / 2.0f + playerRadius) continue;
+        if (fabsf(playerPos.y - waves[i].gapCenterY) <= ROGUE_WAVE_GAP_HALF_HEIGHT) continue;
+        return true;
     }
     return false;
 }

@@ -15,8 +15,10 @@
 ;     G  Gunship (3-way spread)
 ;   hazard:
 ;     ~  Rogue Wave — dodge-only, no weapon counter (see docs/game-design.md
-;        "Stage 3"): telegraphs adrift for ROGUE_WAVE_SWELL_DURATION, then
-;        breaks and holds as a hit hazard for ROGUE_WAVE_BLAST_DURATION.
+;        "Stage 3"): telegraphs adrift for ROGUE_WAVE_TELEGRAPH_DURATION,
+;        then surges into a wall sweeping the whole play width at
+;        ROGUE_WAVE_SWEEP_SPEED. The glyph's row is the one lane-band
+;        (ROGUE_WAVE_GAP_HALF_HEIGHT) that stays passable as it sweeps.
 
 ; beat 1 — first contact: light drones, a rogue wave to learn (16s)
 @0

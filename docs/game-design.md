@@ -59,12 +59,13 @@ launch drones from terrain pads. Every land installation is authored on a
 hardpoint; empty decorative hardpoints are deliberately avoided.
 
 Rogue waves, introduced in Stage 3, are the one deliberate exception to the
-class rule above: a telegraphed swell followed by a blast zone, with no weapon
-counter and no target to destroy. They follow the same shape as the Mine's
-proximity blast — a timed hazard pool independent of any weapon-hit path —
-rather than adding a new target class. The existing air/surface/land roster
-is not replaced in Stage 3; it returns under drift and rogue-wave pressure
-rather than as new enemy types.
+class rule above: a telegraphed swell that surges into a wall sweeping the
+entire play width, with no weapon counter and no target to destroy - a real,
+sustained obstacle rather than a point hazard confined to one spot on screen.
+One lane-band around the spawn lane stays passable as the front sweeps
+through; everywhere else in its path is a hit. The existing air/surface/land
+roster is not replaced in Stage 3; it returns under drift and rogue-wave
+pressure rather than as new enemy types.
 
 ## Run structure
 

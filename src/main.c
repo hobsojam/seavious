@@ -377,11 +377,12 @@ int main(int argc, char **argv) {
         // render branch too), then forced phase jumps to salvage/cleared.
         if (smokeFrames > 0 && framesRun == 500 && state.stageClear) {
             ContinueRun(&state);
-            // A live rogue wave mid-swell exercises DrawRogueWaves, and
+            // A live rogue wave mid-telegraph exercises DrawRogueWaves, and
             // starting the boss in STORM (gatesOpen false) exercises the
             // screen-wide storm wash before the CALM flip below clears it.
             state.rogueWaves[0] = (RogueWave){
-                .pos = { 300.0f, 150.0f },
+                .frontX = 300.0f,
+                .gapCenterY = 150.0f,
                 .t = 0.3f,
                 .active = true,
             };
