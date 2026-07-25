@@ -55,4 +55,3 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag }}
           files: seavious-${{ steps.tag.outputs.tag }}-windows.zip
           generate_release_notes: true
-          draft: true
