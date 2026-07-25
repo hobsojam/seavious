@@ -29,9 +29,9 @@ or work from such a path, then run the same steps as above using the Windows
 `VCPKG_ROOT=C:/Users/ch8jw/dev/vcpkg cmake.exe -S . -B build --preset default`
 then `cmake.exe --build build --config Debug --target <targets>`. Unit test
 `.exe`s under `build/Debug` run directly and are real verification. The full
-game (`seavious-dev.exe`) also runs this way, GPU and all — it opens a real,
+game (`seavious.exe`) also runs this way, GPU and all — it opens a real,
 visible window on the Windows desktop (not headless), so
-`SEAVIOUS_SMOKE_FRAMES=510 ./seavious-dev.exe` is genuine end-to-end
+`SEAVIOUS_SMOKE_FRAMES=510 ./seavious.exe` is genuine end-to-end
 verification, not just a build check.
 
 ## Structure

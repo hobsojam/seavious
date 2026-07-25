@@ -42,12 +42,11 @@ a native Windows path.
 ```powershell
 cmake --preset default
 cmake --build build --config Release
-.\build\Release\seavious-dev.exe
+.\build\Release\seavious.exe
 ```
 
-`seavious-dev.exe` is a temporary output name while a stale Windows handle
-blocks the normal executable name. Close any running game before rebuilding:
-vcpkg's deployment step must be able to update the DLLs beside it.
+Close any running game before rebuilding: vcpkg's deployment step must be
+able to update the DLLs beside it.
 
 The checked-in raylib overlay is intentional. It works around a current
 vcpkg/raylib configuration that can produce a blank window; the CMake preset
