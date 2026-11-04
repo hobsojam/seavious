@@ -9,6 +9,8 @@ updates:
       timezone: "Europe/Berlin"
     cooldown:
       default-days: 7
+    cooldown:
+      default-days: 7
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -17,5 +19,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Europe/Berlin"
+    cooldown:
+      default-days: 7
     cooldown:
       default-days: 7
